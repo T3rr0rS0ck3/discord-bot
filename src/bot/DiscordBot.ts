@@ -6,6 +6,7 @@ type DiscordBotOptions = {
     guildId?: string;
     commands: ICommand[];
     buttonHandler?: (customId: string, interaction: import("discord.js").ButtonInteraction) => Promise<boolean>;
+    onReady?: (client: Client) => Promise<void> | void;
 };
 
 export class DiscordBot {
@@ -13,12 +14,14 @@ export class DiscordBot {
     private readonly token: string;
     private readonly guildId?: string;
     private readonly buttonHandler?: (customId: string, interaction: import("discord.js").ButtonInteraction) => Promise<boolean>;
+    private readonly onReady?: (client: Client) => Promise<void> | void;
     private readonly commands = new Map<string, ICommand>();
 
     public constructor(options: DiscordBotOptions) {
         this.token = options.token;
         this.guildId = options.guildId;
         this.buttonHandler = options.buttonHandler;
+        this.onReady = options.onReady;
 
         this.client = new Client({
             intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, IntentsBitField.Flags.GuildVoiceStates, IntentsBitField.Flags.Guilds]
@@ -48,11 +51,20 @@ export class DiscordBot {
                 // Remove old global commands so Discord does not show duplicate old/new variants.
                 await readyClient.application.commands.set([]);
                 console.log("Alte globale Slash-Commands entfernt.");
+
+                if (this.onReady) {
+                    await this.onReady(readyClient);
+                }
+
                 return;
             }
 
             await readyClient.application.commands.set(commandData);
             console.log("Slash-Commands global registriert (kann bis zu 1h dauern).");
+
+            if (this.onReady) {
+                await this.onReady(readyClient);
+            }
         });
 
         this.client.on("interactionCreate", async (interaction) => {

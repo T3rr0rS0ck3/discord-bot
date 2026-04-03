@@ -76,6 +76,11 @@ export class MusicCommand implements ICommand {
             return;
         }
 
+        if (!this.playbackService.hasAccess(interaction.member)) {
+            await interaction.reply({ content: "Du hast nicht die erforderliche Rolle für die Musikbefehle.", ephemeral: true });
+            return;
+        }
+
         const subcommand = interaction.options.getSubcommand(true);
 
         switch (subcommand) {

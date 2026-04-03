@@ -23,6 +23,7 @@ Minimales Grundgerüst für einen Discord-Bot mit `/ping`, `/join`, `/play`, `/p
    SPOTIFY_CLIENT_ID=deine_spotify_client_id
    SPOTIFY_CLIENT_SECRET=dein_spotify_client_secret
    SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/spotify/callback
+   MUSIC_ROLE_NAME=Music Bot
    ```
 
    In deinem Spotify Developer Dashboard muss dieselbe Redirect URI eingetragen sein.
@@ -85,3 +86,5 @@ npm start
 - Für Spotify musst du zuerst `/music spotify-connect` ausführen und OAuth bestätigen.
 - Für `/play` kannst du MP3-URLs, Spotify-Track-URLs, YouTube-Links oder Suchtext (Titel/Interpret) verwenden.
 - Wenn du MP3/WAV/ähnliche Dateien abspielen willst, wird `ffmpeg-static` mitinstalliert.
+- Der Bot legt beim Start in der Ziel-Guild automatisch eine Rolle mit dem Namen aus `MUSIC_ROLE_NAME` an oder verwendet eine vorhandene Rolle gleichen Namens. Nur Mitglieder mit dieser Rolle können die Musikbefehle nutzen.
+- Dafür braucht der Bot in der Guild die Berechtigung `Manage Roles`.

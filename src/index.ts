@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { DiscordBot } from "./bot/DiscordBot";
 import { CommandFactory } from "./commands/CommandFactory";
 import { SpotifyOAuthCallbackServer } from "./services/SpotifyOAuthCallbackServer";
+import { PermissionFlagsBits } from "discord.js";
 
 export class Startup {
     public static Start(): void {
@@ -9,6 +10,7 @@ export class Startup {
 
         const token = process.env.DISCORD_TOKEN;
         const guildId = process.env.GUILD_ID;
+        const musicRoleName = process.env.MUSIC_ROLE_NAME ?? "Music Bot";
 
         if (!token) {
             throw new Error("DISCORD_TOKEN fehlt. Bitte in .env setzen.");
@@ -34,6 +36,30 @@ export class Startup {
             token,
             guildId,
             commands: commands,
+            onReady: async (client) => {
+                if (!guildId) {
+                    return;
+                }
+
+                const guild = await client.guilds.fetch(guildId);
+                const me = guild.members.me ?? await guild.members.fetchMe();
+
+                if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) {
+                    console.log("[MusicRole] Der Bot hat keine Berechtigung, Rollen zu verwalten. Bitte Manage Roles vergeben.");
+                    return;
+                }
+
+                const existingRole = guild.roles.cache.find((role) => role.name === musicRoleName) ?? null;
+                const role = existingRole ?? await guild.roles.create({
+                    name: musicRoleName,
+                    mentionable: false,
+                    hoist: false,
+                    reason: "Automatisch angelegte Rolle für Musikbefehle"
+                });
+
+                playbackService.setAllowedRoleIds([role.id]);
+                console.log(`[MusicRole] Rolle bereit: ${role.name} (${role.id})`);
+            },
             buttonHandler: async (customId, interaction) => {
                 if (!customId.startsWith("music:")) {
                     return false;

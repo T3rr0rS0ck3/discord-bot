@@ -64,9 +64,28 @@ type GuildPlayerState = {
 export class MusicPlaybackService {
     private readonly spotifyService: SpotifyOAuthService;
     private readonly guildStates = new Map<string, GuildPlayerState>();
+    private allowedRoleIds: Set<string>;
 
     public constructor(spotifyService: SpotifyOAuthService) {
         this.spotifyService = spotifyService;
+        this.allowedRoleIds = new Set(
+            (process.env.MUSIC_ROLE_IDS ?? process.env.MUSIC_ROLE_ID ?? "")
+                .split(",")
+                .map((value) => value.trim())
+                .filter((value) => value.length > 0)
+        );
+    }
+
+    public setAllowedRoleIds(roleIds: string[]): void {
+        this.allowedRoleIds = new Set(roleIds.map((value) => value.trim()).filter((value) => value.length > 0));
+    }
+
+    public hasAccess(member: GuildMember): boolean {
+        if (this.allowedRoleIds.size === 0) {
+            return true;
+        }
+
+        return [...this.allowedRoleIds].some((roleId) => member.roles.cache.has(roleId));
     }
 
     public async enqueue(interaction: ChatInputCommandInteraction, sourceInput: string): Promise<string> {
@@ -81,6 +100,10 @@ export class MusicPlaybackService {
         const member = interaction.member;
         if (!(member instanceof GuildMember)) {
             throw new Error("Konnte Guild-Member nicht auflösen.");
+        }
+
+        if (!this.hasAccess(member)) {
+            throw new Error("Du hast nicht die erforderliche Rolle für die Musikbefehle.");
         }
 
         const channel = member.voice.channel;
@@ -263,6 +286,11 @@ export class MusicPlaybackService {
     public async handleButtonInteraction(interaction: ButtonInteraction): Promise<boolean> {
         if (!interaction.inCachedGuild() || !interaction.customId.startsWith("music:")) {
             return false;
+        }
+
+        if (!(interaction.member instanceof GuildMember) || !this.hasAccess(interaction.member)) {
+            await interaction.reply({ content: "Du hast nicht die erforderliche Rolle für die Musikbefehle.", ephemeral: true });
+            return true;
         }
 
         const guildId = interaction.guildId;
