@@ -1,14 +1,19 @@
 import { CommandConstants } from "../constants/CommandConstants";
+import { MusicPlaybackService } from "../services/MusicPlaybackService";
+import { SpotifyOAuthService } from "../services/SpotifyOAuthService";
 import { ICommand } from "./interfaces/ICommand";
 import { JoinCommand } from "./JoinCommand";
+import { MusicCommand } from "./MusicCommand";
 import { PingCommand } from "./PingCommand";
-import { PlayCommand } from "./PlayCommand";
 
 export class CommandFactory {
+    private static spotifyService: SpotifyOAuthService | null = null;
+    private static playbackService: MusicPlaybackService | null = null;
+
     private static availableCommands: CommandConstants[] = [
         CommandConstants.PING,
         CommandConstants.JOIN,
-        CommandConstants.PLAY
+        CommandConstants.MUSIC
     ];
 
     public static Create(): ICommand[] {
@@ -28,15 +33,42 @@ export class CommandFactory {
     }
 
     public static CreateCommand(commandName: CommandConstants): ICommand {
+        const spotifyService = this.getSpotifyServiceInstance();
+        const playbackService = this.getPlaybackServiceInstance();
+
         switch (commandName) {
             case CommandConstants.PING:
                 return new PingCommand();
             case CommandConstants.JOIN:
                 return new JoinCommand();
-            case CommandConstants.PLAY:
-                return new PlayCommand();
+            case CommandConstants.MUSIC:
+                return new MusicCommand(playbackService, spotifyService);
             default:
                 throw new Error(`Unbekannter Command: ${commandName}`);
         }
+    }
+
+    public static GetSpotifyService(): SpotifyOAuthService {
+        return this.getSpotifyServiceInstance();
+    }
+
+    private static getSpotifyServiceInstance(): SpotifyOAuthService {
+        if (!this.spotifyService) {
+            this.spotifyService = new SpotifyOAuthService();
+        }
+
+        return this.spotifyService;
+    }
+
+    public static GetPlaybackService(): MusicPlaybackService {
+        return this.getPlaybackServiceInstance();
+    }
+
+    private static getPlaybackServiceInstance(): MusicPlaybackService {
+        if (!this.playbackService) {
+            this.playbackService = new MusicPlaybackService(this.getSpotifyServiceInstance());
+        }
+
+        return this.playbackService;
     }
 }

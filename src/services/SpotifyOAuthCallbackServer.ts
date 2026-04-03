@@ -1,0 +1,97 @@
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { SpotifyOAuthService } from "./SpotifyOAuthService";
+
+export class SpotifyOAuthCallbackServer {
+    private readonly spotifyService: SpotifyOAuthService;
+    private readonly redirectUri: string;
+    private started = false;
+
+    public constructor(spotifyService: SpotifyOAuthService, redirectUri: string) {
+        this.spotifyService = spotifyService;
+        this.redirectUri = redirectUri;
+    }
+
+    public start(): void {
+        if (this.started) {
+            return;
+        }
+
+        const parsed = new URL(this.redirectUri);
+        const port = Number(parsed.port || (parsed.protocol === "https:" ? "443" : "80"));
+        const callbackPath = parsed.pathname;
+
+        const server = createServer(async (request, response) => {
+            await this.handleRequest(request, response, callbackPath);
+        });
+
+        server.listen(port, parsed.hostname, () => {
+            console.log(`[SpotifyOAuth] Callback-Server aktiv auf ${parsed.origin}${callbackPath}`);
+        });
+
+        this.started = true;
+    }
+
+    private async handleRequest(request: IncomingMessage, response: ServerResponse, callbackPath: string): Promise<void> {
+        const requestUrl = new URL(request.url ?? "/", this.redirectUri);
+
+        if (requestUrl.pathname !== callbackPath) {
+            this.writeHtml(response, 404, "Nicht gefunden", "Diese URL ist kein Spotify Callback-Endpunkt.");
+            return;
+        }
+
+        const error = requestUrl.searchParams.get("error");
+        if (error) {
+            this.writeHtml(response, 400, "Spotify OAuth Fehler", `Spotify hat den Login abgebrochen: ${error}`);
+            return;
+        }
+
+        const code = requestUrl.searchParams.get("code");
+        const state = requestUrl.searchParams.get("state");
+
+        if (!code || !state) {
+            this.writeHtml(response, 400, "Ungültiger Callback", "Es fehlen code oder state Parameter.");
+            return;
+        }
+
+        try {
+            const result = await this.spotifyService.handleOAuthCallback(code, state);
+            this.writeHtml(
+                response,
+                200,
+                "Spotify verbunden",
+                `Spotify Account ${result.displayName} wurde erfolgreich mit deinem Discord-User verknüpft. Du kannst das Browserfenster jetzt schließen.`
+            );
+            console.log(`[SpotifyOAuth] Discord-User ${result.discordUserId} mit Spotify ${result.spotifyUserId} verknüpft.`);
+        }
+        catch (callbackError) {
+            const message = callbackError instanceof Error ? callbackError.message : String(callbackError);
+            this.writeHtml(response, 500, "OAuth fehlgeschlagen", message);
+            console.error(`[SpotifyOAuth] Callback Fehler: ${message}`);
+        }
+    }
+
+    private writeHtml(response: ServerResponse, status: number, title: string, body: string): void {
+        response.writeHead(status, {
+            "Content-Type": "text/html; charset=utf-8"
+        });
+
+        response.end(`<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>${title}</title>
+<style>
+body { font-family: Segoe UI, sans-serif; margin: 2rem; color: #111; }
+.card { max-width: 42rem; padding: 1rem 1.25rem; border: 1px solid #ddd; border-radius: 8px; }
+h1 { margin-top: 0; font-size: 1.2rem; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>${title}</h1>
+    <p>${body}</p>
+  </div>
+</body>
+</html>`);
+    }
+}

@@ -1,0 +1,11 @@
+{
+  "299207908246421505": {
+    "accessToken": "BQBR8bBdo4SA1hzqv1iTuOvoCtvWJkcmknkG4RhWM-tZ6lhk4fQ6BmYN2cKSEAJWtAEG70hUJYdjoq5GKlg6TnJXDoYY05RR8tw5b6Plu4Pb2k7ukz2aesjJrnZUC6BnpJb_B5sZKqYgMZdZIELH8w-pQLYimdj5P1G24KlaRO5X1PklY1egEvO75nxhIsoQxvdGFPQ88ZIMI9v96D13XKILnNpLzony37bBG-dADomTZ3sX16et3kEuXxjXQI_-u5P1PPVgH4IfOTwQOIX3Uv5TUZbLanmdP1ZqYfEjhGM24I25fu6SHSLqgY_4aCNJ9DRg-yYoY--kmDzgEHwXbeC32kyXaLMBYddTKujvsF7PBrhuKFGAeJnNv543Eno0qMF_Mpg",
+    "refreshToken": "AQD3RAgH_wnnuatyJVPlyizk7cKNi17IuOzjdyzJJSin6d9VWtOgRZNCXSCs8lrlSTinJghaOt3iz2yB4AvFX3ud2aJaWnAs6cYaEselo1gHNgxcqVCc9nMmj8lwP7ztoWk",
+    "expiresAt": 1775252145114,
+    "scope": "playlist-read-private playlist-read-collaborative ugc-image-upload user-follow-read playlist-modify-private user-read-email user-read-private user-follow-modify user-modify-playback-state user-library-read user-library-modify playlist-modify-public user-read-playback-state user-read-currently-playing user-read-recently-played user-read-playback-position user-top-read",
+    "tokenType": "Bearer",
+    "spotifyUserId": "z0u4r4dh5tq1lgq1wypedh61t",
+    "spotifyDisplayName": "Robin Wessel"
+  }
+}
