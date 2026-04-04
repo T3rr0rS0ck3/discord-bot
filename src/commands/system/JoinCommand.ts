@@ -1,6 +1,6 @@
 import { joinVoiceChannel } from "@discordjs/voice";
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { ICommand } from "./interfaces/ICommand";
+import { ICommand } from "../interfaces/ICommand";
 
 export class JoinCommand implements ICommand {
     public readonly name = "join";

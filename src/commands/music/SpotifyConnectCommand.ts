@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { SpotifyOAuthService } from "../services/SpotifyOAuthService";
-import { ICommand } from "./interfaces/ICommand";
+import { SpotifyOAuthService } from "../../services/SpotifyOAuthService";
+import { ICommand } from "../interfaces/ICommand";
 
 export class SpotifyConnectCommand implements ICommand {
     public readonly name = "spotify-connect";

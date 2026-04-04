@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { MusicPlaybackService } from "../services/MusicPlaybackService";
-import { ICommand } from "./interfaces/ICommand";
+import { MusicPlaybackService } from "../../services/MusicPlaybackService";
+import { ICommand } from "../interfaces/ICommand";
 
 export class SkipCommand implements ICommand {
     public readonly name = "skip";

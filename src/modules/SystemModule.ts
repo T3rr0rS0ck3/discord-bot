@@ -1,6 +1,6 @@
 import { ICommand } from "../commands/interfaces/ICommand";
-import { JoinCommand } from "../commands/JoinCommand";
-import { PingCommand } from "../commands/PingCommand";
+import { JoinCommand } from "../commands/system/JoinCommand";
+import { PingCommand } from "../commands/system/PingCommand";
 import { IBotModule } from "./interfaces/IBotModule";
 
 export class SystemModule implements IBotModule {

@@ -45,7 +45,7 @@ export class MusicPlaybackService {
     private readonly youtubeSearchLimit: number;
     private readonly youtubeSearchService: YouTubeTrackSearchService;
     private readonly guildStates = new Map<string, GuildPlayerState>();
-    public allowedRoleNames: Set<string>;
+    private allowedRoleNames: Set<string>;
 
     public constructor(spotifyService: SpotifyOAuthService, options: MusicPlaybackServiceOptions) {
         this.spotifyService = spotifyService;
@@ -64,6 +64,10 @@ export class MusicPlaybackService {
         this.allowedRoleNames = new Set(roleNames.map((value) => value.trim()).filter((value) => value.length > 0));
     }
 
+    public hasAccess(member: GuildMember): boolean {
+        return RoleService.hasAccess(member, [...this.allowedRoleNames]);
+    }
+
     public async enqueue(interaction: ChatInputCommandInteraction, sourceInput: string): Promise<string> {
         if (!interaction.inCachedGuild()) {
             throw new Error("Dieser Command geht nur auf einem Server.");
@@ -78,7 +82,7 @@ export class MusicPlaybackService {
             throw new Error("Konnte Guild-Member nicht auflösen.");
         }
 
-        if (!RoleService.hasAccess(member, [...this.allowedRoleNames])) {
+        if (!this.hasAccess(member)) {
             throw new Error("Du hast nicht die erforderliche Rolle für die Musikbefehle.");
         }
 
@@ -268,7 +272,7 @@ export class MusicPlaybackService {
             return false;
         }
 
-        if (!(interaction.member instanceof GuildMember) || !RoleService.hasAccess(interaction.member, [...this.allowedRoleNames])) {
+        if (!(interaction.member instanceof GuildMember) || !this.hasAccess(interaction.member)) {
             await interaction.reply({ content: "Du hast nicht die erforderliche Rolle für die Musikbefehle.", ephemeral: true });
             return true;
         }

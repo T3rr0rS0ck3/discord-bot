@@ -1,7 +1,7 @@
 import { Client } from "discord.js";
 import type { MusicBotModuleOptions } from "../types/Discord";
 import { ICommand } from "../commands/interfaces/ICommand";
-import { MusicCommand } from "../commands/MusicCommand";
+import { MusicCommand } from "../commands/music/MusicCommand";
 import { MusicPlaybackService } from "../services/MusicPlaybackService";
 import { RoleService } from "../services/RoleService";
 import { SpotifyOAuthCallbackServer } from "../services/SpotifyOAuthCallbackServer";

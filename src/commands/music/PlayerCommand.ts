@@ -1,10 +1,10 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { MusicPlaybackService } from "../services/MusicPlaybackService";
-import { ICommand } from "./interfaces/ICommand";
+import { MusicPlaybackService } from "../../services/MusicPlaybackService";
+import { ICommand } from "../interfaces/ICommand";
 
-export class PauseCommand implements ICommand {
-    public readonly name = "pause";
-    public readonly description = "Pausiert die Wiedergabe";
+export class PlayerCommand implements ICommand {
+    public readonly name = "player";
+    public readonly description = "Zeigt den Player mit Buttons im Chat";
     private readonly playbackService: MusicPlaybackService;
 
     public readonly data = new SlashCommandBuilder()
@@ -21,16 +21,10 @@ export class PauseCommand implements ICommand {
             return;
         }
 
-        await interaction.deferReply({ ephemeral: true });
+        const ui = this.playbackService.buildPlayerUI(interaction.guildId);
+        await interaction.reply({ ...ui, ephemeral: false });
 
-        const success = this.playbackService.pause(interaction.guildId);
-
-        if (success) {
-            await this.playbackService.syncPlayerPanel(interaction.guildId);
-            await interaction.deleteReply();
-            return;
-        }
-
-        await interaction.editReply("Pausieren nicht möglich.");
+        const message = await interaction.fetchReply();
+        await this.playbackService.registerControllerMessage(interaction.guildId, interaction.channelId, message.id);
     }
 }

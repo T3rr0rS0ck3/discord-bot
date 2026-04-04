@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { ICommand } from "./interfaces/ICommand";
+import { ICommand } from "../interfaces/ICommand";
 
 export class PingCommand implements ICommand {
     public readonly name = "ping";
