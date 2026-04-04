@@ -2,6 +2,7 @@ import { AutocompleteInteraction, ChatInputCommandInteraction, SlashCommandBuild
 import { MusicPlaybackService } from "../services/MusicPlaybackService";
 import { SpotifyOAuthService } from "../services/SpotifyOAuthService";
 import { ICommand } from "./interfaces/ICommand";
+import { RoleService } from "../services/RoleService";
 
 export class MusicCommand implements ICommand {
     public readonly name = "music";
@@ -105,7 +106,7 @@ export class MusicCommand implements ICommand {
             return;
         }
 
-        if (!this.playbackService.hasAccess(interaction.member)) {
+        if (!RoleService.hasAccess(interaction.member, [...this.playbackService.allowedRoleNames])) {
             await interaction.reply({ content: "Du hast nicht die erforderliche Rolle für die Musikbefehle.", ephemeral: true });
             return;
         }

@@ -9,6 +9,17 @@ export class Startup {
         const token = process.env.DISCORD_TOKEN;
         const guildId = process.env.GUILD_ID;
         const musicRoleName = process.env.MUSIC_ROLE_NAME ?? "Music Bot";
+        const spotifyService = {
+            clientId: process.env.SPOTIFY_CLIENT_ID,
+            clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+            redirectUri: process.env.SPOTIFY_REDIRECT_URI
+        };
+        const musicPlayback = {
+            defaultVolumePercent: this.parseNumber(process.env.MUSIC_DEFAULT_VOLUME_PERCENT),
+            debugSearch: (process.env.MUSIC_DEBUG_SEARCH ?? "true").toLowerCase() !== "false",
+            youtubeSearchLimit: this.parseNumber(process.env.MUSIC_YOUTUBE_SEARCH_LIMIT),
+            allowedRoleNames: [musicRoleName]
+        };
 
         if (!token) {
             throw new Error("DISCORD_TOKEN fehlt. Bitte in .env setzen.");
@@ -16,7 +27,9 @@ export class Startup {
 
         const modules = BotModuleFactory.create({
             guildId,
-            musicRoleName
+            musicRoleName,
+            spotifyService,
+            musicPlayback
         });
 
         for (const module of modules) {
@@ -57,6 +70,15 @@ export class Startup {
         });
 
         await bot.start();
+    }
+
+    private static parseNumber(value: string | undefined): number | undefined {
+        if (value === undefined || value.trim() === "") {
+            return undefined;
+        }
+
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
     }
 }
 

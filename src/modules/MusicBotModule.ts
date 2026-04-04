@@ -1,4 +1,4 @@
-import { Client, PermissionFlagsBits } from "discord.js";
+import { Client } from "discord.js";
 import type { MusicBotModuleOptions } from "../types/Discord";
 import { ICommand } from "../commands/interfaces/ICommand";
 import { MusicCommand } from "../commands/MusicCommand";
@@ -14,14 +14,15 @@ export class MusicBotModule implements IBotModule {
     private readonly musicRoleName: string;
     private readonly spotifyService: SpotifyOAuthService;
     private readonly playbackService: MusicPlaybackService;
-    private readonly roleService: RoleService;
 
     public constructor(options: MusicBotModuleOptions) {
         this.guildId = options.guildId;
         this.musicRoleName = options.musicRoleName;
-        this.spotifyService = new SpotifyOAuthService();
-        this.playbackService = new MusicPlaybackService(this.spotifyService);
-        this.roleService = new RoleService();
+        this.spotifyService = new SpotifyOAuthService(options.spotifyService);
+        this.playbackService = new MusicPlaybackService(this.spotifyService, {
+            ...options.musicPlayback,
+            allowedRoleNames: options.musicPlayback.allowedRoleNames ?? [this.musicRoleName]
+        });
     }
 
     public getCommands(): ICommand[] {
@@ -49,12 +50,14 @@ export class MusicBotModule implements IBotModule {
             return;
         }
 
-        const roleId = await RoleService.ensureRoleForGuild(client, this.guildId, {
+        const role = await RoleService.ensureRole(client.guilds.cache.get(this.guildId) ?? await client.guilds.fetch(this.guildId), {
             name: this.musicRoleName,
             reason: "Automatisch angelegte Rolle fuer Musikbefehle"
         });
-        if (roleId) {
-            this.playbackService.setAllowedRoleIds([roleId]);
+
+        if (!role) {
+            console.log(`[MusicRole] Rolle "${this.musicRoleName}" konnte nicht bereitgestellt werden.`);
+            return;
         }
     }
 

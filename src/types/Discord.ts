@@ -9,12 +9,29 @@ export type DiscordBotOptions = {
     onReady?: (client: Client) => Promise<void> | void;
 };
 
+export type SpotifyServiceOptions = {
+    clientId?: string;
+    clientSecret?: string;
+    redirectUri?: string;
+};
+
+export type MusicPlaybackOptions = {
+    defaultVolumePercent?: number;
+    debugSearch?: boolean;
+    youtubeSearchLimit?: number;
+    allowedRoleNames?: string[];
+};
+
 export type BotModuleFactoryOptions = {
     guildId?: string;
     musicRoleName: string;
+    spotifyService: SpotifyServiceOptions;
+    musicPlayback: MusicPlaybackOptions;
 };
 
 export type MusicBotModuleOptions = {
     guildId?: string;
     musicRoleName: string;
+    spotifyService: SpotifyServiceOptions;
+    musicPlayback: MusicPlaybackOptions;
 };

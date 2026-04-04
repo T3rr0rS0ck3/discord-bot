@@ -1,4 +1,4 @@
-import { type Client, PermissionFlagsBits, type Guild, type Role } from "discord.js";
+import { type Client, PermissionFlagsBits, type Guild, type GuildMember, type Role } from "discord.js";
 
 export class RoleService {
     /**
@@ -13,6 +13,37 @@ export class RoleService {
      */
     public static findRoleById(guild: Guild, roleId: string): Role | undefined {
         return guild.roles.cache.find((role) => role.id === roleId);
+    }
+
+    /**
+     * Checks whether a member has a role with the given name.
+     */
+    public static memberHasRoleName(member: GuildMember, roleName: string): boolean {
+        const normalizedRoleName = roleName.trim();
+        if (!normalizedRoleName) {
+            return false;
+        }
+
+        return member.roles.cache.some((role) => role.name === normalizedRoleName);
+    }
+
+    /**
+     * Checks whether a member has at least one of the given role names.
+     */
+    public static memberHasAnyRoleName(member: GuildMember, roleNames: string[]): boolean {
+        const normalizedRoleNames = roleNames.map((value) => value.trim()).filter((value) => value.length > 0);
+        if (normalizedRoleNames.length === 0) {
+            return false;
+        }
+
+        return normalizedRoleNames.some((roleName) => this.memberHasRoleName(member, roleName));
+    }
+
+    /**
+     * Checks whether a member is allowed based on configured role names.
+     */
+    public static hasAccess(member: GuildMember, roleNames: string[]): boolean {
+        return this.memberHasAnyRoleName(member, roleNames);
     }
 
     /**

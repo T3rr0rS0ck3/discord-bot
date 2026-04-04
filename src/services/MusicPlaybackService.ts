@@ -27,8 +27,16 @@ import {
 import ffmpegPath from "ffmpeg-static";
 import ytdlp from "yt-dlp-exec";
 import type { ResolvedSource, QueueTrack, GuildPlayerState } from "../types/Music";
+import { RoleService } from "./RoleService";
 import { SpotifyOAuthService } from "./SpotifyOAuthService";
 import { YouTubeTrackSearchService } from "./YouTubeTrackSearchService";
+
+type MusicPlaybackServiceOptions = {
+    defaultVolumePercent?: number;
+    debugSearch?: boolean;
+    youtubeSearchLimit?: number;
+    allowedRoleNames?: string[];
+};
 
 export class MusicPlaybackService {
     private readonly spotifyService: SpotifyOAuthService;
@@ -37,48 +45,23 @@ export class MusicPlaybackService {
     private readonly youtubeSearchLimit: number;
     private readonly youtubeSearchService: YouTubeTrackSearchService;
     private readonly guildStates = new Map<string, GuildPlayerState>();
-    private allowedRoleIds: Set<string>;
-    private enforceRoleCheck: boolean = false;
+    public allowedRoleNames: Set<string>;
 
-    public constructor(spotifyService: SpotifyOAuthService) {
+    public constructor(spotifyService: SpotifyOAuthService, options: MusicPlaybackServiceOptions) {
         this.spotifyService = spotifyService;
-        this.defaultVolume = this.parseDefaultVolume(process.env.MUSIC_DEFAULT_VOLUME_PERCENT);
-        this.searchDebugEnabled = (process.env.MUSIC_DEBUG_SEARCH ?? "true").toLowerCase() !== "false";
-        this.youtubeSearchLimit = this.parseYouTubeSearchLimit(process.env.MUSIC_YOUTUBE_SEARCH_LIMIT);
+        this.defaultVolume = this.parseDefaultVolume(options.defaultVolumePercent);
+        this.searchDebugEnabled = options.debugSearch ?? true;
+        this.youtubeSearchLimit = this.parseYouTubeSearchLimit(options.youtubeSearchLimit);
         this.youtubeSearchService = new YouTubeTrackSearchService({
             searchLimit: this.youtubeSearchLimit,
             debugEnabled: this.searchDebugEnabled,
             logger: (message) => this.logSearch(message)
         });
-        this.allowedRoleIds = new Set(
-            (process.env.MUSIC_ROLE_IDS ?? process.env.MUSIC_ROLE_ID ?? "")
-                .split(",")
-                .map((value) => value.trim())
-                .filter((value) => value.length > 0)
-        );
-        // Falls Rollen in Umgebungsvariablen konfiguriert, erzwinge die Prüfung
-        this.enforceRoleCheck = this.allowedRoleIds.size > 0;
+        this.allowedRoleNames = new Set((options.allowedRoleNames ?? []).map((value) => value.trim()).filter((value) => value.length > 0));
     }
 
-    public setAllowedRoleIds(roleIds: string[]): void {
-        this.allowedRoleIds = new Set(roleIds.map((value) => value.trim()).filter((value) => value.length > 0));
-        // Markiere, dass die Rollenprüfung von jetzt an erzwungen wird
-        this.enforceRoleCheck = true;
-    }
-
-    public hasAccess(member: GuildMember): boolean {
-        // Wenn Rollenprüfung erzwungen ist, aber keine Rollen konfiguriert: Zugriff verweigern
-        if (this.enforceRoleCheck && this.allowedRoleIds.size === 0) {
-            return false;
-        }
-
-        // Wenn Rollen konfiguriert, prüfe ob Nutzer eine hat
-        if (this.allowedRoleIds.size > 0) {
-            return [...this.allowedRoleIds].some((roleId) => member.roles.cache.has(roleId));
-        }
-
-        // Fallback: Erlauben wenn keine Rollenprüfung erzwungen
-        return true;
+    public setAllowedRoleNames(roleNames: string[]): void {
+        this.allowedRoleNames = new Set(roleNames.map((value) => value.trim()).filter((value) => value.length > 0));
     }
 
     public async enqueue(interaction: ChatInputCommandInteraction, sourceInput: string): Promise<string> {
@@ -95,7 +78,7 @@ export class MusicPlaybackService {
             throw new Error("Konnte Guild-Member nicht auflösen.");
         }
 
-        if (!this.hasAccess(member)) {
+        if (!RoleService.hasAccess(member, [...this.allowedRoleNames])) {
             throw new Error("Du hast nicht die erforderliche Rolle für die Musikbefehle.");
         }
 
@@ -285,7 +268,7 @@ export class MusicPlaybackService {
             return false;
         }
 
-        if (!(interaction.member instanceof GuildMember) || !this.hasAccess(interaction.member)) {
+        if (!(interaction.member instanceof GuildMember) || !RoleService.hasAccess(interaction.member, [...this.allowedRoleNames])) {
             await interaction.reply({ content: "Du hast nicht die erforderliche Rolle für die Musikbefehle.", ephemeral: true });
             return true;
         }
@@ -682,7 +665,7 @@ export class MusicPlaybackService {
         }
     }
 
-    private parseDefaultVolume(value: string | undefined): number {
+    private parseDefaultVolume(value: string | number | undefined): number {
         const parsed = Number(value);
         if (!Number.isFinite(parsed)) {
             return 1;
@@ -692,7 +675,7 @@ export class MusicPlaybackService {
         return clamped / 100;
     }
 
-    private parseYouTubeSearchLimit(value: string | undefined): number {
+    private parseYouTubeSearchLimit(value: number | string | undefined): number {
         const parsed = Number(value);
         if (!Number.isFinite(parsed)) {
             return 25;

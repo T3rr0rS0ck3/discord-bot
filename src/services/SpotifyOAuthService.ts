@@ -13,6 +13,12 @@ import type {
 } from "../types/Spotify";
 import { SpotifyTokenStore } from "./SpotifyTokenStore";
 
+type SpotifyOAuthServiceOptions = {
+    clientId?: string;
+    clientSecret?: string;
+    redirectUri?: string;
+};
+
 export class SpotifyOAuthService {
     private readonly clientId?: string;
     private readonly clientSecret?: string;
@@ -22,10 +28,10 @@ export class SpotifyOAuthService {
     private readonly tokenStore: SpotifyTokenStore;
     private appAccessTokenCache?: { accessToken: string; expiresAt: number };
 
-    public constructor() {
-        this.clientId = process.env.SPOTIFY_CLIENT_ID;
-        this.clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-        this.redirectUri = process.env.SPOTIFY_REDIRECT_URI;
+    public constructor(options: SpotifyOAuthServiceOptions) {
+        this.clientId = options.clientId;
+        this.clientSecret = options.clientSecret;
+        this.redirectUri = options.redirectUri;
         this.tokenStore = new SpotifyTokenStore(resolve(process.cwd(), "data/spotify-tokens.json"));
     }
 
