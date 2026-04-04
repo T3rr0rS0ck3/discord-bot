@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AdminPanel } from "./components/AdminPanel";
 import { LoginCard } from "./components/LoginCard";
 import { useAdminApp } from "./hooks/useAdminApp";
 import type { AuthState } from "./types";
+
+type AdminPage = "dashboard" | "sqlite";
 
 declare global {
     interface Window {
@@ -13,6 +15,22 @@ declare global {
 
 function App(): React.JSX.Element {
     const state = useAdminApp(window.__ADMIN_INITIAL_AUTH__ ?? { authenticated: false, username: null });
+    const [page, setPage] = useState<AdminPage>(() => {
+        const search = new URLSearchParams(window.location.search);
+        return search.get("page") === "sqlite" ? "sqlite" : "dashboard";
+    });
+
+    useEffect(() => {
+        const search = new URLSearchParams(window.location.search);
+        if (page === "sqlite") {
+            search.set("page", "sqlite");
+        } else {
+            search.delete("page");
+        }
+
+        const nextUrl = `${window.location.pathname}${search.toString() ? `?${search.toString()}` : ""}${window.location.hash}`;
+        window.history.replaceState({}, "", nextUrl);
+    }, [page]);
 
     if (!state.auth.authenticated) {
         return (
@@ -29,6 +47,7 @@ function App(): React.JSX.Element {
 
     return (
         <AdminPanel
+                activePage={page}
             username={state.auth.username}
             config={state.config}
             status={state.status}
@@ -49,6 +68,7 @@ function App(): React.JSX.Element {
             onSave={() => void state.saveOnly()}
             onSaveAndRestart={() => void state.saveAndRestart()}
             onLogout={() => void state.logout()}
+                onPageChange={setPage}
         />
     );
 }

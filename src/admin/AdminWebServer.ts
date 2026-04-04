@@ -105,6 +105,16 @@ export class AdminWebServer {
             return;
         }
 
+        if (url.pathname === "/admin/sqlite" || url.pathname.startsWith("/admin/sqlite/")) {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+
+            await this.proxyToSqliteWeb(req, res, url);
+            return;
+        }
+
         if (url.pathname.startsWith("/api/") && !authenticatedUser) {
             this.sendJson(res, 401, { error: "Unauthorized" });
             return;
@@ -235,6 +245,147 @@ export class AdminWebServer {
     private normalizeString(value: unknown): string | undefined {
         const text = String(value ?? "").trim();
         return text.length > 0 ? text : undefined;
+    }
+
+    private async proxyToSqliteWeb(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
+        const upstreamPath = url.pathname.replace(/^\/admin\/sqlite/, "") || "/";
+        const upstreamUrl = new URL(`${upstreamPath}${url.search}`, "http://sqlite-web:8080");
+        const headers = { ...req.headers };
+        delete headers.host;
+        delete headers["accept-encoding"];
+
+        await new Promise<void>((resolve) => {
+            const proxyReq = http.request(
+                upstreamUrl,
+                {
+                    method: req.method,
+                    headers
+                },
+                (proxyRes) => {
+                    const contentType = String(proxyRes.headers["content-type"] ?? "");
+                    const isHtml = contentType.includes("text/html");
+
+                    if (!isHtml) {
+                        res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
+                        proxyRes.pipe(res);
+                        proxyRes.on("end", () => resolve());
+                        return;
+                    }
+
+                    const chunks: Buffer[] = [];
+                    proxyRes.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+                    proxyRes.on("end", () => {
+                        const body = Buffer.concat(chunks).toString("utf8");
+                        const rewrittenBody = this.rewriteSqliteWebHtml(body);
+                        const responseHeaders = { ...proxyRes.headers };
+                        if (responseHeaders["content-length"] !== undefined) {
+                            responseHeaders["content-length"] = Buffer.byteLength(rewrittenBody).toString();
+                        }
+                        res.writeHead(proxyRes.statusCode ?? 502, responseHeaders);
+                        res.end(rewrittenBody);
+                        resolve();
+                    });
+                }
+            );
+
+            proxyReq.on("error", (error) => {
+                console.error("[AdminUI] SQLite proxy error:", error);
+                if (!res.headersSent) {
+                    this.sendJson(res, 502, { error: "SQLite UI unavailable" });
+                } else {
+                    res.end();
+                }
+                resolve();
+            });
+
+            if (req.method === "GET" || req.method === "HEAD") {
+                proxyReq.end();
+                return;
+            }
+
+            req.pipe(proxyReq);
+        });
+    }
+
+    private rewriteSqliteWebHtml(html: string): string {
+                const darkThemeStyles = `
+<style>
+    body.sqlite-dark {
+        background: #060812 !important;
+        color: #eef2ff !important;
+    }
+    body.sqlite-dark .container-fluid,
+    body.sqlite-dark .page-header,
+    body.sqlite-dark .row,
+    body.sqlite-dark .col-3,
+    body.sqlite-dark .col-9 {
+        background: transparent !important;
+        color: inherit !important;
+    }
+    body.sqlite-dark a,
+    body.sqlite-dark .nav-link,
+    body.sqlite-dark .btn,
+    body.sqlite-dark .table,
+    body.sqlite-dark label,
+    body.sqlite-dark input,
+    body.sqlite-dark textarea,
+    body.sqlite-dark select,
+    body.sqlite-dark h1,
+    body.sqlite-dark h3,
+    body.sqlite-dark p,
+    body.sqlite-dark th,
+    body.sqlite-dark td {
+        color: inherit !important;
+    }
+    body.sqlite-dark .table,
+    body.sqlite-dark .table-striped tbody tr:nth-of-type(odd),
+    body.sqlite-dark .table-striped tbody tr:nth-of-type(even) {
+        background-color: #0f1428 !important;
+        color: #eef2ff !important;
+    }
+    body.sqlite-dark .table-striped tbody tr:nth-of-type(odd) {
+        background-color: #131a33 !important;
+    }
+    body.sqlite-dark .form-control,
+    body.sqlite-dark .form-select,
+    body.sqlite-dark textarea,
+    body.sqlite-dark input {
+        background: #0b1124 !important;
+        border-color: #344166 !important;
+        color: #eef2ff !important;
+    }
+    body.sqlite-dark .btn-primary {
+        background: linear-gradient(135deg, #b05cff, #7c3aed) !important;
+        border-color: #8f47ef !important;
+    }
+    body.sqlite-dark .btn-secondary {
+        background: #232b45 !important;
+        border-color: #3b4668 !important;
+    }
+    body.sqlite-dark .nav-pills .nav-link.active,
+    body.sqlite-dark .nav-pills .show > .nav-link {
+        background: rgba(176, 92, 255, .18) !important;
+        border-color: rgba(176, 92, 255, .5) !important;
+    }
+    body.sqlite-dark hr { border-color: rgba(148, 163, 184, .18) !important; }
+    body.sqlite-dark .page-header { border-bottom: 1px solid rgba(148, 163, 184, .18) !important; }
+    body.sqlite-dark .table td,
+    body.sqlite-dark .table th { border-color: rgba(148, 163, 184, .12) !important; }
+</style>`;
+
+                return html
+                    .replace(/<body([^>]*)>/i, (_match, attributes: string) => {
+                        const existingClassMatch = String(attributes).match(/class=(['"])(.*?)\1/i);
+                        if (existingClassMatch) {
+                            const nextClasses = `${existingClassMatch[2]} sqlite-dark`.trim();
+                            return `<body${String(attributes).replace(/class=(['"])(.*?)\1/i, `class="${nextClasses}"`)}>`;
+                        }
+
+                        return `<body${attributes} class="sqlite-dark">`;
+                    })
+                        .replace("</head>", `${darkThemeStyles}</head>`)
+            .replace(/(href|src|action)=(['"])\/(?!admin\/sqlite\/)/g, '$1=$2/admin/sqlite/')
+            .replace(/url\((['"]?)\/(?!admin\/sqlite\/)/g, 'url($1/admin/sqlite/');
     }
 
     private async getUnicodeEmojis(): Promise<Array<{ value: string; label: string; group: string }>> {
@@ -489,6 +640,27 @@ export class AdminWebServer {
             background: rgba(28,34,59,.65);
         }
         .header-links { display:flex; gap:10px; align-items:center; }
+        .header-tab {
+            border:1px solid rgba(150,168,217,.35);
+            background: rgba(24,31,53,.62);
+            color:#d8def4;
+            height:34px;
+            padding:0 12px;
+            border-radius:10px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+        }
+        .header-tab.active {
+            border-color: rgba(194,132,252,.55);
+            color:#ffffff;
+            background: rgba(62,40,95,.42);
+        }
+        .header-tab:hover {
+            border-color: rgba(194,132,252,.55);
+            color:#ffffff;
+            background: rgba(62,40,95,.42);
+        }
         .header-links a {
             color:#b6c0df;
             text-decoration:none;
@@ -689,6 +861,21 @@ export class AdminWebServer {
         }
         .region:not([open]) .region-summary::after { transform:rotate(-90deg); }
         .region-content { padding:10px 12px 12px; }
+        .sqlite-browser-frame {
+            overflow:hidden;
+            border:1px solid #2f3d67;
+            border-radius:16px;
+            background:#070b16;
+            min-height: 760px;
+        }
+        .sqlite-browser-frame iframe {
+            display:block;
+            width:100%;
+            height: calc(100vh - 240px);
+            min-height: 760px;
+            border:0;
+            background:#070b16;
+        }
     .loading-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,.82); border-radius:14px; z-index:20; }
     .loading-overlay.active { display:flex; }
     .loading-box { display:flex; flex-direction:column; align-items:center; gap:10px; color:#e5e7eb; }

@@ -112,6 +112,7 @@ Wichtige Ports (in `docker-compose.yml`):
 
 - `8787:8787` Admin-UI
 - `3000:3000` Spotify OAuth Callback
+- SQLite Web GUI ist in die Admin-Oberflaeche eingebettet und laeuft nur innerhalb der angemeldeten Session.
 
 Hinweis: Wenn du den Admin-Port in der UI änderst, musst du das Port-Mapping in `docker-compose.yml` entsprechend anpassen.
 
