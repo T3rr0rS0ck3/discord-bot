@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import { AutocompleteInteraction, ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { MusicPlaybackService } from "../services/MusicPlaybackService";
 import { SpotifyOAuthService } from "../services/SpotifyOAuthService";
 import { ICommand } from "./interfaces/ICommand";
@@ -18,8 +18,9 @@ export class MusicCommand implements ICommand {
                 .setDescription("Spielt eine Quelle ab oder fügt sie zur Queue hinzu")
                 .addStringOption((option) =>
                     option
-                        .setName("source")
+                        .setName("query")
                         .setDescription("MP3-URL, Spotify-Link, YouTube-Link oder Suchtext")
+                        .setAutocomplete(true)
                         .setRequired(true)))
         .addSubcommand((subcommand) =>
             subcommand
@@ -70,6 +71,34 @@ export class MusicCommand implements ICommand {
         this.spotifyService = spotifyService;
     }
 
+    public async executeAutocomplete(interaction: AutocompleteInteraction): Promise<void> {
+        const focused = interaction.options.getFocused(true);
+        if (focused.name !== "query") {
+            await interaction.respond([]);
+            return;
+        }
+
+        const subcommand = interaction.options.getSubcommand(false);
+        if (subcommand !== "play") {
+            await interaction.respond([]);
+            return;
+        }
+
+        const input = String(focused.value ?? "").trim();
+        if (input.length < 2) {
+            await interaction.respond([]);
+            return;
+        }
+
+        const suggestions = await this.spotifyService.searchTrackSuggestions(input, 10);
+        await interaction.respond(
+            suggestions.map((entry) => ({
+                name: entry.label,
+                value: entry.value
+            }))
+        );
+    }
+
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!interaction.inCachedGuild()) {
             await interaction.reply({ content: "Dieser Command geht nur auf einem Server.", ephemeral: true });
@@ -86,7 +115,7 @@ export class MusicCommand implements ICommand {
         switch (subcommand) {
             case "play": {
                 await interaction.deferReply({ ephemeral: true });
-                const source = interaction.options.getString("source", true);
+                const source = interaction.options.getString("query", true);
 
                 try {
                     const result = await this.playbackService.enqueue(interaction, source);

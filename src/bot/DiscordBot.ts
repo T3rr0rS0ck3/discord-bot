@@ -1,13 +1,6 @@
 import { Client, GatewayIntentBits, IntentsBitField } from "discord.js";
+import type { DiscordBotOptions } from "../types/Discord";
 import { ICommand } from "../commands/interfaces/ICommand";
-
-type DiscordBotOptions = {
-    token: string;
-    guildId?: string;
-    commands: ICommand[];
-    buttonHandler?: (customId: string, interaction: import("discord.js").ButtonInteraction) => Promise<boolean>;
-    onReady?: (client: Client) => Promise<void> | void;
-};
 
 export class DiscordBot {
     private readonly client: Client;
@@ -82,6 +75,24 @@ export class DiscordBot {
                     }
                     return;
                 }
+            }
+
+            if (interaction.isAutocomplete()) {
+                const command = this.commands.get(interaction.commandName);
+                if (!command?.executeAutocomplete) {
+                    return;
+                }
+
+                try {
+                    await command.executeAutocomplete(interaction);
+                }
+                catch (error) {
+                    console.error("Fehler bei Command-Autocomplete:", error);
+                    if (!interaction.responded) {
+                        await interaction.respond([]);
+                    }
+                }
+                return;
             }
 
             if (!interaction.isChatInputCommand()) {

@@ -25,67 +25,60 @@ import {
     type VoiceBasedChannel
 } from "discord.js";
 import ffmpegPath from "ffmpeg-static";
-import * as play from "play-dl";
 import ytdlp from "yt-dlp-exec";
-import { SpotifyOAuthService, type SpotifyTrackMetadata } from "./SpotifyOAuthService";
-
-type ResolvedSource = {
-    streamKind: "ffmpeg" | "youtube";
-    sourceUrl: string;
-    sourceLabel: string;
-};
-
-type QueueTrack = ResolvedSource & {
-    id: string;
-    requestedBy: string;
-};
-
-type YouTubeCandidate = {
-    url: string;
-    title: string;
-    durationInSec?: number;
-    channelName: string;
-    channelVerified: boolean;
-};
-
-type GuildPlayerState = {
-    connection: VoiceConnection;
-    player: AudioPlayer;
-    queue: QueueTrack[];
-    history: QueueTrack[];
-    current?: QueueTrack;
-    ffmpegProcess?: ChildProcessByStdio<null, Readable, Readable>;
-    volume: number;
-    controllerChannelId?: string;
-    controllerMessageId?: string;
-    controllerChannel?: TextBasedChannel;
-};
+import type { ResolvedSource, QueueTrack, GuildPlayerState } from "../types/Music";
+import { SpotifyOAuthService } from "./SpotifyOAuthService";
+import { YouTubeTrackSearchService } from "./YouTubeTrackSearchService";
 
 export class MusicPlaybackService {
     private readonly spotifyService: SpotifyOAuthService;
+    private readonly defaultVolume: number;
+    private readonly searchDebugEnabled: boolean;
+    private readonly youtubeSearchLimit: number;
+    private readonly youtubeSearchService: YouTubeTrackSearchService;
     private readonly guildStates = new Map<string, GuildPlayerState>();
     private allowedRoleIds: Set<string>;
+    private enforceRoleCheck: boolean = false;
 
     public constructor(spotifyService: SpotifyOAuthService) {
         this.spotifyService = spotifyService;
+        this.defaultVolume = this.parseDefaultVolume(process.env.MUSIC_DEFAULT_VOLUME_PERCENT);
+        this.searchDebugEnabled = (process.env.MUSIC_DEBUG_SEARCH ?? "true").toLowerCase() !== "false";
+        this.youtubeSearchLimit = this.parseYouTubeSearchLimit(process.env.MUSIC_YOUTUBE_SEARCH_LIMIT);
+        this.youtubeSearchService = new YouTubeTrackSearchService({
+            searchLimit: this.youtubeSearchLimit,
+            debugEnabled: this.searchDebugEnabled,
+            logger: (message) => this.logSearch(message)
+        });
         this.allowedRoleIds = new Set(
             (process.env.MUSIC_ROLE_IDS ?? process.env.MUSIC_ROLE_ID ?? "")
                 .split(",")
                 .map((value) => value.trim())
                 .filter((value) => value.length > 0)
         );
+        // Falls Rollen in Umgebungsvariablen konfiguriert, erzwinge die Prüfung
+        this.enforceRoleCheck = this.allowedRoleIds.size > 0;
     }
 
     public setAllowedRoleIds(roleIds: string[]): void {
         this.allowedRoleIds = new Set(roleIds.map((value) => value.trim()).filter((value) => value.length > 0));
+        // Markiere, dass die Rollenprüfung von jetzt an erzwungen wird
+        this.enforceRoleCheck = true;
     }
 
     public hasAccess(member: GuildMember): boolean {
-        if (this.allowedRoleIds.size === 0) {
-            return true;
+        // Wenn Rollenprüfung erzwungen ist, aber keine Rollen konfiguriert: Zugriff verweigern
+        if (this.enforceRoleCheck && this.allowedRoleIds.size === 0) {
+            return false;
         }
 
-        return [...this.allowedRoleIds].some((roleId) => member.roles.cache.has(roleId));
+        // Wenn Rollen konfiguriert, prüfe ob Nutzer eine hat
+        if (this.allowedRoleIds.size > 0) {
+            return [...this.allowedRoleIds].some((roleId) => member.roles.cache.has(roleId));
+        }
+
+        // Fallback: Erlauben wenn keine Rollenprüfung erzwungen
+        return true;
     }
 
     public async enqueue(interaction: ChatInputCommandInteraction, sourceInput: string): Promise<string> {
@@ -242,6 +235,10 @@ export class MusicPlaybackService {
                     { name: "Lautstärke", value: `${snapshot.volumePercent}%`, inline: true },
                     { name: "Queue", value: `${snapshot.queue.length} Titel`, inline: true }
                 );
+
+            if (snapshot.current.artworkUrl) {
+                embed.setThumbnail(snapshot.current.artworkUrl);
+            }
 
             if (snapshot.queue.length > 0) {
                 const preview = snapshot.queue.slice(0, 5).map((item, index) => `${index + 1}. ${item.sourceLabel}`).join("\n");
@@ -407,7 +404,7 @@ export class MusicPlaybackService {
             player,
             queue: [],
             history: [],
-            volume: 1
+            volume: this.defaultVolume
         };
 
         player.on("error", (error) => {
@@ -433,6 +430,10 @@ export class MusicPlaybackService {
         const state = this.guildStates.get(guildId);
         if (!state) {
             throw new Error("Guild-Player wurde nicht initialisiert.");
+        }
+
+        if (track.streamKind === "youtube") {
+            console.log(`[Music] YouTube-Quelle (${guildId}): ${track.sourceUrl}`);
         }
 
         this.killFfmpeg(state);
@@ -590,48 +591,41 @@ export class MusicPlaybackService {
     }
 
     private async resolveSource(discordUserId: string, sourceInput: string): Promise<ResolvedSource> {
+        this.logSearch(`resolveSource input=\"${sourceInput}\"`);
+
         if (this.spotifyService.isSpotifyTrackUrl(sourceInput)) {
-            try {
-                const playableTrack = await this.spotifyService.resolvePlayableTrack(discordUserId, sourceInput);
-                if (!playableTrack) {
-                    throw new Error("Ungültige Spotify Track-URL.");
-                }
-
-                return {
-                    streamKind: "ffmpeg",
-                    sourceUrl: playableTrack.sourceUrl,
-                    sourceLabel: `${playableTrack.title} - ${playableTrack.artists.join(", ")} (${playableTrack.spotifyUrl})`
-                };
+            this.logSearch("Input als Spotify-Track-URL erkannt.");
+            const metadata = await this.spotifyService.resolveTrackMetadata(discordUserId, sourceInput);
+            if (!metadata) {
+                throw new Error("Spotify-Track konnte nicht geladen werden.");
             }
-            catch {
-                const metadata = await this.spotifyService.resolveTrackMetadata(discordUserId, sourceInput);
-                if (!metadata) {
-                    throw new Error("Spotify-Track konnte nicht geladen werden.");
-                }
 
-                const fallback = await this.resolveYouTubeByQuery(this.buildYouTubeSearchQuery(metadata), metadata);
-                return {
-                    streamKind: "youtube",
-                    sourceUrl: fallback.url,
-                    sourceLabel: `${metadata.title} - ${metadata.artists.join(", ")} (YouTube Fallback)`
-                };
-            }
+            const fallback = await this.youtubeSearchService.resolveByQuery(`${metadata.artists.join(" ")} ${metadata.title}`, metadata, sourceInput);
+            return {
+                streamKind: "youtube",
+                sourceUrl: fallback.url,
+                sourceLabel: `${metadata.title} - ${metadata.artists.join(", ")}`,
+                artworkUrl: metadata.artworkUrl ?? fallback.thumbnailUrl
+            };
         }
 
         if (this.isYouTubeUrl(sourceInput)) {
-            const normalized = this.normalizeYouTubeUrl(sourceInput);
-            if (!normalized || play.yt_validate(normalized) !== "video") {
+            this.logSearch("Input als YouTube-URL erkannt.");
+            const normalized = this.youtubeSearchService.normalizeYouTubeUrl(sourceInput);
+            if (!normalized) {
                 throw new Error("YouTube-Link ist ungültig oder nicht direkt abspielbar.");
             }
 
             return {
                 streamKind: "youtube",
                 sourceUrl: normalized,
-                sourceLabel: normalized
+                sourceLabel: normalized,
+                artworkUrl: this.youtubeSearchService.getYouTubeThumbnailUrl(normalized)
             };
         }
 
         if (this.isHttpUrl(sourceInput)) {
+            this.logSearch("Input als direkte HTTP-Audioquelle erkannt.");
             return {
                 streamKind: "ffmpeg",
                 sourceUrl: sourceInput,
@@ -639,159 +633,32 @@ export class MusicPlaybackService {
             };
         }
 
+        this.logSearch("Versuche Spotify-Metadaten fuer Textsuche.");
         try {
-            const playableTrack = await this.spotifyService.searchPlayableTrack(discordUserId, sourceInput);
-            return {
-                streamKind: "ffmpeg",
-                sourceUrl: playableTrack.sourceUrl,
-                sourceLabel: `${playableTrack.title} - ${playableTrack.artists.join(", ")} (${playableTrack.spotifyUrl})`
-            };
-        }
-        catch {
-            try {
-                const metadata = await this.spotifyService.searchTrackMetadata(discordUserId, sourceInput);
-                if (metadata) {
-                    const fallback = await this.resolveYouTubeByQuery(this.buildYouTubeSearchQuery(metadata), metadata);
-                    return {
-                        streamKind: "youtube",
-                        sourceUrl: fallback.url,
-                        sourceLabel: `${metadata.title} - ${metadata.artists.join(", ")} (YouTube Fallback)`
-                    };
-                }
-            }
-            catch {
-                // Ignore and try direct YouTube search fallback.
-            }
-
-            const youtubeResult = await this.resolveYouTubeByQuery(sourceInput);
-            return {
-                streamKind: "youtube",
-                sourceUrl: youtubeResult.url,
-                sourceLabel: `${youtubeResult.title} (${youtubeResult.url})`
-            };
-        }
-    }
-
-    private async resolveYouTubeByQuery(query: string, expected?: SpotifyTrackMetadata): Promise<{ url: string; title: string }> {
-        const results = await play.search(query, {
-            source: {
-                youtube: "video"
-            },
-            limit: 10
-        });
-
-        const candidates: YouTubeCandidate[] = [];
-
-        for (const result of results) {
-            if (!result.url || result.live || result.private || result.upcoming) {
-                continue;
-            }
-
-            const normalized = this.normalizeYouTubeUrl(result.url);
-            if (!normalized || play.yt_validate(normalized) !== "video") {
-                continue;
-            }
-
-            candidates.push({
-                url: normalized,
-                title: result.title ?? normalized,
-                durationInSec: result.durationInSec,
-                channelName: result.channel?.name?.toLowerCase() ?? "",
-                channelVerified: result.channel?.verified ?? false
-            });
-        }
-
-        if (candidates.length === 0) {
-            throw new Error("Keine passende YouTube-Quelle gefunden.");
-        }
-
-        candidates.sort((a, b) => this.scoreYouTubeCandidate(b, expected) - this.scoreYouTubeCandidate(a, expected));
-
-        for (const candidate of candidates) {
-            try {
-                await play.video_basic_info(candidate.url);
+            const metadata = await this.spotifyService.searchTrackMetadata(discordUserId, sourceInput);
+            if (metadata) {
+                const fallback = await this.youtubeSearchService.resolveByQuery(`${metadata.artists.join(" ")} ${metadata.title}`, metadata, sourceInput);
                 return {
-                    url: candidate.url,
-                    title: candidate.title
+                    streamKind: "youtube",
+                    sourceUrl: fallback.url,
+                    sourceLabel: `${metadata.title} - ${metadata.artists.join(", ")}`,
+                    artworkUrl: metadata.artworkUrl ?? fallback.thumbnailUrl
                 };
             }
-            catch {
-                // Try next candidate.
-            }
+        }
+        catch {
+            // Ignore and try direct YouTube search fallback.
         }
 
-        throw new Error("Keine gültige YouTube-Quelle gefunden.");
-    }
+        this.logSearch("Starte direkte YouTube-Suche mit Original-Query.");
+        const youtubeResult = await this.youtubeSearchService.resolveByQuery(sourceInput, undefined, sourceInput);
 
-    private buildYouTubeSearchQuery(track: SpotifyTrackMetadata): string {
-        return `${track.artists.join(" ")} ${track.title} official audio`;
-    }
-
-    private scoreYouTubeCandidate(candidate: YouTubeCandidate, expected?: SpotifyTrackMetadata): number {
-        const title = candidate.title.toLowerCase();
-        const channel = candidate.channelName;
-        let score = 0;
-
-        if (title.includes("official audio")) {
-            score += 35;
-        }
-
-        if (channel.includes(" - topic") || channel.includes("topic")) {
-            score += 30;
-        }
-
-        if (channel.includes("vevo")) {
-            score += 10;
-        }
-
-        if (candidate.channelVerified) {
-            score += 6;
-        }
-
-        const positiveHints = ["audio", "provided to youtube", "album version"];
-        for (const hint of positiveHints) {
-            if (title.includes(hint)) {
-                score += 8;
-            }
-        }
-
-        const negativeHints = ["official video", "music video", "video", "mv", "live", "lyric", "lyrics", "reaction", "cover", "remix", "nightcore", "slowed", "reverb"];
-        for (const hint of negativeHints) {
-            if (title.includes(hint)) {
-                score -= 12;
-            }
-        }
-
-        if (expected) {
-            const expectedTitle = expected.title.toLowerCase();
-            if (title.includes(expectedTitle)) {
-                score += 24;
-            }
-
-            for (const artist of expected.artists) {
-                if (title.includes(artist.toLowerCase()) || channel.includes(artist.toLowerCase())) {
-                    score += 12;
-                }
-            }
-
-            if (candidate.durationInSec && expected.durationSec > 0) {
-                const diff = Math.abs(candidate.durationInSec - expected.durationSec);
-                if (diff <= 3) {
-                    score += 22;
-                }
-                else if (diff <= 8) {
-                    score += 14;
-                }
-                else if (diff <= 15) {
-                    score += 8;
-                }
-                else if (diff > 35) {
-                    score -= 10;
-                }
-            }
-        }
-
-        return score;
+        return {
+            streamKind: "youtube",
+            sourceUrl: youtubeResult.url,
+            sourceLabel: `${youtubeResult.title} (${youtubeResult.url})`,
+            artworkUrl: youtubeResult.thumbnailUrl
+        };
     }
 
     private isHttpUrl(value: string): boolean {
@@ -815,36 +682,30 @@ export class MusicPlaybackService {
         }
     }
 
-    private normalizeYouTubeUrl(value: string): string | null {
-        try {
-            const parsed = new URL(value);
-            const host = parsed.hostname.toLowerCase();
-
-            if (host.includes("youtu.be")) {
-                const videoId = parsed.pathname.split("/").filter(Boolean)[0];
-                if (!videoId) {
-                    return null;
-                }
-
-                return `https://www.youtube.com/watch?v=${videoId}`;
-            }
-
-            if (host.includes("youtube.com")) {
-                if (parsed.pathname === "/watch") {
-                    const videoId = parsed.searchParams.get("v");
-                    return videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
-                }
-
-                if (parsed.pathname.startsWith("/shorts/")) {
-                    const videoId = parsed.pathname.split("/").filter(Boolean)[1];
-                    return videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
-                }
-            }
-
-            return null;
+    private parseDefaultVolume(value: string | undefined): number {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) {
+            return 1;
         }
-        catch {
-            return null;
+
+        const clamped = Math.max(0, Math.min(100, parsed));
+        return clamped / 100;
+    }
+
+    private parseYouTubeSearchLimit(value: string | undefined): number {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) {
+            return 25;
         }
+
+        return Math.max(10, Math.min(100, Math.floor(parsed)));
+    }
+
+    private logSearch(message: string): void {
+        if (!this.searchDebugEnabled) {
+            return;
+        }
+
+        console.log(`[Music][Search] ${message}`);
     }
 }

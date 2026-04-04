@@ -27,6 +27,8 @@ Modularer Discord-Bot mit erweiterbarer Modul-Architektur.
    SPOTIFY_CLIENT_SECRET=dein_spotify_client_secret
    SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/spotify/callback
    MUSIC_ROLE_NAME=Music Bot
+   MUSIC_DEFAULT_VOLUME_PERCENT=70
+   MUSIC_YOUTUBE_SEARCH_LIMIT=25
    ```
 
    In deinem Spotify Developer Dashboard muss dieselbe Redirect URI eingetragen sein.
@@ -47,10 +49,10 @@ Dann im Discord-Channel:
 /join
 /music spotify-connect
 /music spotify-disconnect
-/music play source:https://example.com/audio.mp3
-/music play source:https://open.spotify.com/track/11dFghVXANMlKmJXsNCbNl
-/music play source:https://www.youtube.com/watch?v=dQw4w9WgXcQ
-/music play source:Linkin Park Numb
+/music play query:https://example.com/audio.mp3
+/music play query:https://open.spotify.com/track/11dFghVXANMlKmJXsNCbNl
+/music play query:https://www.youtube.com/watch?v=dQw4w9WgXcQ
+/music play query:Linkin Park Numb
 /music queue
 /music skip
 /music back
@@ -68,11 +70,11 @@ Pong! 🏓
 
 Bei `/join` joint der Bot deinen aktuellen Voice-Channel.
 Bei `/play` wird eine direkte MP3-URL, ein Spotify-Track-Link oder ein YouTube-Link abgespielt.
-Bei `/play source:<titel interpret>` sucht der Bot auf Spotify und spielt den ersten Treffer mit `preview_url` ab.
-Bei Spotify nutzt der Bot legal verfügbare `preview_url` Streams (kein Full-Track-Streaming).
-Wenn bei Spotify keine `preview_url` vorhanden ist, nutzt der Bot automatisch YouTube als Fallback-Quelle.
+Bei `/play query:<titel interpret>` nutzt der Bot Spotify für Metadaten und sucht dann eine passende YouTube-Quelle.
+Bei Spotify-Track-Links wird ebenfalls immer eine passende YouTube-Quelle verwendet (kein Playback über Spotify `preview_url`).
 Mit `/music player` wird ein Player-Panel im Chat mit Buttons für Zurück, Pause/Play und Skip angezeigt.
 Mit den `/music`-Subcommands steuerst du die Wiedergabe (`volume` = 0 bis 100).
+Bei `/music play query` bekommst du beim Tippen Spotify-Vorschläge und kannst den exakten Song direkt auswählen.
 
 ## Build + Start
 
@@ -91,3 +93,5 @@ npm start
 - Wenn du MP3/WAV/ähnliche Dateien abspielen willst, wird `ffmpeg-static` mitinstalliert.
 - Der Bot legt beim Start in der Ziel-Guild automatisch eine Rolle mit dem Namen aus `MUSIC_ROLE_NAME` an oder verwendet eine vorhandene Rolle gleichen Namens. Nur Mitglieder mit dieser Rolle können die Musikbefehle nutzen.
 - Dafür braucht der Bot in der Guild die Berechtigung `Manage Roles`.
+- Die Start-Lautstärke pro Guild-Player kommt aus `MUSIC_DEFAULT_VOLUME_PERCENT` (0 bis 100, Standard: 100).
+- Für YouTube-Suche werden standardmäßig 25 Treffer betrachtet (`MUSIC_YOUTUBE_SEARCH_LIMIT`, Bereich 10-100).

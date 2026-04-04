@@ -1,15 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-
-export type SpotifyTokenRecord = {
-    accessToken: string;
-    refreshToken?: string;
-    expiresAt: number;
-    scope?: string;
-    tokenType: string;
-    spotifyUserId?: string;
-    spotifyDisplayName?: string;
-};
+import type { SpotifyTokenRecord } from "../types/Spotify";
 
 type SpotifyTokenMap = Record<string, SpotifyTokenRecord>;
 

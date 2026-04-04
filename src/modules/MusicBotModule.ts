@@ -1,15 +1,12 @@
 import { Client, PermissionFlagsBits } from "discord.js";
+import type { MusicBotModuleOptions } from "../types/Discord";
 import { ICommand } from "../commands/interfaces/ICommand";
 import { MusicCommand } from "../commands/MusicCommand";
 import { MusicPlaybackService } from "../services/MusicPlaybackService";
+import { RoleService } from "../services/RoleService";
 import { SpotifyOAuthCallbackServer } from "../services/SpotifyOAuthCallbackServer";
 import { SpotifyOAuthService } from "../services/SpotifyOAuthService";
 import { IBotModule } from "./interfaces/IBotModule";
-
-type MusicBotModuleOptions = {
-    guildId?: string;
-    musicRoleName: string;
-};
 
 export class MusicBotModule implements IBotModule {
     public readonly name = "musicbot";
@@ -17,12 +14,14 @@ export class MusicBotModule implements IBotModule {
     private readonly musicRoleName: string;
     private readonly spotifyService: SpotifyOAuthService;
     private readonly playbackService: MusicPlaybackService;
+    private readonly roleService: RoleService;
 
     public constructor(options: MusicBotModuleOptions) {
         this.guildId = options.guildId;
         this.musicRoleName = options.musicRoleName;
         this.spotifyService = new SpotifyOAuthService();
         this.playbackService = new MusicPlaybackService(this.spotifyService);
+        this.roleService = new RoleService();
     }
 
     public getCommands(): ICommand[] {
@@ -50,24 +49,13 @@ export class MusicBotModule implements IBotModule {
             return;
         }
 
-        const guild = await client.guilds.fetch(this.guildId);
-        const me = guild.members.me ?? await guild.members.fetchMe();
-
-        if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) {
-            console.log("[MusicRole] Der Bot hat keine Berechtigung, Rollen zu verwalten. Bitte Manage Roles vergeben.");
-            return;
-        }
-
-        const existingRole = guild.roles.cache.find((role) => role.name === this.musicRoleName) ?? null;
-        const role = existingRole ?? await guild.roles.create({
+        const roleId = await RoleService.ensureRoleForGuild(client, this.guildId, {
             name: this.musicRoleName,
-            mentionable: false,
-            hoist: false,
             reason: "Automatisch angelegte Rolle fuer Musikbefehle"
         });
-
-        this.playbackService.setAllowedRoleIds([role.id]);
-        console.log(`[MusicRole] Rolle bereit: ${role.name} (${role.id})`);
+        if (roleId) {
+            this.playbackService.setAllowedRoleIds([roleId]);
+        }
     }
 
     public async handleButtonInteraction(customId: string, interaction: import("discord.js").ButtonInteraction): Promise<boolean> {

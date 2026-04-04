@@ -1,62 +1,26 @@
 import { createHash, randomBytes } from "node:crypto";
 import { resolve } from "node:path";
-import { SpotifyTokenRecord, SpotifyTokenStore } from "./SpotifyTokenStore";
-
-type SpotifyTokenResponse = {
-    access_token: string;
-    token_type: string;
-    scope?: string;
-    expires_in: number;
-    refresh_token?: string;
-};
-
-type SpotifyMeResponse = {
-    id: string;
-    display_name: string | null;
-};
-
-type SpotifyTrackResponse = {
-    name: string;
-    duration_ms: number;
-    preview_url: string | null;
-    external_urls: { spotify: string };
-    artists: Array<{ name: string }>;
-};
-
-type SpotifySearchTracksResponse = {
-    tracks: {
-        items: SpotifyTrackResponse[];
-    };
-};
-
-type PendingState = {
-    discordUserId: string;
-    expiresAt: number;
-};
-
-export type SpotifyPlayableTrack = {
-    sourceUrl: string;
-    spotifyUrl: string;
-    title: string;
-    artists: string[];
-};
-
-export type SpotifyTrackMetadata = {
-    spotifyUrl: string;
-    title: string;
-    artists: string[];
-    durationSec: number;
-    previewUrl: string | null;
-    searchQuery: string;
-};
+import type {
+    SpotifyTokenResponse,
+    SpotifyClientCredentialsTokenResponse,
+    SpotifyMeResponse,
+    SpotifyTrackResponse,
+    SpotifySearchTracksResponse,
+    SpotifyPlayableTrack,
+    SpotifyTrackMetadata,
+    PendingOAuthState,
+    SpotifyTokenRecord
+} from "../types/Spotify";
+import { SpotifyTokenStore } from "./SpotifyTokenStore";
 
 export class SpotifyOAuthService {
     private readonly clientId?: string;
     private readonly clientSecret?: string;
     private readonly redirectUri?: string;
     private readonly stateTtlMs = 10 * 60 * 1000;
-    private readonly pendingStates = new Map<string, PendingState>();
+    private readonly pendingStates = new Map<string, PendingOAuthState>();
     private readonly tokenStore: SpotifyTokenStore;
+    private appAccessTokenCache?: { accessToken: string; expiresAt: number };
 
     public constructor() {
         this.clientId = process.env.SPOTIFY_CLIENT_ID;
@@ -156,7 +120,8 @@ export class SpotifyOAuthService {
             sourceUrl: track.preview_url,
             spotifyUrl: track.external_urls.spotify,
             title: track.name,
-            artists: track.artists.map((artist) => artist.name)
+            artists: track.artists.map((artist) => artist.name),
+            artworkUrl: track.album.images[0]?.url
         };
     }
 
@@ -180,7 +145,8 @@ export class SpotifyOAuthService {
             sourceUrl: track.preview_url!,
             spotifyUrl: track.external_urls.spotify,
             title: track.name,
-            artists: track.artists.map((artist) => artist.name)
+            artists: track.artists.map((artist) => artist.name),
+            artworkUrl: track.album.images[0]?.url
         };
     }
 
@@ -222,6 +188,61 @@ export class SpotifyOAuthService {
         return this.extractTrackId(input) !== null;
     }
 
+    public async searchTrackSuggestions(query: string, limit = 10): Promise<Array<{ label: string; value: string }>> {
+        const trimmedQuery = query.trim();
+        if (trimmedQuery.length < 2) {
+            return [];
+        }
+
+        if (!this.clientId || !this.clientSecret) {
+            return [];
+        }
+
+        let accessToken: string;
+        try {
+            accessToken = await this.getAppAccessToken();
+        }
+        catch {
+            return [];
+        }
+
+        const url = new URL("https://api.spotify.com/v1/search");
+        url.searchParams.set("q", trimmedQuery);
+        url.searchParams.set("type", "track");
+        url.searchParams.set("limit", String(Math.max(1, Math.min(25, limit))));
+
+        const response = await fetch(url, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`
+            }
+        });
+
+        if (!response.ok) {
+            return [];
+        }
+
+        const body = await response.json() as SpotifySearchTracksResponse;
+        const seen = new Set<string>();
+
+        return body.tracks.items
+            .filter((item) => {
+                const key = item.external_urls.spotify;
+                if (seen.has(key)) {
+                    return false;
+                }
+
+                seen.add(key);
+                return true;
+            })
+            .map((item) => {
+                const artists = item.artists.map((artist) => artist.name).join(", ");
+                const label = this.limitChoiceText(`${item.name} - ${artists}`, 100);
+                const value = this.limitChoiceText(item.external_urls.spotify, 100);
+                return { label, value };
+            })
+            .slice(0, 25);
+    }
+
     private async getValidAccessToken(discordUserId: string): Promise<string | null> {
         const record = await this.tokenStore.get(discordUserId);
 
@@ -250,6 +271,21 @@ export class SpotifyOAuthService {
 
         await this.tokenStore.set(discordUserId, updatedRecord);
         return updatedRecord.accessToken;
+    }
+
+    private async getAppAccessToken(): Promise<string> {
+        const cached = this.appAccessTokenCache;
+        if (cached && cached.expiresAt > Date.now() + 30_000) {
+            return cached.accessToken;
+        }
+
+        const response = await this.fetchClientCredentialsToken();
+        this.appAccessTokenCache = {
+            accessToken: response.access_token,
+            expiresAt: Date.now() + response.expires_in * 1000
+        };
+
+        return response.access_token;
     }
 
     private extractTrackId(input: string): string | null {
@@ -324,6 +360,28 @@ export class SpotifyOAuthService {
         return await response.json() as SpotifyTokenResponse;
     }
 
+    private async fetchClientCredentialsToken(): Promise<SpotifyClientCredentialsTokenResponse> {
+        const body = new URLSearchParams({
+            grant_type: "client_credentials"
+        });
+
+        const response = await fetch("https://accounts.spotify.com/api/token", {
+            method: "POST",
+            headers: {
+                Authorization: this.makeBasicAuthHeader(),
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new Error(`Spotify Client-Credentials fehlgeschlagen (${response.status}): ${errorBody}`);
+        }
+
+        return await response.json() as SpotifyClientCredentialsTokenResponse;
+    }
+
     private async fetchSpotifyProfile(accessToken: string): Promise<SpotifyMeResponse> {
         const response = await fetch("https://api.spotify.com/v1/me", {
             headers: {
@@ -372,12 +430,120 @@ export class SpotifyOAuthService {
         }
 
         const body = await response.json() as SpotifySearchTracksResponse;
+        const items = allowNoPreview
+            ? body.tracks.items
+            : body.tracks.items.filter((item) => item.preview_url !== null);
 
-        if (allowNoPreview) {
-            return body.tracks.items[0] ?? null;
+        if (items.length === 0) {
+            return null;
         }
 
-        return body.tracks.items.find((item) => item.preview_url !== null) ?? null;
+        const ranked = items
+            .map((item) => ({ item, score: this.scoreSearchTrack(item, query) }))
+            .sort((a, b) => b.score - a.score);
+
+        return ranked[0]?.item ?? null;
+    }
+
+    private scoreSearchTrack(track: SpotifyTrackResponse, query: string): number {
+        const normalizedTrackTitle = this.normalizeText(track.name);
+        const trackArtists = track.artists.map((artist) => artist.name);
+        const normalizedArtists = trackArtists.map((artist) => this.normalizeText(artist));
+        const normalizedArtistJoined = normalizedArtists.join(" ");
+        const normalizedQuery = this.normalizeText(query);
+        let score = 0;
+
+        const pair = this.parseQueryPair(query);
+        if (pair) {
+            const left = this.normalizeText(pair.left);
+            const right = this.normalizeText(pair.right);
+
+            const titleHasLeft = normalizedTrackTitle.includes(left);
+            const titleHasRight = normalizedTrackTitle.includes(right);
+            const artistHasLeft = normalizedArtistJoined.includes(left);
+            const artistHasRight = normalizedArtistJoined.includes(right);
+
+            const orientationA = titleHasLeft && artistHasRight;
+            const orientationB = titleHasRight && artistHasLeft;
+
+            if (orientationA || orientationB) {
+                score += 220;
+            }
+            else {
+                // Require both parts at least somewhere in title+artists for hyphen/by queries.
+                if ((titleHasLeft || artistHasLeft) && (titleHasRight || artistHasRight)) {
+                    score += 80;
+                }
+                else {
+                    score -= 120;
+                }
+            }
+        }
+
+        if (normalizedTrackTitle === normalizedQuery) {
+            score += 120;
+        }
+        else if (normalizedTrackTitle.includes(normalizedQuery)) {
+            score += 70;
+        }
+
+        const queryTokens = this.getQueryTokens(query);
+        const titleTokenMatches = queryTokens.filter((token) => normalizedTrackTitle.includes(token)).length;
+        const artistTokenMatches = queryTokens.filter((token) => normalizedArtistJoined.includes(token)).length;
+
+        score += titleTokenMatches * 22;
+        score += artistTokenMatches * 18;
+
+        if (track.preview_url) {
+            score += 5;
+        }
+
+        return score;
+    }
+
+    private parseQueryPair(query: string): { left: string; right: string } | null {
+        const trimmed = query.trim();
+        if (!trimmed) {
+            return null;
+        }
+
+        const separators = [" - ", " – ", " — ", " by "];
+        const lowerTrimmed = trimmed.toLowerCase();
+
+        for (const separator of separators) {
+            const lowerSeparator = separator.toLowerCase();
+            const index = lowerTrimmed.indexOf(lowerSeparator);
+            if (index <= 0) {
+                continue;
+            }
+
+            const left = trimmed.slice(0, index).trim();
+            const right = trimmed.slice(index + separator.length).trim();
+            if (!left || !right) {
+                continue;
+            }
+
+            return { left, right };
+        }
+
+        return null;
+    }
+
+    private getQueryTokens(query: string): string[] {
+        return this.normalizeText(query)
+            .split(" ")
+            .map((token) => token.trim())
+            .filter((token) => token.length >= 2 && token !== "official" && token !== "offiziell");
+    }
+
+    private normalizeText(value: string): string {
+        return value
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9\s]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
     }
 
     private toTrackMetadata(track: SpotifyTrackResponse): SpotifyTrackMetadata {
@@ -388,13 +554,22 @@ export class SpotifyOAuthService {
             artists,
             durationSec: Math.floor(track.duration_ms / 1000),
             previewUrl: track.preview_url,
-            searchQuery: `${track.name} ${artists.join(" ")}`
+            searchQuery: `${track.name} ${artists.join(" ")}`,
+            artworkUrl: track.album.images[0]?.url
         };
     }
 
     private makeBasicAuthHeader(): string {
         const payload = `${this.clientId!}:${this.clientSecret!}`;
         return `Basic ${Buffer.from(payload, "utf-8").toString("base64")}`;
+    }
+
+    private limitChoiceText(value: string, maxLength: number): string {
+        if (value.length <= maxLength) {
+            return value;
+        }
+
+        return `${value.slice(0, maxLength - 1)}…`;
     }
 
     private cleanupPendingStates(): void {
