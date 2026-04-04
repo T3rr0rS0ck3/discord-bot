@@ -86,6 +86,35 @@ npm run build
 npm start
 ```
 
+## Docker (Linux base) + Docker Compose
+
+Container setup nutzt `node:22-bookworm-slim` (Linux) und speichert alle Laufzeitdaten weiterhin im Host-Ordner `data/`.
+
+Starten:
+
+```bash
+docker compose up -d --build
+```
+
+Logs anzeigen:
+
+```bash
+docker compose logs -f
+```
+
+Stoppen:
+
+```bash
+docker compose down
+```
+
+Wichtige Ports (in `docker-compose.yml`):
+
+- `8787:8787` Admin-UI
+- `3000:3000` Spotify OAuth Callback
+
+Hinweis: Wenn du den Admin-Port in der UI änderst, musst du das Port-Mapping in `docker-compose.yml` entsprechend anpassen.
+
 ## Admin-Webseite (Welcome-Konfiguration)
 
 Alle Einstellungen werden in SQLite gespeichert:

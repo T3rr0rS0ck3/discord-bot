@@ -49,8 +49,9 @@ export class AdminWebServer {
             console.error("[AdminUI] Serverfehler:", error);
         });
 
-        server.listen(this.options.port, "127.0.0.1", () => {
-            console.log(`[AdminUI] Aktiv auf http://127.0.0.1:${this.options.port}`);
+        const bindHost = (process.env.ADMIN_UI_HOST ?? "127.0.0.1").trim() || "127.0.0.1";
+        server.listen(this.options.port, bindHost, () => {
+            console.log(`[AdminUI] Aktiv auf http://${bindHost}:${this.options.port}`);
         });
     }
 
