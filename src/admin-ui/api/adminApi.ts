@@ -2,6 +2,7 @@ import type {
     AdminConfig,
     ChannelsResponse,
     EmojisResponse,
+    LogsResponse,
     LoginResponse,
     SaveResponse
 } from "../types";
@@ -45,5 +46,8 @@ export const adminApi = {
     },
     loadEmojis(): Promise<EmojisResponse> {
         return request<EmojisResponse>("/api/emojis");
+    },
+    loadLogs(): Promise<LogsResponse> {
+        return request<LogsResponse>("/api/logs");
     }
 };

@@ -1,13 +1,57 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import util from "node:util";
 import { AdminConfigStore, type AdminConfig } from "./admin/AdminConfigStore";
 import { AdminWebServer } from "./admin/AdminWebServer";
 import { DiscordBot } from "./bot/DiscordBot";
 import { BotModuleFactory } from "./modules/BotModuleFactory";
 import { IBotModule } from "./modules/interfaces/IBotModule";
 
+type RuntimeLogEntry = {
+    timestamp: number;
+    level: "log" | "info" | "warn" | "error";
+    message: string;
+};
+
+class RuntimeLogBuffer {
+    private readonly maxEntries: number;
+    private readonly entries: RuntimeLogEntry[] = [];
+
+    public constructor(maxEntries = 500) {
+        this.maxEntries = maxEntries;
+    }
+
+    public push(level: RuntimeLogEntry["level"], args: unknown[]): void {
+        const message = args
+            .map((arg) => {
+                if (typeof arg === "string") {
+                    return arg;
+                }
+                return util.inspect(arg, { depth: 4, colors: false, breakLength: 120 });
+            })
+            .join(" ");
+
+        this.entries.push({
+            timestamp: Date.now(),
+            level,
+            message
+        });
+
+        if (this.entries.length > this.maxEntries) {
+            this.entries.splice(0, this.entries.length - this.maxEntries);
+        }
+    }
+
+    public getAll(): RuntimeLogEntry[] {
+        return [...this.entries];
+    }
+}
+
 export class Startup {
     public static async Start(): Promise<void> {
+        const runtimeLogBuffer = new RuntimeLogBuffer(700);
+        this.attachConsoleMirror(runtimeLogBuffer);
+
         const sqlitePath = path.resolve(process.cwd(), "data", "bot-config.sqlite");
         const legacyEnvValues = await this.readLegacyEnv(path.resolve(process.cwd(), ".env"));
         const defaultConfig: AdminConfig = {
@@ -118,6 +162,7 @@ export class Startup {
                 token: runtimeAdminConfig.adminUiToken
             }),
             getConfig: () => runtimeAdminConfig,
+            getLogs: () => runtimeLogBuffer.getAll(),
             restartBot: async () => {
                 await startOrRestartBot();
                 console.log("[AdminUI] Bot wurde neu gestartet.");
@@ -266,6 +311,33 @@ export class Startup {
             console.error("[Welcome] Fehler beim Parsen von WELCOME_ROLES:", error);
             return undefined;
         }
+    }
+
+    private static attachConsoleMirror(buffer: RuntimeLogBuffer): void {
+        const originalLog = console.log;
+        const originalInfo = console.info;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        console.log = ((...args: unknown[]) => {
+            buffer.push("log", args);
+            originalLog(...args);
+        }) as typeof console.log;
+
+        console.info = ((...args: unknown[]) => {
+            buffer.push("info", args);
+            originalInfo(...args);
+        }) as typeof console.info;
+
+        console.warn = ((...args: unknown[]) => {
+            buffer.push("warn", args);
+            originalWarn(...args);
+        }) as typeof console.warn;
+
+        console.error = ((...args: unknown[]) => {
+            buffer.push("error", args);
+            originalError(...args);
+        }) as typeof console.error;
     }
 }
 

@@ -5,6 +5,7 @@ import type {
     AuthState,
     ChannelOption,
     EmojiOption,
+    LogEntry,
     RestartRelevantState,
     RoleConfig,
     StatusState
@@ -32,6 +33,7 @@ export function useAdminApp(initialAuth: AuthState) {
 
     const [channels, setChannels] = useState<ChannelOption[]>([]);
     const [emojis, setEmojis] = useState<EmojiOption[]>([]);
+    const [logs, setLogs] = useState<LogEntry[]>([]);
 
     const changedRestartLabels = useMemo(() => {
         if (!config || !restartBaseline) {
@@ -90,6 +92,7 @@ export function useAdminApp(initialAuth: AuthState) {
             setConfig(null);
             setInitialSnapshot("");
             setRestartBaseline(null);
+            setLogs([]);
             return;
         }
 
@@ -101,6 +104,35 @@ export function useAdminApp(initialAuth: AuthState) {
                 setStatus({ text: message, color: "#fca5a5" });
             }
         })();
+    }, [auth.authenticated]);
+
+    useEffect(() => {
+        if (!auth.authenticated) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadLogs = async () => {
+            try {
+                const result = await adminApi.loadLogs();
+                if (!cancelled) {
+                    setLogs(Array.isArray(result.logs) ? result.logs : []);
+                }
+            } catch {
+                // Keep UI responsive even if logs endpoint is temporarily unavailable.
+            }
+        };
+
+        void loadLogs();
+        const timer = setInterval(() => {
+            void loadLogs();
+        }, 2000);
+
+        return () => {
+            cancelled = true;
+            clearInterval(timer);
+        };
     }, [auth.authenticated]);
 
     async function login(): Promise<void> {
@@ -119,6 +151,9 @@ export function useAdminApp(initialAuth: AuthState) {
             await adminApi.logout();
             setAuth({ authenticated: false, username: null });
             setStatus({ text: "", color: "#86efac" });
+            setLoginStatus({ text: "", color: "#fca5a5" });
+            setLoginUsername("");
+            setLoginToken("");
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             setStatus({ text: message, color: "#fca5a5" });
@@ -264,6 +299,7 @@ export function useAdminApp(initialAuth: AuthState) {
         busyText,
         channels,
         emojis,
+        logs,
         restartHintText,
         hasPendingRestart,
         saveDisabled,

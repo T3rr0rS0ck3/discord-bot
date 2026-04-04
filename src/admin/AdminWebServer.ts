@@ -8,6 +8,7 @@ type AdminWebServerOptions = {
     port: number;
     getAuthConfig: () => { username: string; token: string };
     getConfig: () => AdminConfig;
+    getLogs: () => Array<{ timestamp: number; level: string; message: string }>;
     saveConfig: (config: AdminConfig) => Promise<void>;
     restartBot: () => Promise<void>;
     getServerEmojis: () => Promise<Array<{ value: string; label: string }>>;
@@ -83,7 +84,7 @@ export class AdminWebServer {
             const auth = this.options.getAuthConfig();
 
             if (username !== auth.username || token !== auth.token) {
-                this.sendJson(res, 401, { error: "Ungueltige Zugangsdaten" });
+                this.sendJson(res, 401, { error: "Invalid credentials" });
                 return;
             }
 
@@ -145,6 +146,12 @@ export class AdminWebServer {
 
         if (req.method === "GET" && url.pathname === "/api/config") {
             this.sendJson(res, 200, this.options.getConfig());
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/logs") {
+            const logs = this.options.getLogs();
+            this.sendJson(res, 200, { logs: logs.slice(-300) });
             return;
         }
 
@@ -605,6 +612,82 @@ export class AdminWebServer {
         .icon-only { width:38px; height:38px; justify-content:center; padding:0; }
         .status { margin-top:10px; min-height:20px; }
         .muted { color:var(--muted); font-size:12px; }
+        .log-panel {
+            margin-top:16px;
+            border:1px solid #2f3d67;
+            border-radius:12px;
+            background:#090f20;
+            overflow:hidden;
+        }
+        .log-panel-head {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            padding:10px 12px;
+            border-bottom:1px solid #2f3d67;
+            color:#c7d0eb;
+            font-size:12px;
+            text-transform:uppercase;
+            letter-spacing:.4px;
+        }
+        .log-body {
+            max-height:280px;
+            overflow:auto;
+            font-family: Consolas, "Courier New", monospace;
+            font-size:12px;
+            line-height:1.45;
+            padding:8px 12px;
+            white-space:pre-wrap;
+            color:#d5ddf5;
+            scrollbar-width: thin;
+            scrollbar-color: #55649a #0b1225;
+        }
+        .log-body::-webkit-scrollbar { width: 10px; }
+        .log-body::-webkit-scrollbar-track {
+            background:#0b1225;
+            border-left:1px solid rgba(92,110,164,.22);
+            border-radius:8px;
+        }
+        .log-body::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #4c5d96, #3a4673);
+            border:1px solid rgba(131,151,214,.35);
+            border-radius:8px;
+        }
+        .log-body::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #655fc6, #4d469e);
+            border-color: rgba(178,145,255,.55);
+        }
+        .log-line { padding:2px 0; border-bottom:1px dashed rgba(120,136,184,.16); }
+        .log-line:last-child { border-bottom:none; }
+        .log-level { display:inline-block; min-width:52px; font-weight:700; }
+        .log-level.log, .log-level.info { color:#b7c3ea; }
+        .log-level.warn { color:#f3d077; }
+        .log-level.error { color:#f49ab4; }
+        .region {
+            border:1px solid #2f3d67;
+            border-radius:12px;
+            background:#0a1123;
+            margin-top:12px;
+            overflow:hidden;
+        }
+        .region-summary {
+            cursor:pointer;
+            user-select:none;
+            list-style:none;
+            padding:10px 12px;
+            color:#d7def4;
+            font-weight:700;
+            border-bottom:1px solid rgba(120,136,184,.22);
+        }
+        .region-summary::-webkit-details-marker { display:none; }
+        .region-summary::after {
+            content:"▾";
+            float:right;
+            color:#93a2c9;
+            transition:transform .2s ease;
+        }
+        .region:not([open]) .region-summary::after { transform:rotate(-90deg); }
+        .region-content { padding:10px 12px 12px; }
     .loading-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,.82); border-radius:14px; z-index:20; }
     .loading-overlay.active { display:flex; }
     .loading-box { display:flex; flex-direction:column; align-items:center; gap:10px; color:#e5e7eb; }

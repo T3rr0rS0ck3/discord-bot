@@ -36,6 +36,7 @@ function App(): React.JSX.Element {
             busyText={state.busyText}
             channels={state.channels}
             emojis={state.emojis}
+            logs={state.logs}
             restartHintText={state.restartHintText}
             hasPendingRestart={state.hasPendingRestart}
             saveDisabled={state.saveDisabled}

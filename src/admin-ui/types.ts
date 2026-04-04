@@ -70,3 +70,13 @@ export type ChannelsResponse = {
 export type EmojisResponse = {
     emojis: EmojiOption[];
 };
+
+export type LogEntry = {
+    timestamp: number;
+    level: string;
+    message: string;
+};
+
+export type LogsResponse = {
+    logs: LogEntry[];
+};

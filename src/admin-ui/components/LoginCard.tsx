@@ -51,7 +51,7 @@ export function LoginCard(props: LoginCardProps): React.JSX.Element {
                             value={props.token}
                             onChange={(event) => props.onTokenChange(event.target.value)}
                         />
-                        <button className="save" type="submit">
+                        <button className="save" type="submit" style={{ marginTop: "10px" }}>
                             Sign in
                         </button>
                         <div className="status" style={{ color: props.loginStatus.color }}>

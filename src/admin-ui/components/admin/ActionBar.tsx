@@ -9,7 +9,7 @@ type ActionBarProps = {
 
 export function ActionBar(props: ActionBarProps): React.JSX.Element {
     return (
-        <>
+        <div style={{ marginTop: "14px" }}>
             <button className="save" disabled={props.saveDisabled} onClick={props.onSave}>
                 Save
             </button>
@@ -21,6 +21,6 @@ export function ActionBar(props: ActionBarProps): React.JSX.Element {
             >
                 Save and restart
             </button>
-        </>
+        </div>
     );
 }
