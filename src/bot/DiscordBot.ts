@@ -1,6 +1,7 @@
-import { Client, GatewayIntentBits, IntentsBitField } from "discord.js";
+import { Client, GatewayIntentBits, IntentsBitField, Partials } from "discord.js";
 import type { DiscordBotOptions } from "../types/Discord";
 import { ICommand } from "../commands/interfaces/ICommand";
+import { IBotModule } from "../modules/interfaces/IBotModule";
 
 export class DiscordBot {
     private readonly client: Client;
@@ -8,16 +9,25 @@ export class DiscordBot {
     private readonly guildId?: string;
     private readonly buttonHandler?: (customId: string, interaction: import("discord.js").ButtonInteraction) => Promise<boolean>;
     private readonly onReady?: (client: Client) => Promise<void> | void;
+    private readonly modules: IBotModule[] = [];
     private readonly commands = new Map<string, ICommand>();
 
-    public constructor(options: DiscordBotOptions) {
+    public constructor(options: DiscordBotOptions & { modules?: IBotModule[] }) {
         this.token = options.token;
         this.guildId = options.guildId;
         this.buttonHandler = options.buttonHandler;
         this.onReady = options.onReady;
+        this.modules = options.modules ?? [];
 
         this.client = new Client({
-            intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, IntentsBitField.Flags.GuildVoiceStates, IntentsBitField.Flags.Guilds]
+            intents: [
+                GatewayIntentBits.Guilds,
+                GatewayIntentBits.GuildVoiceStates,
+                GatewayIntentBits.GuildMessageReactions,
+                IntentsBitField.Flags.GuildVoiceStates,
+                IntentsBitField.Flags.Guilds
+            ],
+            partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.User, Partials.GuildMember]
         });
 
         for (const command of options.commands) {
@@ -123,6 +133,90 @@ export class DiscordBot {
                     content: "Beim Ausführen ist ein Fehler aufgetreten.",
                     ephemeral: true
                 });
+            }
+        });
+
+        // Message Reaction Add Event
+        this.client.on("messageReactionAdd", async (reaction, user) => {
+            if (user.partial) {
+                try {
+                    await user.fetch();
+                } catch (error) {
+                    console.error("[Welcome] Fehler beim Fetch von User:", error);
+                    return;
+                }
+            }
+
+            // Ignore bot reactions
+            if (user.bot) {
+                return;
+            }
+
+            // Ensure reaction is fully fetched
+            if (reaction.partial) {
+                try {
+                    await reaction.fetch();
+                } catch (error) {
+                    console.error("[Welcome] Fehler beim Fetch von Reaction:", error);
+                    return;
+                }
+            }
+
+            for (const module of this.modules) {
+                if (!module.handleMessageReactionAdd) {
+                    continue;
+                }
+
+                try {
+                    const handled = await module.handleMessageReactionAdd(reaction as any, user as any);
+                    if (handled) {
+                        return;
+                    }
+                } catch (error) {
+                    console.error(`[${module.name}] Fehler bei messageReactionAdd:`, error);
+                }
+            }
+        });
+
+        // Message Reaction Remove Event
+        this.client.on("messageReactionRemove", async (reaction, user) => {
+            if (user.partial) {
+                try {
+                    await user.fetch();
+                } catch (error) {
+                    console.error("[Welcome] Fehler beim Fetch von User:", error);
+                    return;
+                }
+            }
+
+            // Ignore bot reactions
+            if (user.bot) {
+                return;
+            }
+
+            // Ensure reaction is fully fetched
+            if (reaction.partial) {
+                try {
+                    await reaction.fetch();
+                } catch (error) {
+                    console.error("[Welcome] Fehler beim Fetch von Reaction:", error);
+                    return;
+                }
+            }
+
+            for (const module of this.modules) {
+                if (!module.handleMessageReactionRemove) {
+                    continue;
+                }
+
+                try {
+                    const handled = await module.handleMessageReactionRemove(reaction as any, user as any);
+                    if (handled) {
+                        return;
+                    }
+                } catch (error) {
+                    console.error(`[${module.name}] Fehler bei messageReactionRemove:`, error);
+                }
             }
         });
     }

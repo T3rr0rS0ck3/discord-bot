@@ -9,6 +9,8 @@ export class Startup {
         const token = process.env.DISCORD_TOKEN;
         const guildId = process.env.GUILD_ID;
         const musicRoleName = process.env.MUSIC_ROLE_NAME ?? "Music Bot";
+        const welcomeChannelId = process.env.WELCOME_CHANNEL_ID;
+        
         const spotifyService = {
             clientId: process.env.SPOTIFY_CLIENT_ID,
             clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
@@ -21,6 +23,9 @@ export class Startup {
             allowedRoleNames: [musicRoleName]
         };
 
+        // Welcome roles parsing
+        const welcomeRoles = this.parseWelcomeRoles(process.env.WELCOME_ROLES);
+
         if (!token) {
             throw new Error("DISCORD_TOKEN fehlt. Bitte in .env setzen.");
         }
@@ -29,7 +34,9 @@ export class Startup {
             guildId,
             musicRoleName,
             spotifyService,
-            musicPlayback
+            musicPlayback,
+            welcomeChannelId,
+            welcomeRoles
         });
 
         for (const module of modules) {
@@ -46,6 +53,7 @@ export class Startup {
             token,
             guildId,
             commands: commands,
+            modules: modules,
             onReady: async (client) => {
                 for (const module of modules) {
                     if (module.onReady) {
@@ -79,6 +87,29 @@ export class Startup {
 
         const parsed = Number(value);
         return Number.isFinite(parsed) ? parsed : undefined;
+    }
+
+    private static parseWelcomeRoles(rolesJson: string | undefined) {
+        if (!rolesJson) {
+            return undefined;
+        }
+
+        try {
+            const parsed = JSON.parse(rolesJson);
+            if (!Array.isArray(parsed)) {
+                console.warn("[Welcome] WELCOME_ROLES ist kein JSON-Array. Überspringe.");
+                return undefined;
+            }
+
+            return parsed.map((role: any) => ({
+                name: role.name ?? "",
+                emoji: role.emoji ?? "",
+                description: role.description ?? ""
+            }));
+        } catch (error) {
+            console.error("[Welcome] Fehler beim Parsen von WELCOME_ROLES:", error);
+            return undefined;
+        }
     }
 }
 

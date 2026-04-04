@@ -27,6 +27,8 @@ export type BotModuleFactoryOptions = {
     musicRoleName: string;
     spotifyService: SpotifyServiceOptions;
     musicPlayback: MusicPlaybackOptions;
+    welcomeChannelId?: string;
+    welcomeRoles?: WelcomeRoleOption[];
 };
 
 export type MusicBotModuleOptions = {
@@ -34,4 +36,21 @@ export type MusicBotModuleOptions = {
     musicRoleName: string;
     spotifyService: SpotifyServiceOptions;
     musicPlayback: MusicPlaybackOptions;
+};
+
+export type WelcomeRoleOption = {
+    name: string;
+    emoji: string;
+    description: string;
+};
+
+export type WelcomeModuleOptions = {
+    guildId?: string;
+    welcomeChannelId?: string;
+    roles: WelcomeRoleOption[];
+};
+
+export type BotModuleFactoryOptionsWithWelcome = BotModuleFactoryOptions & {
+    welcomeChannelId?: string;
+    welcomeRoles?: WelcomeRoleOption[];
 };
