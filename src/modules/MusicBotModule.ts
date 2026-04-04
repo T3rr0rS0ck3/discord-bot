@@ -14,6 +14,7 @@ export class MusicBotModule implements IBotModule {
     private readonly musicRoleName: string;
     private readonly spotifyService: SpotifyOAuthService;
     private readonly playbackService: MusicPlaybackService;
+    private callbackServer?: SpotifyOAuthCallbackServer;
 
     public constructor(options: MusicBotModuleOptions) {
         this.guildId = options.guildId;
@@ -40,9 +41,18 @@ export class MusicBotModule implements IBotModule {
             return;
         }
 
-        const callbackServer = new SpotifyOAuthCallbackServer(this.spotifyService, redirectUri);
-        callbackServer.start();
+        this.callbackServer = new SpotifyOAuthCallbackServer(this.spotifyService, redirectUri);
+        this.callbackServer.start();
         console.log(`[SpotifyOAuth] Konfiguriert (${this.spotifyService.getMaskedConfigFingerprint()}).`);
+    }
+
+    public async shutdown(): Promise<void> {
+        if (!this.callbackServer) {
+            return;
+        }
+
+        await this.callbackServer.stop();
+        this.callbackServer = undefined;
     }
 
     public async onReady(client: Client): Promise<void> {

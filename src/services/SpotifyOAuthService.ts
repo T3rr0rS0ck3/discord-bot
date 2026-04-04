@@ -32,7 +32,10 @@ export class SpotifyOAuthService {
         this.clientId = options.clientId;
         this.clientSecret = options.clientSecret;
         this.redirectUri = options.redirectUri;
-        this.tokenStore = new SpotifyTokenStore(resolve(process.cwd(), "data/spotify-tokens.json"));
+        this.tokenStore = new SpotifyTokenStore(
+            resolve(process.cwd(), "data/bot-config.sqlite"),
+            resolve(process.cwd(), "data/spotify-tokens.json")
+        );
     }
 
     public isConfigured(): boolean {

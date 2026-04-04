@@ -1,4 +1,11 @@
-import { AutocompleteInteraction, ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import {
+    ActionRowBuilder,
+    AutocompleteInteraction,
+    ButtonBuilder,
+    ButtonStyle,
+    ChatInputCommandInteraction,
+    SlashCommandBuilder
+} from "discord.js";
 import { MusicPlaybackService } from "../../services/MusicPlaybackService";
 import { SpotifyOAuthService } from "../../services/SpotifyOAuthService";
 import { ICommand } from "../interfaces/ICommand";
@@ -286,7 +293,18 @@ export class MusicCommand implements ICommand {
         }
 
         const url = this.spotifyService.createAuthorizationUrl(interaction.user.id);
-        await interaction.reply({ content: `Öffne diesen Link und bestätige den Zugriff: ${url}`, ephemeral: true });
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+                .setStyle(ButtonStyle.Link)
+                .setURL(url)
+                .setLabel("Open Spotify Connect")
+        );
+
+        await interaction.reply({
+            content: "Klicke den Button, um deinen Spotify-Account zu verbinden.",
+            components: [row],
+            ephemeral: true
+        });
     }
 
     private async handleSpotifyDisconnect(interaction: ChatInputCommandInteraction): Promise<void> {

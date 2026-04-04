@@ -18,23 +18,26 @@ Modularer Discord-Bot mit erweiterbarer Modul-Architektur.
    npm install
    ```
 
-2. `.env` erstellen und Werte eintragen:
+2. Bot in der Discord Developer Console:
+   - Bot auf deinen Server einladen
 
-   ```env
-   DISCORD_TOKEN=dein_bot_token_hier
-   GUILD_ID=deine_server_id_hier
-   SPOTIFY_CLIENT_ID=deine_spotify_client_id
-   SPOTIFY_CLIENT_SECRET=dein_spotify_client_secret
-   SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/spotify/callback
-   MUSIC_ROLE_NAME=Music Bot
-   MUSIC_DEFAULT_VOLUME_PERCENT=70
-   MUSIC_YOUTUBE_SEARCH_LIMIT=25
+3. Entwicklung starten:
+
+   ```bash
+   npm run dev
    ```
 
-   In deinem Spotify Developer Dashboard muss dieselbe Redirect URI eingetragen sein.
+4. Admin-Webseite öffnen und Konfiguration setzen:
 
-3. Bot in der Discord Developer Console:
-   - Bot auf deinen Server einladen
+   ```text
+   http://127.0.0.1:8787
+   ```
+
+   Standard-Login (wenn noch nichts konfiguriert):
+   - Benutzername: `admin`
+   - Token: `admin`
+
+   Dort kannst du alle Einstellungen setzen, inkl. `DISCORD_TOKEN`, `GUILD_ID`, Music/Spotify/Welcome und Admin-Login.
 
 ## Entwicklung starten
 
@@ -82,6 +85,18 @@ Bei `/music play query` bekommst du beim Tippen Spotify-Vorschläge und kannst d
 npm run build
 npm start
 ```
+
+## Admin-Webseite (Welcome-Konfiguration)
+
+Alle Einstellungen werden in SQLite gespeichert:
+
+- Datei: `data/bot-config.sqlite`
+- Kein `.env` mehr notwendig
+
+Hinweis zur Laufzeit:
+
+- Welcome-Änderungen werden live angewendet.
+- Discord Token, Guild ID und Admin UI Port/Login gelten nach Neustart.
 
 ## Hinweis
 

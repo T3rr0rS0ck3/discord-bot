@@ -41,6 +41,14 @@ export class DiscordBot {
         await this.client.login(this.token);
     }
 
+    public async stop(): Promise<void> {
+        this.client.destroy();
+    }
+
+    public getReadyClient(): Client | undefined {
+        return this.client.isReady() ? this.client : undefined;
+    }
+
     private registerEvents(): void {
         this.client.once("clientReady", async (readyClient) => {
             console.log(`Bot ist online als ${readyClient.user.tag}`);

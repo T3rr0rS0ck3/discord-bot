@@ -1,5 +1,5 @@
 import { Client, TextChannel, MessageReaction, User } from "discord.js";
-import type { WelcomeModuleOptions } from "../types/Discord";
+import type { WelcomeModuleOptions, WelcomeRoleOption } from "../types/Discord";
 import { ICommand } from "../commands/interfaces/ICommand";
 import { RoleService } from "../services/RoleService";
 import { WelcomeRoleAssignmentService } from "../services/WelcomeRoleAssignmentService";
@@ -8,8 +8,8 @@ import { IBotModule } from "./interfaces/IBotModule";
 export class WelcomeModule implements IBotModule {
     public readonly name = "welcome";
     private readonly guildId?: string;
-    private readonly welcomeChannelId?: string;
-    private readonly assignmentService: WelcomeRoleAssignmentService;
+    private welcomeChannelId?: string;
+    private assignmentService: WelcomeRoleAssignmentService;
 
     public constructor(options: WelcomeModuleOptions) {
         this.guildId = options.guildId;
@@ -36,6 +36,33 @@ export class WelcomeModule implements IBotModule {
     }
 
     public async onReady(client: Client): Promise<void> {
+        await this.syncWelcomeSetup(client);
+    }
+
+    public async applyRuntimeConfig(
+        config: { welcomeChannelId?: string; welcomeRoles?: WelcomeRoleOption[] },
+        client?: Client
+    ): Promise<void> {
+        this.welcomeChannelId = config.welcomeChannelId;
+
+        if (config.welcomeRoles) {
+            this.assignmentService = new WelcomeRoleAssignmentService(
+                config.welcomeRoles.map((role) => ({
+                    name: role.name,
+                    emoji: role.emoji,
+                    description: role.description
+                }))
+            );
+        }
+
+        console.log("[Welcome] Runtime-Konfiguration aktualisiert.");
+
+        if (client) {
+            await this.syncWelcomeSetup(client);
+        }
+    }
+
+    private async syncWelcomeSetup(client: Client): Promise<void> {
         if (!this.guildId || !this.welcomeChannelId) {
             return;
         }
@@ -66,15 +93,21 @@ export class WelcomeModule implements IBotModule {
                 (m) => m.author.id === client.user?.id && m.content.includes("Willkommen")
             );
 
-            if (existingWelcome) {
-                console.log("[Welcome] Welcome-Message existiert bereits.");
-                return;
-            }
-
-            // Send message ohne Buttons - nur Text und Reactions
-            const message = await textChannel.send({
+            const message = existingWelcome ?? await textChannel.send({
                 content: this.assignmentService.getWelcomeMessage()
             });
+
+            if (existingWelcome) {
+                await message.edit({
+                    content: this.assignmentService.getWelcomeMessage()
+                });
+                try {
+                    await message.reactions.removeAll();
+                } catch (error) {
+                    console.error("[Welcome] ✗ Fehler beim Entfernen alter Reactions:", error);
+                }
+                console.log("[Welcome] Welcome-Message aktualisiert.");
+            }
 
             // Pin die Welcome-Nachricht
             try {
@@ -148,7 +181,7 @@ export class WelcomeModule implements IBotModule {
             return false;
         }
 
-        const emoji = reaction.emoji.name;
+        const emoji = this.getReactionEmojiKey(reaction);
         if (!emoji) {
             return false;
         }
@@ -181,7 +214,7 @@ export class WelcomeModule implements IBotModule {
             return false;
         }
 
-        const emoji = reaction.emoji.name;
+        const emoji = this.getReactionEmojiKey(reaction);
         if (!emoji) {
             return false;
         }
@@ -206,11 +239,15 @@ export class WelcomeModule implements IBotModule {
         }
 
         // Check if emoji is one of our welcome emojis
-        const emoji = reaction.emoji.name;
+        const emoji = this.getReactionEmojiKey(reaction);
         if (!emoji) {
             return false;
         }
 
         return this.assignmentService.isValidEmoji(emoji);
+    }
+
+    private getReactionEmojiKey(reaction: MessageReaction): string | undefined {
+        return reaction.emoji.id ? reaction.emoji.toString() : reaction.emoji.name ?? undefined;
     }
 }

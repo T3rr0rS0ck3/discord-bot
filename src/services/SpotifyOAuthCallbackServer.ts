@@ -1,10 +1,11 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { SpotifyOAuthService } from "./SpotifyOAuthService";
 
 export class SpotifyOAuthCallbackServer {
     private readonly spotifyService: SpotifyOAuthService;
     private readonly redirectUri: string;
     private started = false;
+    private server?: Server;
 
     public constructor(spotifyService: SpotifyOAuthService, redirectUri: string) {
         this.spotifyService = spotifyService;
@@ -20,15 +21,37 @@ export class SpotifyOAuthCallbackServer {
         const port = Number(parsed.port || (parsed.protocol === "https:" ? "443" : "80"));
         const callbackPath = parsed.pathname;
 
-        const server = createServer(async (request, response) => {
+        this.server = createServer(async (request, response) => {
             await this.handleRequest(request, response, callbackPath);
         });
 
-        server.listen(port, parsed.hostname, () => {
+        this.server.on("error", (error: NodeJS.ErrnoException) => {
+            if (error.code === "EADDRINUSE") {
+                console.warn(`[SpotifyOAuth] Callback-Port ${port} ist bereits belegt. Bestehender Server wird weiterverwendet.`);
+                return;
+            }
+
+            console.error("[SpotifyOAuth] Callback-Server Fehler:", error);
+        });
+
+        this.server.listen(port, parsed.hostname, () => {
             console.log(`[SpotifyOAuth] Callback-Server aktiv auf ${parsed.origin}${callbackPath}`);
         });
 
         this.started = true;
+    }
+
+    public async stop(): Promise<void> {
+        if (!this.server) {
+            return;
+        }
+
+        await new Promise<void>((resolve) => {
+            this.server!.close(() => resolve());
+        });
+
+        this.server = undefined;
+        this.started = false;
     }
 
     private async handleRequest(request: IncomingMessage, response: ServerResponse, callbackPath: string): Promise<void> {
