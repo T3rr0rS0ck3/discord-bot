@@ -1,6 +1,9 @@
 # Discord Bot (Node.js + TypeScript)
 
-Minimales Grundgerüst für einen Discord-Bot mit `/ping`, `/join`, `/play`, `/player`, Queue-Controls und Spotify OAuth.
+Modularer Discord-Bot mit erweiterbarer Modul-Architektur.
+
+- `system`-Modul: `/ping`, `/join`
+- `musicbot`-Modul: `/music` inkl. Player, Queue, Volume und Spotify OAuth
 
 ## Voraussetzungen
 
