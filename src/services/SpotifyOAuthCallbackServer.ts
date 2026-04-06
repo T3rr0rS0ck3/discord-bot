@@ -18,7 +18,8 @@ export class SpotifyOAuthCallbackServer {
         }
 
         const parsed = new URL(this.redirectUri);
-        const port = Number(parsed.port || (parsed.protocol === "https:" ? "443" : "80"));
+        const defaultCallbackPort = 3000;
+        const port = Number(parsed.port || String(defaultCallbackPort));
         const callbackPath = parsed.pathname;
         const bindHost = "0.0.0.0";
 
