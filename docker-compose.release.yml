@@ -13,7 +13,7 @@ services:
       - ADMIN_UI_HOST=0.0.0.0
 
   sqlite-web:
-    image: coleifer/sqlite-web:latest
+    image: python:3.12-slim
     container_name: discord-bot-sqlite-web
     restart: unless-stopped
     depends_on:
@@ -21,12 +21,9 @@ services:
     volumes:
       - discord-bot-data:/data:ro
     command:
-      - sqlite_web
-      - /data/bot-config.sqlite
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
+      - sh
+      - -c
+      - pip install --no-cache-dir sqlite-web && sqlite_web /data/bot-config.sqlite --host 0.0.0.0 --port 8080
 
 volumes:
   discord-bot-data:
