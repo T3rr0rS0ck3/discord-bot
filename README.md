@@ -90,10 +90,27 @@ npm start
 
 Container setup nutzt `node:22-bookworm-slim` (Linux) und speichert alle Laufzeitdaten weiterhin im Host-Ordner `data/`.
 
+Es gibt zwei Compose-Varianten:
+
+- `docker-compose.yml`: Build-basiert (nutzt lokales `Dockerfile`)
+- `docker-compose.release.yml`: Image-basiert (nutzt fertiges Image, kein lokaler Build)
+
 Starten:
 
 ```bash
 docker compose up -d --build
+```
+
+Release-Compose mit fertigem Image starten:
+
+```bash
+docker compose -f docker-compose.release.yml up -d
+```
+
+Optional ein bestimmtes Tag/Image setzen (z. B. nach `docker load` aus dem Release-Archiv):
+
+```bash
+DISCORD_BOT_IMAGE=ghcr.io/t3rr0rs0ck3/discord-bot:1.0.0 docker compose -f docker-compose.release.yml up -d
 ```
 
 Logs anzeigen:

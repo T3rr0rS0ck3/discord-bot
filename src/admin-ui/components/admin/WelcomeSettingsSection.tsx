@@ -85,7 +85,7 @@ function EmojiDropdown(props: EmojiDropdownProps): React.JSX.Element {
                     <input
                         className="emoji-search-input"
                         type="text"
-                        placeholder="Search in dropdown..."
+                        placeholder="Search emojis or names"
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
                         autoFocus
@@ -262,13 +262,13 @@ export function WelcomeSettingsSection(props: WelcomeSettingsSectionProps): Reac
                                 onChange={(value) => props.onUpdateRole(index, { emoji: value })}
                             />
                             <input
-                                placeholder="Role name"
+                                placeholder="Enter a role name"
                                 value={role.name}
                                 disabled={props.busy}
                                 onChange={(event) => props.onUpdateRole(index, { name: event.target.value })}
                             />
                             <input
-                                placeholder="Description"
+                                placeholder="Describe what this role is for"
                                 value={role.description}
                                 disabled={props.busy}
                                 onChange={(event) =>

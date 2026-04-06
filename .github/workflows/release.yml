@@ -21,7 +21,7 @@ jobs:
         id: vars
         run: |
           echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          echo "version=${GITHUB_REF_NAME#V}" >> "$GITHUB_OUTPUT"
+          echo "version=${GITHUB_REF_NAME#V}" | sed 's/^version=v/version=/' >> "$GITHUB_OUTPUT"
 
       - name: Resolve image name
         id: image
@@ -67,6 +67,7 @@ jobs:
         run: |
           zip -r "discord-bot-v${APP_VERSION}.zip" \
             "discord-bot-image-v${APP_VERSION}.tar.gz" \
+            docker-compose.release.yml \
             docker-compose.yml \
             README.md
 

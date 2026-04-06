@@ -17,7 +17,7 @@ export function SpotifySettingsSection(props: SpotifySettingsSectionProps): Reac
             <label>Spotify Client ID</label>
             <input
                 type="text"
-                placeholder="spotify client id"
+                placeholder="Paste the Spotify app client ID"
                 value={config.spotifyClientId ?? ""}
                 disabled={busy}
                 onChange={(event) => onUpdateConfig("spotifyClientId", event.target.value)}
@@ -25,7 +25,7 @@ export function SpotifySettingsSection(props: SpotifySettingsSectionProps): Reac
             <label>Spotify Client Secret</label>
             <input
                 type="password"
-                placeholder="spotify client secret"
+                placeholder="Paste the Spotify app client secret"
                 value={config.spotifyClientSecret ?? ""}
                 disabled={busy}
                 onChange={(event) => onUpdateConfig("spotifyClientSecret", event.target.value)}
@@ -33,7 +33,7 @@ export function SpotifySettingsSection(props: SpotifySettingsSectionProps): Reac
             <label>Spotify Redirect URI</label>
             <input
                 type="text"
-                placeholder="http://127.0.0.1:3000/spotify/callback"
+                placeholder="Enter the OAuth callback URL"
                 value={config.spotifyRedirectUri ?? ""}
                 disabled={busy}
                 onChange={(event) => onUpdateConfig("spotifyRedirectUri", event.target.value)}

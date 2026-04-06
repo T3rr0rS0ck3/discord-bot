@@ -40,14 +40,14 @@ export function LoginCard(props: LoginCardProps): React.JSX.Element {
                         <label>Username</label>
                         <input
                             type="text"
-                            placeholder="Username"
+                            placeholder="Enter your admin username"
                             value={props.username}
                             onChange={(event) => props.onUsernameChange(event.target.value)}
                         />
                         <label>Password</label>
                         <input
                             type="password"
-                            placeholder="Password"
+                            placeholder="Enter your admin password"
                             value={props.token}
                             onChange={(event) => props.onTokenChange(event.target.value)}
                         />

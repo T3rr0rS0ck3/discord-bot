@@ -17,7 +17,7 @@ export function MusicSettingsSection(props: MusicSettingsSectionProps): React.JS
             <label>Music Role Name</label>
             <input
                 type="text"
-                placeholder="Music Bot"
+                placeholder="Enter the role name for music access"
                 value={config.musicRoleName}
                 disabled={busy}
                 onChange={(event) => onUpdateConfig("musicRoleName", event.target.value)}
@@ -30,7 +30,7 @@ export function MusicSettingsSection(props: MusicSettingsSectionProps): React.JS
                         type="number"
                         min={0}
                         max={100}
-                        placeholder="70"
+                        placeholder="Choose a default volume level"
                         value={
                             config.musicDefaultVolumePercent === undefined ||
                             Number.isNaN(config.musicDefaultVolumePercent)
@@ -50,7 +50,7 @@ export function MusicSettingsSection(props: MusicSettingsSectionProps): React.JS
                         type="number"
                         min={1}
                         max={200}
-                        placeholder="50"
+                        placeholder="Set the YouTube search result limit"
                         value={
                             config.musicYoutubeSearchLimit === undefined ||
                             Number.isNaN(config.musicYoutubeSearchLimit)

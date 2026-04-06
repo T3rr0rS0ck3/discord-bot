@@ -19,7 +19,7 @@ export function CoreSettingsSection(props: CoreSettingsSectionProps): React.JSX.
                     <label>Discord Token</label>
                     <input
                         type="password"
-                        placeholder="Discord Bot Token"
+                        placeholder="Paste your bot token here"
                         value={config.discordToken}
                         disabled={busy}
                         onChange={(event) => onUpdateConfig("discordToken", event.target.value)}
@@ -29,7 +29,7 @@ export function CoreSettingsSection(props: CoreSettingsSectionProps): React.JSX.
                     <label>Guild ID</label>
                     <input
                         type="text"
-                        placeholder="123456789012345678"
+                        placeholder="Enter the Discord server ID (optional)"
                         value={config.guildId ?? ""}
                         disabled={busy}
                         onChange={(event) => onUpdateConfig("guildId", event.target.value)}
@@ -42,7 +42,7 @@ export function CoreSettingsSection(props: CoreSettingsSectionProps): React.JSX.
                     <label>Admin Username</label>
                     <input
                         type="text"
-                        placeholder="Username"
+                        placeholder="Choose the admin login name"
                         value={config.adminUiUsername}
                         disabled={busy}
                         onChange={(event) => onUpdateConfig("adminUiUsername", event.target.value)}
@@ -52,7 +52,7 @@ export function CoreSettingsSection(props: CoreSettingsSectionProps): React.JSX.
                     <label>Admin Password</label>
                     <input
                         type="password"
-                        placeholder="Password"
+                        placeholder="Choose a secure admin password"
                         value={config.adminUiToken}
                         disabled={busy}
                         onChange={(event) => onUpdateConfig("adminUiToken", event.target.value)}
@@ -65,7 +65,7 @@ export function CoreSettingsSection(props: CoreSettingsSectionProps): React.JSX.
                 type="number"
                 min={1}
                 max={65535}
-                placeholder="8787"
+                placeholder="Enter the UI port"
                 value={Number.isNaN(config.adminUiPort) ? "" : String(config.adminUiPort)}
                 disabled={busy}
                 onChange={(event) => {
