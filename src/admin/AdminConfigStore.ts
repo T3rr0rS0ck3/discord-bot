@@ -51,7 +51,7 @@ export class AdminConfigStore {
             await this.db!.run(
                 "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
                 key,
-                JSON.stringify(value)
+                this.serializeForDb(value)
             );
         }
 
@@ -86,7 +86,7 @@ export class AdminConfigStore {
             await this.db!.run(
                 "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 key,
-                JSON.stringify(value)
+                this.serializeForDb(value)
             );
         }
 
@@ -161,6 +161,11 @@ export class AdminConfigStore {
         }
 
         return num;
+    }
+
+    private serializeForDb(value: unknown): string {
+        const serialized = JSON.stringify(value);
+        return serialized === undefined ? "null" : serialized;
     }
 
     private async ensureDb(): Promise<void> {
