@@ -58,6 +58,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
 
       - name: Export Docker image archive
         env:
@@ -65,8 +69,8 @@ jobs:
           IMAGE_NAME: ${{ steps.image.outputs.name }}
         run: |
           IMAGE_REF="${IMAGE_NAME}:${APP_VERSION}"
-          docker pull "$IMAGE_REF"
-          docker save "$IMAGE_REF" | gzip > "discord-bot-image-v${APP_VERSION}.tar.gz"
+          docker pull --platform linux/amd64 "$IMAGE_REF"
+          docker save "$IMAGE_REF" | gzip -1 > "discord-bot-image-v${APP_VERSION}.tar.gz"
 
       - name: Create release archive
         env:
