@@ -20,6 +20,7 @@ export class SpotifyOAuthCallbackServer {
         const parsed = new URL(this.redirectUri);
         const port = Number(parsed.port || (parsed.protocol === "https:" ? "443" : "80"));
         const callbackPath = parsed.pathname;
+        const bindHost = "0.0.0.0";
 
         this.server = createServer(async (request, response) => {
             await this.handleRequest(request, response, callbackPath);
@@ -34,8 +35,10 @@ export class SpotifyOAuthCallbackServer {
             console.error("[SpotifyOAuth] Callback server error:", error);
         });
 
-        this.server.listen(port, parsed.hostname, () => {
-            console.log(`[SpotifyOAuth] Callback server listening at ${parsed.origin}${callbackPath}`);
+        this.server.listen(port, bindHost, () => {
+            console.log(
+                `[SpotifyOAuth] Callback server listening on ${bindHost}:${port} (public callback URL: ${parsed.origin}${callbackPath})`
+            );
         });
 
         this.started = true;
