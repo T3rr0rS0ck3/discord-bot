@@ -251,7 +251,13 @@ export class AdminWebServer {
         const upstreamPath = url.pathname.replace(/^\/admin\/sqlite/, "") || "/";
         const upstreamUrl = new URL(`${upstreamPath}${url.search}`, "http://sqlite-web:8080");
         const headers = { ...req.headers };
-        delete headers.host;
+        const forwardedHost = String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "").trim();
+        const forwardedProto = String(req.headers["x-forwarded-proto"] ?? "http").trim() || "http";
+        if (forwardedHost.length > 0) {
+            headers["x-forwarded-host"] = forwardedHost;
+        }
+        headers["x-forwarded-proto"] = forwardedProto;
+        headers["x-forwarded-prefix"] = "/admin/sqlite";
         delete headers["accept-encoding"];
 
         await new Promise<void>((resolve) => {
@@ -264,9 +270,16 @@ export class AdminWebServer {
                 (proxyRes) => {
                     const contentType = String(proxyRes.headers["content-type"] ?? "");
                     const isHtml = contentType.includes("text/html");
+                    const responseHeaders = { ...proxyRes.headers };
+                    const locationHeader = responseHeaders.location;
+
+                    if (locationHeader !== undefined) {
+                        const locationValue = Array.isArray(locationHeader) ? locationHeader[0] : locationHeader;
+                        responseHeaders.location = this.rewriteSqliteWebLocation(String(locationValue));
+                    }
 
                     if (!isHtml) {
-                        res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
+                        res.writeHead(proxyRes.statusCode ?? 502, responseHeaders);
                         proxyRes.pipe(res);
                         proxyRes.on("end", () => resolve());
                         return;
@@ -277,7 +290,6 @@ export class AdminWebServer {
                     proxyRes.on("end", () => {
                         const body = Buffer.concat(chunks).toString("utf8");
                         const rewrittenBody = this.rewriteSqliteWebHtml(body);
-                        const responseHeaders = { ...proxyRes.headers };
                         if (responseHeaders["content-length"] !== undefined) {
                             responseHeaders["content-length"] = Buffer.byteLength(rewrittenBody).toString();
                         }
@@ -305,6 +317,45 @@ export class AdminWebServer {
 
             req.pipe(proxyReq);
         });
+    }
+
+    private rewriteSqliteWebLocation(location: string): string {
+        const basePath = "/admin/sqlite";
+        const addPrefix = (inputPath: string): string => {
+            const normalized = inputPath.startsWith("/") ? inputPath : `/${inputPath}`;
+            if (normalized === basePath || normalized.startsWith(`${basePath}/`)) {
+                return normalized;
+            }
+
+            return `${basePath}${normalized}`;
+        };
+
+        if (!location) {
+            return location;
+        }
+
+        if (location.startsWith("http://") || location.startsWith("https://")) {
+            try {
+                const parsed = new URL(location);
+                const isInternalSqliteHost = parsed.hostname === "sqlite-web"
+                    || parsed.hostname === "localhost"
+                    || parsed.hostname === "127.0.0.1";
+
+                if (!isInternalSqliteHost) {
+                    return location;
+                }
+
+                return `${addPrefix(parsed.pathname)}${parsed.search}${parsed.hash}`;
+            } catch {
+                return location;
+            }
+        }
+
+        if (location.startsWith("/")) {
+            return addPrefix(location);
+        }
+
+        return addPrefix(location);
     }
 
     private rewriteSqliteWebHtml(html: string): string {
