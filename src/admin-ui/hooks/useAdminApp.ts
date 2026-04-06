@@ -65,6 +65,7 @@ export function useAdminApp(initialAuth: AuthState) {
         : "";
 
     const saveDisabled = busy || !config || !hasUnsavedChanges;
+    const restartDisabled = busy || !config;
     const saveAndRestartDisabled = busy || !config || (!hasUnsavedChanges && !hasPendingRestart);
 
     async function loadConfigAndMetadata(showLoadedStatus: boolean): Promise<void> {
@@ -275,6 +276,25 @@ export function useAdminApp(initialAuth: AuthState) {
         }
     }
 
+    async function restartOnly(): Promise<void> {
+        if (!config) {
+            return;
+        }
+
+        try {
+            setBusyText("Restarting bot...");
+            setBusy(true);
+            await adminApi.restart();
+            setRestartBaseline(toRestartRelevantState(config));
+            setStatus({ text: "Bot restarted.", color: "#86efac" });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setStatus({ text: message, color: "#fca5a5" });
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function saveAndRestart(): Promise<void> {
         try {
             setBusyText("Restarting bot...");
@@ -303,6 +323,7 @@ export function useAdminApp(initialAuth: AuthState) {
         restartHintText,
         hasPendingRestart,
         saveDisabled,
+        restartDisabled,
         saveAndRestartDisabled,
         setLoginUsername,
         setLoginToken,
@@ -314,6 +335,7 @@ export function useAdminApp(initialAuth: AuthState) {
         addRole,
         removeRole,
         saveOnly,
+        restartOnly,
         saveAndRestart
     };
 }

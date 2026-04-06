@@ -59,6 +59,7 @@ function App(): React.JSX.Element {
             restartHintText={state.restartHintText}
             hasPendingRestart={state.hasPendingRestart}
             saveDisabled={state.saveDisabled}
+            restartDisabled={state.restartDisabled}
             saveAndRestartDisabled={state.saveAndRestartDisabled}
             onRefreshChannelsAndEmojis={() => void state.refreshChannelsAndEmojis()}
             onUpdateConfig={state.updateConfig}
@@ -66,6 +67,7 @@ function App(): React.JSX.Element {
             onAddRole={state.addRole}
             onRemoveRole={state.removeRole}
             onSave={() => void state.saveOnly()}
+            onRestart={() => void state.restartOnly()}
             onSaveAndRestart={() => void state.saveAndRestart()}
             onLogout={() => void state.logout()}
                 onPageChange={setPage}

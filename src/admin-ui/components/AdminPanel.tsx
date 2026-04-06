@@ -34,6 +34,7 @@ type AdminPanelProps = {
     restartHintText: string;
     hasPendingRestart: boolean;
     saveDisabled: boolean;
+    restartDisabled: boolean;
     saveAndRestartDisabled: boolean;
     onRefreshChannelsAndEmojis: () => void;
     onUpdateConfig: <K extends keyof AdminConfig>(key: K, value: AdminConfig[K]) => void;
@@ -41,6 +42,7 @@ type AdminPanelProps = {
     onAddRole: () => void;
     onRemoveRole: (index: number) => void;
     onSave: () => void;
+    onRestart: () => void;
     onSaveAndRestart: () => void;
     onLogout: () => void;
     onPageChange: (page: "dashboard" | "sqlite") => void;
@@ -154,8 +156,10 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
 
                                     <ActionBar
                                         saveDisabled={props.saveDisabled}
+                                        restartDisabled={props.restartDisabled}
                                         saveAndRestartDisabled={props.saveAndRestartDisabled}
                                         onSave={props.onSave}
+                                        onRestart={props.onRestart}
                                         onSaveAndRestart={props.onSaveAndRestart}
                                     />
 
