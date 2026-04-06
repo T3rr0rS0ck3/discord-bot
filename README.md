@@ -93,7 +93,7 @@ Container setup nutzt `node:22-bookworm-slim` (Linux) und speichert alle Laufzei
 Es gibt zwei Compose-Varianten:
 
 - `docker-compose.yml`: Build-basiert (nutzt lokales `Dockerfile`)
-- `docker-compose.release.yml`: Image-basiert (nutzt fertiges Image, kein lokaler Build)
+- `docker-compose.release.yml`: Image-basiert, Portainer-freundlich (nutzt named volume, kein lokaler Build)
 
 Starten:
 
@@ -107,7 +107,11 @@ Release-Compose mit fertigem Image starten:
 docker compose -f docker-compose.release.yml up -d
 ```
 
+Das Release-Image in GHCR wird als Multi-Arch-Manifest veröffentlicht (`linux/amd64` + `linux/arm64`).
+
 Im Release-ZIP liegt die Image-basierte Compose-Datei als `docker-compose.yml`, damit du direkt nur mit dem Archiv arbeiten kannst.
+
+Hinweis: Das mitgelieferte `discord-bot-image-vX.Y.Z.tar.gz` wird im Workflow aus dem Runner-Image exportiert (typisch `amd64`). Für native ARM-Deployments daher am besten direkt aus GHCR pullen.
 
 Optional ein bestimmtes Tag/Image setzen (z. B. nach `docker load` aus dem Release-Archiv):
 

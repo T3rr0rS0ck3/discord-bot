@@ -7,7 +7,7 @@ services:
       - "8787:8787"
       - "3000:3000"
     volumes:
-      - ./data:/app/data
+      - discord-bot-data:/app/data
     environment:
       - NODE_ENV=production
       - ADMIN_UI_HOST=0.0.0.0
@@ -19,7 +19,7 @@ services:
     depends_on:
       - discord-bot
     volumes:
-      - ./data:/data:ro
+      - discord-bot-data:/data:ro
     command:
       - sqlite_web
       - /data/bot-config.sqlite
@@ -27,3 +27,6 @@ services:
       - 0.0.0.0
       - --port
       - "8080"
+
+volumes:
+  discord-bot-data:
