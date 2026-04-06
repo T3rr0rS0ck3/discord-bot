@@ -107,6 +107,8 @@ Release-Compose mit fertigem Image starten:
 docker compose -f docker-compose.release.yml up -d
 ```
 
+Im Release-ZIP liegt die Image-basierte Compose-Datei als `docker-compose.yml`, damit du direkt nur mit dem Archiv arbeiten kannst.
+
 Optional ein bestimmtes Tag/Image setzen (z. B. nach `docker load` aus dem Release-Archiv):
 
 ```bash
