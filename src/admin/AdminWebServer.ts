@@ -41,17 +41,17 @@ export class AdminWebServer {
         server.on("error", (error: NodeJS.ErrnoException) => {
             if (error.code === "EADDRINUSE") {
                 console.error(
-                    `[AdminUI] Port ${this.options.port} ist bereits belegt. Admin UI wurde nicht gestartet.`
+                    `[AdminUI] Port ${this.options.port} is already in use. Admin UI was not started.`
                 );
                 return;
             }
 
-            console.error("[AdminUI] Serverfehler:", error);
+            console.error("[AdminUI] Server error:", error);
         });
 
         const bindHost = (process.env.ADMIN_UI_HOST ?? "127.0.0.1").trim() || "127.0.0.1";
         server.listen(this.options.port, bindHost, () => {
-            console.log(`[AdminUI] Aktiv auf http://${bindHost}:${this.options.port}`);
+            console.log(`[AdminUI] Running at http://${bindHost}:${this.options.port}`);
         });
     }
 
@@ -223,7 +223,7 @@ export class AdminWebServer {
       const fields: Array<{ key: keyof AdminConfig; label: string }> = [
         { key: "discordToken", label: "Discord Token" },
         { key: "guildId", label: "Guild ID" },
-        { key: "musicRoleName", label: "Music Rolle" },
+                { key: "musicRoleName", label: "Music Role" },
         { key: "musicDefaultVolumePercent", label: "Music Default Volume" },
         { key: "musicDebugSearch", label: "Music Debug Search" },
         { key: "musicYoutubeSearchLimit", label: "Music YouTube Search Limit" },

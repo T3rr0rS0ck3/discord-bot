@@ -8,7 +8,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class ClearCommand implements ICommand {
     public readonly name = "clear";
-    public readonly description = "Loescht alle Nachrichten im aktuellen Channel";
+    public readonly description = "Delete all messages in the current channel";
 
     public readonly data = new SlashCommandBuilder()
         .setName(this.name)
@@ -18,32 +18,32 @@ export class ClearCommand implements ICommand {
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!interaction.inCachedGuild()) {
-            await interaction.reply({ content: "Dieser Command geht nur auf einem Server.", ephemeral: true });
+            await interaction.reply({ content: "This command can only be used in a server.", ephemeral: true });
             return;
         }
 
         const channel = interaction.channel;
         if (!channel || !channel.isTextBased() || !("messages" in channel)) {
-            await interaction.reply({ content: "Dieser Channel unterstuetzt keine Nachrichten-Loeschung.", ephemeral: true });
+            await interaction.reply({ content: "This channel does not support message deletion.", ephemeral: true });
             return;
         }
 
         const memberPerms = interaction.member.permissions;
         if (!memberPerms.has(PermissionFlagsBits.ManageMessages)) {
-            await interaction.reply({ content: "Du brauchst die Berechtigung 'Manage Messages'.", ephemeral: true });
+            await interaction.reply({ content: "You need the 'Manage Messages' permission.", ephemeral: true });
             return;
         }
 
         const botMember = interaction.guild.members.me;
         if (!botMember) {
-            await interaction.reply({ content: "Bot-Mitglied konnte nicht aufgeloest werden.", ephemeral: true });
+            await interaction.reply({ content: "Unable to resolve bot member.", ephemeral: true });
             return;
         }
 
         const botPerms = channel.permissionsFor(botMember);
         if (!botPerms?.has(PermissionFlagsBits.ManageMessages) || !botPerms.has(PermissionFlagsBits.ReadMessageHistory)) {
             await interaction.reply({
-                content: "Mir fehlen Rechte im Channel (Manage Messages + Read Message History).",
+                content: "I am missing channel permissions (Manage Messages + Read Message History).",
                 ephemeral: true
             });
             return;
@@ -73,6 +73,6 @@ export class ClearCommand implements ICommand {
             lastMessageId = batch.last()?.id;
         }
 
-        await interaction.editReply(`Fertig. ${deletedCount} Nachrichten wurden im aktuellen Channel geloescht.`);
+        await interaction.editReply(`Done. Deleted ${deletedCount} messages from the current channel.`);
     }
 }

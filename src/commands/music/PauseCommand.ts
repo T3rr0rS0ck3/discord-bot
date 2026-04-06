@@ -4,7 +4,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class PauseCommand implements ICommand {
     public readonly name = "pause";
-    public readonly description = "Pausiert die Wiedergabe";
+    public readonly description = "Pause playback";
     private readonly playbackService: MusicPlaybackService;
 
     public readonly data = new SlashCommandBuilder()
@@ -17,7 +17,7 @@ export class PauseCommand implements ICommand {
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!interaction.inCachedGuild()) {
-            await interaction.reply({ content: "Dieser Command geht nur auf einem Server.", ephemeral: true });
+            await interaction.reply({ content: "This command can only be used in a server.", ephemeral: true });
             return;
         }
 
@@ -31,6 +31,6 @@ export class PauseCommand implements ICommand {
             return;
         }
 
-        await interaction.editReply("Pausieren nicht möglich.");
+        await interaction.editReply("Unable to pause playback.");
     }
 }

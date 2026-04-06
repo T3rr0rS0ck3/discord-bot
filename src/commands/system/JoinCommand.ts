@@ -4,7 +4,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class JoinCommand implements ICommand {
     public readonly name = "join";
-    public readonly description = "Joint deinem aktuellen Voice-Channel";
+    public readonly description = "Join your current voice channel";
 
     public readonly data = new SlashCommandBuilder()
         .setName(this.name)
@@ -12,14 +12,14 @@ export class JoinCommand implements ICommand {
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!interaction.inCachedGuild()) {
-            await interaction.reply({ content: "Dieser Command geht nur auf einem Server.", ephemeral: true });
+            await interaction.reply({ content: "This command can only be used in a server.", ephemeral: true });
             return;
         }
 
         const voiceChannel = interaction.member.voice.channel;
 
         if (!voiceChannel || !voiceChannel.isVoiceBased()) {
-            await interaction.reply({ content: "Du musst zuerst in einem Voice-Channel sein.", ephemeral: true });
+            await interaction.reply({ content: "You must be in a voice channel first.", ephemeral: true });
             return;
         }
 
@@ -31,6 +31,6 @@ export class JoinCommand implements ICommand {
             selfMute: false
         });
 
-        await interaction.reply(`Ich bin ${voiceChannel} beigetreten. 🎧`);
+        await interaction.reply(`I joined ${voiceChannel}. 🎧`);
     }
 }

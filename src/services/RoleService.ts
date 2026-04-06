@@ -69,7 +69,7 @@ export class RoleService {
         try {
             const canManage = await this.canManageRoles(guild);
             if (!canManage) {
-                this.log(`❌ Bot hat keine ManageRoles-Berechtigung in "${guild.name}"`);
+                this.log(`Bot does not have ManageRoles permission in "${guild.name}"`);
                 return null;
             }
 
@@ -77,15 +77,15 @@ export class RoleService {
                 name: config.name,
                 mentionable: config.mentionable ?? false,
                 hoist: config.hoist ?? false,
-                reason: config.reason ?? "Rollen verwaltet durch RoleService"
+                reason: config.reason ?? "Roles managed by RoleService"
             });
 
-            this.log(`✓ Rolle erstellt: ${role.name} (${role.id}) in "${guild.name}"`);
+            this.log(`Role created: ${role.name} (${role.id}) in "${guild.name}"`);
             return role;
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            this.log(`❌ Fehler beim Erstellen der Rolle: ${message}`);
+            this.log(`Failed to create role: ${message}`);
             return null;
         }
     }
@@ -104,7 +104,7 @@ export class RoleService {
     ): Promise<Role | null> {
         const existing = this.findRoleByName(guild, config.name);
         if (existing) {
-            this.log(`✓ Rolle existiert bereits: ${existing.name} (${existing.id}) in "${guild.name}"`);
+            this.log(`Role already exists: ${existing.name} (${existing.id}) in "${guild.name}"`);
             return existing;
         }
 
@@ -146,7 +146,7 @@ export class RoleService {
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            this.log(`❌ Fehler beim Abrufen der Guild: ${message}`);
+            this.log(`Failed to fetch guild: ${message}`);
             return null;
         }
     }
@@ -158,23 +158,23 @@ export class RoleService {
         try {
             const canManage = await this.canManageRoles(guild);
             if (!canManage) {
-                this.log(`❌ Bot hat keine ManageRoles-Berechtigung zum Löschen in "${guild.name}"`);
+                this.log(`Bot does not have ManageRoles permission to delete roles in "${guild.name}"`);
                 return false;
             }
 
             const role = this.findRoleById(guild, roleId);
             if (!role) {
-                this.log(`⚠ Rolle nicht gefunden: ${roleId}`);
+                this.log(`Role not found: ${roleId}`);
                 return false;
             }
 
-            await role.delete(reason ?? "RoleService Löschung");
-            this.log(`✓ Rolle gelöscht: ${role.name} (${role.id}) in "${guild.name}"`);
+            await role.delete(reason ?? "RoleService deletion");
+            this.log(`Role deleted: ${role.name} (${role.id}) in "${guild.name}"`);
             return true;
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            this.log(`❌ Fehler beim Löschen der Rolle: ${message}`);
+            this.log(`Failed to delete role: ${message}`);
             return false;
         }
     }
@@ -195,13 +195,13 @@ export class RoleService {
         try {
             const canManage = await this.canManageRoles(guild);
             if (!canManage) {
-                this.log(`❌ Bot hat keine ManageRoles-Berechtigung zum Aktualisieren in "${guild.name}"`);
+                this.log(`Bot does not have ManageRoles permission to update roles in "${guild.name}"`);
                 return null;
             }
 
             const role = this.findRoleById(guild, roleId);
             if (!role) {
-                this.log(`⚠ Rolle nicht gefunden: ${roleId}`);
+                this.log(`Role not found: ${roleId}`);
                 return null;
             }
 
@@ -209,12 +209,12 @@ export class RoleService {
                 ...config,
                 reason: reason ?? "RoleService Update"
             });
-            this.log(`✓ Rolle aktualisiert: ${role.name} (${role.id}) in "${guild.name}"`);
+            this.log(`Role updated: ${role.name} (${role.id}) in "${guild.name}"`);
             return role;
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            this.log(`❌ Fehler beim Aktualisieren der Rolle: ${message}`);
+            this.log(`Failed to update role: ${message}`);
             return null;
         }
     }

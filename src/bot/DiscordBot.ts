@@ -57,11 +57,11 @@ export class DiscordBot {
 
             if (this.guildId) {
                 await readyClient.application.commands.set(commandData, this.guildId);
-                console.log(`Slash-Commands für Guild ${this.guildId} registriert.`);
+                console.log(`Slash commands registered for guild ${this.guildId}.`);
 
                 // Remove old global commands so Discord does not show duplicate old/new variants.
                 await readyClient.application.commands.set([]);
-                console.log("Alte globale Slash-Commands entfernt.");
+                console.log("Old global slash commands removed.");
 
                 if (this.onReady) {
                     await this.onReady(readyClient);
@@ -71,7 +71,7 @@ export class DiscordBot {
             }
 
             await readyClient.application.commands.set(commandData);
-            console.log("Slash-Commands global registriert (kann bis zu 1h dauern).");
+            console.log("Slash commands registered globally (can take up to 1 hour).");
 
             if (this.onReady) {
                 await this.onReady(readyClient);
@@ -87,9 +87,9 @@ export class DiscordBot {
                     }
                 }
                 catch (error) {
-                    console.error("Fehler bei Button-Handling:", error);
+                    console.error("Button handling error:", error);
                     if (!interaction.replied && !interaction.deferred) {
-                        await interaction.reply({ content: "Button-Aktion fehlgeschlagen.", ephemeral: true });
+                        await interaction.reply({ content: "Button action failed.", ephemeral: true });
                     }
                     return;
                 }
@@ -105,7 +105,7 @@ export class DiscordBot {
                     await command.executeAutocomplete(interaction);
                 }
                 catch (error) {
-                    console.error("Fehler bei Command-Autocomplete:", error);
+                    console.error("Command autocomplete error:", error);
                     if (!interaction.responded) {
                         await interaction.respond([]);
                     }
@@ -127,18 +127,18 @@ export class DiscordBot {
                 await command.execute(interaction);
             }
             catch (error) {
-                console.error("Fehler bei Command-Ausführung:", error);
+                console.error("Command execution error:", error);
 
                 if (interaction.replied || interaction.deferred) {
                     await interaction.followUp({
-                        content: "Beim Ausführen ist ein Fehler aufgetreten.",
+                        content: "An error occurred while executing the command.",
                         ephemeral: true
                     });
                     return;
                 }
 
                 await interaction.reply({
-                    content: "Beim Ausführen ist ein Fehler aufgetreten.",
+                    content: "An error occurred while executing the command.",
                     ephemeral: true
                 });
             }
@@ -150,7 +150,7 @@ export class DiscordBot {
                 try {
                     await user.fetch();
                 } catch (error) {
-                    console.error("[Welcome] Fehler beim Fetch von User:", error);
+                    console.error("[Welcome] Failed to fetch user:", error);
                     return;
                 }
             }
@@ -165,7 +165,7 @@ export class DiscordBot {
                 try {
                     await reaction.fetch();
                 } catch (error) {
-                    console.error("[Welcome] Fehler beim Fetch von Reaction:", error);
+                    console.error("[Welcome] Failed to fetch reaction:", error);
                     return;
                 }
             }
@@ -181,7 +181,7 @@ export class DiscordBot {
                         return;
                     }
                 } catch (error) {
-                    console.error(`[${module.name}] Fehler bei messageReactionAdd:`, error);
+                    console.error(`[${module.name}] messageReactionAdd error:`, error);
                 }
             }
         });
@@ -192,7 +192,7 @@ export class DiscordBot {
                 try {
                     await user.fetch();
                 } catch (error) {
-                    console.error("[Welcome] Fehler beim Fetch von User:", error);
+                    console.error("[Welcome] Failed to fetch user:", error);
                     return;
                 }
             }
@@ -207,7 +207,7 @@ export class DiscordBot {
                 try {
                     await reaction.fetch();
                 } catch (error) {
-                    console.error("[Welcome] Fehler beim Fetch von Reaction:", error);
+                    console.error("[Welcome] Failed to fetch reaction:", error);
                     return;
                 }
             }
@@ -223,7 +223,7 @@ export class DiscordBot {
                         return;
                     }
                 } catch (error) {
-                    console.error(`[${module.name}] Fehler bei messageReactionRemove:`, error);
+                    console.error(`[${module.name}] messageReactionRemove error:`, error);
                 }
             }
         });

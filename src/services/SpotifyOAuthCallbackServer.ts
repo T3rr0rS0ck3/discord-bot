@@ -27,15 +27,15 @@ export class SpotifyOAuthCallbackServer {
 
         this.server.on("error", (error: NodeJS.ErrnoException) => {
             if (error.code === "EADDRINUSE") {
-                console.warn(`[SpotifyOAuth] Callback-Port ${port} ist bereits belegt. Bestehender Server wird weiterverwendet.`);
+                console.warn(`[SpotifyOAuth] Callback port ${port} is already in use. Existing server will continue to run.`);
                 return;
             }
 
-            console.error("[SpotifyOAuth] Callback-Server Fehler:", error);
+            console.error("[SpotifyOAuth] Callback server error:", error);
         });
 
         this.server.listen(port, parsed.hostname, () => {
-            console.log(`[SpotifyOAuth] Callback-Server aktiv auf ${parsed.origin}${callbackPath}`);
+            console.log(`[SpotifyOAuth] Callback server listening at ${parsed.origin}${callbackPath}`);
         });
 
         this.started = true;
@@ -58,13 +58,13 @@ export class SpotifyOAuthCallbackServer {
         const requestUrl = new URL(request.url ?? "/", this.redirectUri);
 
         if (requestUrl.pathname !== callbackPath) {
-            this.writeHtml(response, 404, "Nicht gefunden", "Diese URL ist kein Spotify Callback-Endpunkt.");
+            this.writeHtml(response, 404, "Not Found", "This URL is not a Spotify callback endpoint.");
             return;
         }
 
         const error = requestUrl.searchParams.get("error");
         if (error) {
-            this.writeHtml(response, 400, "Spotify OAuth Fehler", `Spotify hat den Login abgebrochen: ${error}`);
+            this.writeHtml(response, 400, "Spotify OAuth Error", `Spotify canceled the login flow: ${error}`);
             return;
         }
 
@@ -72,7 +72,7 @@ export class SpotifyOAuthCallbackServer {
         const state = requestUrl.searchParams.get("state");
 
         if (!code || !state) {
-            this.writeHtml(response, 400, "Ungültiger Callback", "Es fehlen code oder state Parameter.");
+            this.writeHtml(response, 400, "Invalid Callback", "Missing code or state parameters.");
             return;
         }
 
@@ -81,15 +81,15 @@ export class SpotifyOAuthCallbackServer {
             this.writeHtml(
                 response,
                 200,
-                "Spotify verbunden",
-                `Spotify Account ${result.displayName} wurde erfolgreich mit deinem Discord-User verknüpft. Du kannst das Browserfenster jetzt schließen.`
+                "Spotify Connected",
+                `Spotify account ${result.displayName} was linked to your Discord user successfully. You can now close this browser window.`
             );
-            console.log(`[SpotifyOAuth] Discord-User ${result.discordUserId} mit Spotify ${result.spotifyUserId} verknüpft.`);
+            console.log(`[SpotifyOAuth] Linked Discord user ${result.discordUserId} to Spotify ${result.spotifyUserId}.`);
         }
         catch (callbackError) {
             const message = callbackError instanceof Error ? callbackError.message : String(callbackError);
-            this.writeHtml(response, 500, "OAuth fehlgeschlagen", message);
-            console.error(`[SpotifyOAuth] Callback Fehler: ${message}`);
+            this.writeHtml(response, 500, "OAuth Failed", message);
+            console.error(`[SpotifyOAuth] Callback error: ${message}`);
         }
     }
 
@@ -99,7 +99,7 @@ export class SpotifyOAuthCallbackServer {
         });
 
         response.end(`<!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>${title}</title>

@@ -81,7 +81,7 @@ export class SpotifyOAuthService {
         const pending = this.pendingStates.get(state);
 
         if (!pending || pending.expiresAt < Date.now()) {
-            throw new Error("Ungültiger oder abgelaufener OAuth-State.");
+            throw new Error("Invalid or expired OAuth state.");
         }
 
         this.pendingStates.delete(state);
@@ -116,13 +116,13 @@ export class SpotifyOAuthService {
 
         const accessToken = await this.getValidAccessToken(discordUserId);
         if (!accessToken) {
-            throw new Error("Kein verknüpfter Spotify-Account. Nutze zuerst /spotify-connect.");
+            throw new Error("No linked Spotify account. Use /music spotify-connect first.");
         }
 
         const track = await this.fetchTrack(accessToken, trackId);
 
         if (!track.preview_url) {
-            throw new Error("Für diesen Track stellt Spotify keine preview_url bereit.");
+            throw new Error("Spotify does not provide a preview_url for this track.");
         }
 
         return {
@@ -137,17 +137,17 @@ export class SpotifyOAuthService {
     public async searchPlayableTrack(discordUserId: string, query: string): Promise<SpotifyPlayableTrack> {
         const trimmedQuery = query.trim();
         if (!trimmedQuery) {
-            throw new Error("Leere Suchanfrage.");
+            throw new Error("Empty search query.");
         }
 
         const accessToken = await this.getValidAccessToken(discordUserId);
         if (!accessToken) {
-            throw new Error("Kein verknüpfter Spotify-Account. Nutze zuerst /spotify-connect.");
+            throw new Error("No linked Spotify account. Use /music spotify-connect first.");
         }
 
         const track = await this.searchTrack(accessToken, trimmedQuery);
         if (!track) {
-            throw new Error("Keine passenden Spotify-Treffer mit preview_url gefunden.");
+            throw new Error("No matching Spotify results with preview_url were found.");
         }
 
         return {
@@ -167,7 +167,7 @@ export class SpotifyOAuthService {
 
         const accessToken = await this.getValidAccessToken(discordUserId);
         if (!accessToken) {
-            throw new Error("Kein verknüpfter Spotify-Account. Nutze zuerst /spotify-connect.");
+            throw new Error("No linked Spotify account. Use /music spotify-connect first.");
         }
 
         const track = await this.fetchTrack(accessToken, trackId);
@@ -182,7 +182,7 @@ export class SpotifyOAuthService {
 
         const accessToken = await this.getValidAccessToken(discordUserId);
         if (!accessToken) {
-            throw new Error("Kein verknüpfter Spotify-Account. Nutze zuerst /spotify-connect.");
+            throw new Error("No linked Spotify account. Use /music spotify-connect first.");
         }
 
         const track = await this.searchTrack(accessToken, trimmedQuery, true);
@@ -591,7 +591,7 @@ export class SpotifyOAuthService {
 
     private ensureConfigured(): void {
         if (!this.isConfigured()) {
-            throw new Error("Spotify OAuth ist nicht konfiguriert. Setze SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET und SPOTIFY_REDIRECT_URI.");
+            throw new Error("Spotify OAuth is not configured. Set SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REDIRECT_URI.");
         }
     }
 

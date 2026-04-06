@@ -22,11 +22,11 @@ export class WelcomeRoleAssignmentService {
             .join("\n");
 
         return (
-            "# 👋 Willkommen!\n\n" +
-            "Reagiere auf ein Emoji unten, um die entsprechende Rolle zu erhalten:\n\n" +
+            "# 👋 Welcome!\n\n" +
+            "React with an emoji below to get the matching role:\n\n" +
             roleList +
             "\n\n" +
-            "Klicke auf die Reaction, um die Rolle zu erhalten. Klicke nochmal um sie zu entfernen."
+            "Click a reaction to get the role. Click it again to remove the role."
         );
     }
 
@@ -53,14 +53,14 @@ export class WelcomeRoleAssignmentService {
     ): Promise<void> {
         const roleConfig = this.getRoleConfig(emoji);
         if (!roleConfig) {
-            console.warn(`[Welcome] Unbekanntes Emoji: ${emoji}`);
+            console.warn(`[Welcome] Unknown emoji: ${emoji}`);
             return;
         }
 
         try {
             const role = RoleService.findRoleByName(guild, roleConfig.name);
             if (!role) {
-                console.error(`[Welcome] Rolle "${roleConfig.name}" existiert nicht.`);
+                console.error(`[Welcome] Role "${roleConfig.name}" does not exist.`);
                 return;
             }
 
@@ -69,11 +69,11 @@ export class WelcomeRoleAssignmentService {
             if (!hasMemberRole) {
                 await member.roles.add(role);
                 console.log(
-                    `[Welcome] ✅ ${member.user.tag} erhielt Rolle "${roleConfig.name}" via ${emoji}`
+                    `[Welcome] ${member.user.tag} received role "${roleConfig.name}" via ${emoji}`
                 );
             }
         } catch (error) {
-            console.error(`[Welcome] Fehler beim Hinzufügen von Rolle "${roleConfig.name}":`, error);
+            console.error(`[Welcome] Failed to add role "${roleConfig.name}":`, error);
         }
     }
 
@@ -84,14 +84,14 @@ export class WelcomeRoleAssignmentService {
     ): Promise<void> {
         const roleConfig = this.getRoleConfig(emoji);
         if (!roleConfig) {
-            console.warn(`[Welcome] Unbekanntes Emoji: ${emoji}`);
+            console.warn(`[Welcome] Unknown emoji: ${emoji}`);
             return;
         }
 
         try {
             const role = RoleService.findRoleByName(guild, roleConfig.name);
             if (!role) {
-                console.error(`[Welcome] Rolle "${roleConfig.name}" existiert nicht.`);
+                console.error(`[Welcome] Role "${roleConfig.name}" does not exist.`);
                 return;
             }
 
@@ -100,11 +100,11 @@ export class WelcomeRoleAssignmentService {
             if (hasMemberRole) {
                 await member.roles.remove(role);
                 console.log(
-                    `[Welcome] ✅ ${member.user.tag} verlor Rolle "${roleConfig.name}" via ${emoji}`
+                    `[Welcome] ${member.user.tag} lost role "${roleConfig.name}" via ${emoji}`
                 );
             }
         } catch (error) {
-            console.error(`[Welcome] Fehler beim Entfernen von Rolle "${roleConfig.name}":`, error);
+            console.error(`[Welcome] Failed to remove role "${roleConfig.name}":`, error);
         }
     }
 }

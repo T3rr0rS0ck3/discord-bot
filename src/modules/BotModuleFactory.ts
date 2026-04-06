@@ -11,7 +11,7 @@ export class BotModuleFactory {
             new MusicBotModule(options)
         ];
 
-        // Welcome module optional wenn konfiguriert
+        // Welcome module is optional when configured.
         if (options.welcomeChannelId && options.welcomeRoles && options.welcomeRoles.length > 0) {
             modules.push(
                 new WelcomeModule({

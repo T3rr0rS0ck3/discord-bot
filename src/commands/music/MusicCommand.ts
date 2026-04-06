@@ -12,7 +12,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class MusicCommand implements ICommand {
     public readonly name = "music";
-    public readonly description = "Musik-Wiedergabe und Player-Steuerung";
+    public readonly description = "Music playback and player controls";
     private readonly playbackService: MusicPlaybackService;
     private readonly spotifyService: SpotifyOAuthService;
 
@@ -22,56 +22,56 @@ export class MusicCommand implements ICommand {
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("play")
-                .setDescription("Spielt eine Quelle ab oder fügt sie zur Queue hinzu")
+                .setDescription("Play a source or add it to the queue")
                 .addStringOption((option) =>
                     option
                         .setName("query")
-                        .setDescription("MP3-URL, Spotify-Link, YouTube-Link oder Suchtext")
+                        .setDescription("MP3 URL, Spotify link, YouTube link, or search text")
                         .setAutocomplete(true)
                         .setRequired(true)))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("player")
-                .setDescription("Zeigt den Player im Chat"))
+                .setDescription("Show the player in chat"))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("queue")
-                .setDescription("Zeigt die aktuelle Queue"))
+                .setDescription("Show the current queue"))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("skip")
-                .setDescription("Überspringt den aktuellen Titel"))
+                .setDescription("Skip the current track"))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("back")
-                .setDescription("Spielt den vorherigen Titel erneut"))
+                .setDescription("Play the previous track again"))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("pause")
-                .setDescription("Pausiert die Wiedergabe"))
+                .setDescription("Pause playback"))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("resume")
-                .setDescription("Setzt die Wiedergabe fort"))
+                .setDescription("Resume playback"))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("volume")
-                .setDescription("Stellt die Lautstärke ein (0-100%)")
+                .setDescription("Set the volume (0-100%)")
                 .addIntegerOption((option) =>
                     option
                         .setName("percent")
-                        .setDescription("Lautstärke in Prozent (0 bis 100)")
+                        .setDescription("Volume in percent (0 to 100)")
                         .setRequired(true)
                         .setMinValue(0)
                         .setMaxValue(100)))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("spotify-connect")
-                .setDescription("Verknüpft deinen Spotify-Account per OAuth"))
+                .setDescription("Link your Spotify account via OAuth"))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("spotify-disconnect")
-                .setDescription("Trennt die Verknüpfung zu deinem Spotify-Account"));
+                .setDescription("Unlink your Spotify account"));
 
     public constructor(playbackService: MusicPlaybackService, spotifyService: SpotifyOAuthService) {
         this.playbackService = playbackService;
@@ -108,12 +108,12 @@ export class MusicCommand implements ICommand {
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!interaction.inCachedGuild()) {
-            await interaction.reply({ content: "Dieser Command geht nur auf einem Server.", ephemeral: true });
+            await interaction.reply({ content: "This command can only be used in a server.", ephemeral: true });
             return;
         }
 
         if (!this.playbackService.hasAccess(interaction.member)) {
-            await interaction.reply({ content: "Du hast nicht die erforderliche Rolle für die Musikbefehle.", ephemeral: true });
+            await interaction.reply({ content: "You do not have the required role for music commands.", ephemeral: true });
             return;
         }
 
@@ -171,7 +171,7 @@ export class MusicCommand implements ICommand {
             }
 
             default:
-                await interaction.reply({ content: "Unbekannter Subcommand.", ephemeral: true });
+                await interaction.reply({ content: "Unknown subcommand.", ephemeral: true });
         }
     }
 
@@ -201,16 +201,16 @@ export class MusicCommand implements ICommand {
         const guildId = this.requireGuildId(interaction);
         const snapshot = this.playbackService.getQueueSnapshot(guildId);
         if (!snapshot || !snapshot.current) {
-            await interaction.reply({ content: "Aktuell läuft nichts.", ephemeral: true });
+            await interaction.reply({ content: "Nothing is currently playing.", ephemeral: true });
             return;
         }
 
         const queuePreview = snapshot.queue.length > 0
             ? snapshot.queue.slice(0, 10).map((item, index) => `${index + 1}. ${item.sourceLabel}`).join("\n")
-            : "Queue ist leer.";
+            : "Queue is empty.";
 
         await interaction.reply({
-            content: `Jetzt: ${snapshot.current.sourceLabel}\nStatus: ${snapshot.paused ? "Pausiert" : "Spielt"}\nLautstärke: ${snapshot.volumePercent}%\n\n${queuePreview}`,
+            content: `Now playing: ${snapshot.current.sourceLabel}\nStatus: ${snapshot.paused ? "Paused" : "Playing"}\nVolume: ${snapshot.volumePercent}%\n\n${queuePreview}`,
             ephemeral: true
         });
     }
@@ -227,7 +227,7 @@ export class MusicCommand implements ICommand {
             return;
         }
 
-        await interaction.editReply("Kein aktiver Player vorhanden.");
+        await interaction.editReply("No active player found.");
     }
 
     private async handlePause(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -241,7 +241,7 @@ export class MusicCommand implements ICommand {
             return;
         }
 
-        await interaction.editReply("Pausieren nicht möglich.");
+        await interaction.editReply("Unable to pause playback.");
     }
 
     private async handleResume(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -255,7 +255,7 @@ export class MusicCommand implements ICommand {
             return;
         }
 
-        await interaction.editReply("Fortsetzen nicht möglich.");
+        await interaction.editReply("Unable to resume playback.");
     }
 
     private async handleSkip(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -269,7 +269,7 @@ export class MusicCommand implements ICommand {
             return;
         }
 
-        await interaction.editReply("Kein Titel zum Skippen aktiv.");
+        await interaction.editReply("No track is currently available to skip.");
     }
 
     private async handleBack(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -283,12 +283,12 @@ export class MusicCommand implements ICommand {
             return;
         }
 
-        await interaction.editReply("Kein vorheriger Titel vorhanden.");
+        await interaction.editReply("No previous track available.");
     }
 
     private async handleSpotifyConnect(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!this.spotifyService.isConfigured()) {
-            await interaction.reply({ content: "Spotify OAuth ist auf dem Bot nicht konfiguriert.", ephemeral: true });
+            await interaction.reply({ content: "Spotify OAuth is not configured on this bot.", ephemeral: true });
             return;
         }
 
@@ -301,7 +301,7 @@ export class MusicCommand implements ICommand {
         );
 
         await interaction.reply({
-            content: "Klicke den Button, um deinen Spotify-Account zu verbinden.",
+            content: "Click the button to connect your Spotify account.",
             components: [row],
             ephemeral: true
         });
@@ -310,14 +310,14 @@ export class MusicCommand implements ICommand {
     private async handleSpotifyDisconnect(interaction: ChatInputCommandInteraction): Promise<void> {
         const deleted = await this.spotifyService.unlink(interaction.user.id);
         await interaction.reply({
-            content: deleted ? "Spotify-Verknüpfung wurde entfernt." : "Für deinen Discord-User war kein Spotify-Account gespeichert.",
+            content: deleted ? "Spotify link removed." : "No Spotify account is linked to your Discord user.",
             ephemeral: true
         });
     }
 
     private requireGuildId(interaction: ChatInputCommandInteraction): string {
         if (!interaction.guildId) {
-            throw new Error("Dieser Command geht nur auf einem Server.");
+            throw new Error("This command can only be used in a server.");
         }
 
         return interaction.guildId;

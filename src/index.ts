@@ -69,8 +69,8 @@ export class Startup {
             spotifyRedirectUri: this.normalizeString(legacyEnvValues.SPOTIFY_REDIRECT_URI),
             welcomeChannelId: this.normalizeString(legacyEnvValues.WELCOME_CHANNEL_ID),
             welcomeRoles: this.parseWelcomeRoles(legacyEnvValues.WELCOME_ROLES) ?? [
-                { emoji: "🎮", name: "Gaming", description: "Für Gamer und Gaming-Interessierte" },
-                { emoji: "🎵", name: "Music", description: "Für Musik-Liebhaber" }
+                { emoji: "🎮", name: "Gaming", description: "For gamers and gaming enthusiasts" },
+                { emoji: "🎵", name: "Music", description: "For music lovers" }
             ]
         };
 
@@ -81,7 +81,7 @@ export class Startup {
 
         const startOrRestartBot = async (): Promise<void> => {
             if (!runtimeAdminConfig.discordToken) {
-                console.log("[Startup] Discord Token fehlt in SQLite-Konfiguration. Bot wird nicht gestartet.");
+                console.log("[Startup] Discord token is missing in SQLite configuration. Bot will not start.");
                 return;
             }
 
@@ -122,7 +122,7 @@ export class Startup {
 
             const commands = modules.flatMap((module) => module.getCommands());
 
-            console.log(`[Modules] Aktiv: ${modules.map((module) => module.name).join(", ")}`);
+            console.log(`[Modules] Active: ${modules.map((module) => module.name).join(", ")}`);
 
             bot = new DiscordBot({
                 token: runtimeAdminConfig.discordToken,
@@ -165,7 +165,7 @@ export class Startup {
             getLogs: () => runtimeLogBuffer.getAll(),
             restartBot: async () => {
                 await startOrRestartBot();
-                console.log("[AdminUI] Bot wurde neu gestartet.");
+                console.log("[AdminUI] Bot restarted.");
             },
             getWelcomeChannels: async () => {
                 const guildId = runtimeAdminConfig.guildId;
@@ -218,7 +218,7 @@ export class Startup {
             saveConfig: async (config) => {
                 runtimeAdminConfig = config;
                 await adminConfigStore.save(config);
-                console.log(`[AdminUI] Konfiguration gespeichert: ${sqlitePath}`);
+                console.log(`[AdminUI] Configuration saved: ${sqlitePath}`);
 
                 const readyClient = bot?.getReadyClient();
                 for (const module of modules) {
@@ -236,7 +236,7 @@ export class Startup {
                 }
 
                 if (readyClient) {
-                    console.log("[AdminUI] Runtime-Konfiguration wurde direkt auf den Bot angewendet.");
+                    console.log("[AdminUI] Runtime configuration was applied directly to the bot.");
                 }
             }
         });
@@ -298,7 +298,7 @@ export class Startup {
         try {
             const parsed = JSON.parse(rolesJson);
             if (!Array.isArray(parsed)) {
-                console.warn("[Welcome] WELCOME_ROLES ist kein JSON-Array. Überspringe.");
+                console.warn("[Welcome] WELCOME_ROLES is not a JSON array. Skipping.");
                 return undefined;
             }
 
@@ -308,7 +308,7 @@ export class Startup {
                 description: role.description ?? ""
             }));
         } catch (error) {
-            console.error("[Welcome] Fehler beim Parsen von WELCOME_ROLES:", error);
+            console.error("[Welcome] Failed to parse WELCOME_ROLES:", error);
             return undefined;
         }
     }

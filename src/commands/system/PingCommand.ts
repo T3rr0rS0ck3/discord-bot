@@ -3,7 +3,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class PingCommand implements ICommand {
     public readonly name = "ping";
-    public readonly description = "Antwortet mit Pong!";
+    public readonly description = "Reply with Pong!";
 
     public readonly data = new SlashCommandBuilder()
         .setName(this.name)

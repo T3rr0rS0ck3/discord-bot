@@ -14,14 +14,14 @@ export class YouTubeTrackSearchService {
     }
 
     public async resolveByQuery(query: string, expected?: SpotifyTrackMetadata, queryHint?: string): Promise<YouTubeResolvedResult> {
-        this.log(`YouTube-Suche startet: query="${query}"${queryHint ? `, queryHint="${queryHint}"` : ""}`);
+        this.log(`YouTube search started: query="${query}"${queryHint ? `, queryHint="${queryHint}"` : ""}`);
         if (expected) {
-            this.log(`Erwarteter Track: ${expected.title} - ${expected.artists.join(", ")} (${expected.durationSec}s)`);
+            this.log(`Expected track: ${expected.title} - ${expected.artists.join(", ")} (${expected.durationSec}s)`);
         }
 
         const searchQueries = this.buildYouTubeSearchVariants(query, expected, queryHint);
-        this.log(`YouTube-Suchlimit pro Query: ${this.searchLimit}`);
-        this.log(`YouTube-Query-Varianten: ${searchQueries.length}`);
+        this.log(`YouTube search limit per query: ${this.searchLimit}`);
+        this.log(`YouTube query variants: ${searchQueries.length}`);
         searchQueries.forEach((entry, index) => {
             this.log(`Query ${index + 1}: "${entry}"`);
         });
@@ -40,11 +40,11 @@ export class YouTubeTrackSearchService {
         this.log(`Aggregierte Kandidaten nach Dedupe: ${candidates.length}`);
 
         if (candidates.length === 0) {
-            this.log("YouTube-Suche lieferte keine gültigen Kandidaten nach Normalisierung.");
-            throw new Error("Keine passende YouTube-Quelle gefunden.");
+            this.log("YouTube search returned no valid candidates after normalization.");
+            throw new Error("No matching YouTube source found.");
         }
 
-        this.log(`YouTube-Kandidaten gefunden: ${candidates.length}`);
+        this.log(`YouTube candidates found: ${candidates.length}`);
         candidates.forEach((candidate, index) => {
             this.log(`Kandidat ${index + 1}: title="${candidate.title}" | channel="${candidate.channelName}" | duration=${candidate.durationInSec ?? "?"}s | url=${candidate.url}`);
         });
@@ -55,7 +55,7 @@ export class YouTubeTrackSearchService {
             : candidates;
 
         if (parsedPair.artist && parsedPair.title) {
-            this.log(`Parsed-Pair erkannt: artist="${parsedPair.artist}", title="${parsedPair.title}", pairMatches=${pairCandidates.length}/${candidates.length}`);
+            this.log(`Parsed pair detected: artist="${parsedPair.artist}", title="${parsedPair.title}", pairMatches=${pairCandidates.length}/${candidates.length}`);
         }
 
         const strictCandidates = pairCandidates.filter((candidate) => this.matchesRequiredSongTerms(candidate, expected, queryHint));
@@ -75,10 +75,10 @@ export class YouTubeTrackSearchService {
                 combinedScore: entry.score + Math.max(0, 20 - (entry.searchOrder - 1) * 2)
             }));
 
-        this.log(`Strikte Kandidaten: ${strictCandidates.length}/${candidates.length}`);
+        this.log(`Strict candidates: ${strictCandidates.length}/${candidates.length}`);
 
         if (strictCandidates.length === 0) {
-            this.log(`Kein strikter Match fuer "${query}" gefunden, verwende bestes Ranking-Fallback.`);
+            this.log(`No strict match found for "${query}", using best-ranked fallback.`);
         }
 
         scoredCandidates.forEach((entry, index) => {
@@ -93,7 +93,7 @@ export class YouTubeTrackSearchService {
         for (const candidate of rankedForDebug.map((entry) => entry.candidate)) {
             try {
                 await play.video_basic_info(candidate.url);
-                this.log(`Ausgewaehlter YouTube-Treffer: ${candidate.url} | title="${candidate.title}"`);
+                this.log(`Selected YouTube result: ${candidate.url} | title="${candidate.title}"`);
                 return {
                     url: candidate.url,
                     title: candidate.title,
@@ -101,12 +101,12 @@ export class YouTubeTrackSearchService {
                 };
             }
             catch {
-                this.log(`Kandidat ungueltig/verfuegbar nicht pruefbar: ${candidate.url}`);
+                this.log(`Candidate invalid or unavailable: ${candidate.url}`);
             }
         }
 
-        this.log("Alle Kandidaten konnten nicht validiert werden.");
-        throw new Error("Keine gültige YouTube-Quelle gefunden.");
+        this.log("All candidates failed validation.");
+        throw new Error("No valid YouTube source found.");
     }
 
     public normalizeYouTubeUrl(value: string): string | null {

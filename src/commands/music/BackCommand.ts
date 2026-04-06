@@ -4,7 +4,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class BackCommand implements ICommand {
     public readonly name = "back";
-    public readonly description = "Spielt den vorherigen Titel erneut";
+    public readonly description = "Play the previous track again";
     private readonly playbackService: MusicPlaybackService;
 
     public readonly data = new SlashCommandBuilder()
@@ -17,7 +17,7 @@ export class BackCommand implements ICommand {
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!interaction.inCachedGuild()) {
-            await interaction.reply({ content: "Dieser Command geht nur auf einem Server.", ephemeral: true });
+            await interaction.reply({ content: "This command can only be used in a server.", ephemeral: true });
             return;
         }
 
@@ -31,6 +31,6 @@ export class BackCommand implements ICommand {
             return;
         }
 
-        await interaction.editReply("Kein vorheriger Titel vorhanden.");
+        await interaction.editReply("No previous track available.");
     }
 }

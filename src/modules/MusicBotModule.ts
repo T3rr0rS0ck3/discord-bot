@@ -32,7 +32,7 @@ export class MusicBotModule implements IBotModule {
 
     public initialize(): void {
         if (!this.spotifyService.isConfigured()) {
-            console.log("[SpotifyOAuth] Nicht konfiguriert. /music spotify-connect ist deaktiviert.");
+            console.log("[SpotifyOAuth] Not configured. /music spotify-connect is disabled.");
             return;
         }
 
@@ -43,7 +43,7 @@ export class MusicBotModule implements IBotModule {
 
         this.callbackServer = new SpotifyOAuthCallbackServer(this.spotifyService, redirectUri);
         this.callbackServer.start();
-        console.log(`[SpotifyOAuth] Konfiguriert (${this.spotifyService.getMaskedConfigFingerprint()}).`);
+        console.log(`[SpotifyOAuth] Configured (${this.spotifyService.getMaskedConfigFingerprint()}).`);
     }
 
     public async shutdown(): Promise<void> {
@@ -62,11 +62,11 @@ export class MusicBotModule implements IBotModule {
 
         const role = await RoleService.ensureRole(client.guilds.cache.get(this.guildId) ?? await client.guilds.fetch(this.guildId), {
             name: this.musicRoleName,
-            reason: "Automatisch angelegte Rolle fuer Musikbefehle"
+            reason: "Automatically created role for music commands"
         });
 
         if (!role) {
-            console.log(`[MusicRole] Rolle "${this.musicRoleName}" konnte nicht bereitgestellt werden.`);
+            console.log(`[MusicRole] Role "${this.musicRoleName}" could not be provisioned.`);
             return;
         }
     }

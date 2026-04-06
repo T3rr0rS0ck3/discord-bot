@@ -29,10 +29,10 @@ export class WelcomeModule implements IBotModule {
 
     public async initialize(): Promise<void> {
         if (!this.welcomeChannelId) {
-            console.log("[Welcome] Kein Welcome-Channel konfiguriert. Überspringe Initialize.");
+            console.log("[Welcome] No welcome channel configured. Skipping initialization.");
             return;
         }
-        console.log(`[Welcome] Initialisiert (Channel: ${this.welcomeChannelId})`);
+        console.log(`[Welcome] Initialized (channel: ${this.welcomeChannelId})`);
     }
 
     public async onReady(client: Client): Promise<void> {
@@ -55,7 +55,7 @@ export class WelcomeModule implements IBotModule {
             );
         }
 
-        console.log("[Welcome] Runtime-Konfiguration aktualisiert.");
+        console.log("[Welcome] Runtime configuration updated.");
 
         if (client) {
             await this.syncWelcomeSetup(client);
@@ -74,23 +74,23 @@ export class WelcomeModule implements IBotModule {
                 name: role.name,
                 mentionable: false,
                 hoist: false,
-                reason: "Welcome-Rolle automatisch erstellt"
+                reason: "Welcome role auto-created"
             }));
             await RoleService.ensureRoles(guild, roleConfigs);
 
             const channel = await guild.channels.fetch(this.welcomeChannelId);
 
             if (!channel || !channel.isTextBased() || channel.isDMBased()) {
-                console.error("[Welcome] Welcome-Channel ist nicht text-basiert.");
+                console.error("[Welcome] Welcome channel is not text-based.");
                 return;
             }
 
             const textChannel = channel as TextChannel;
 
-            // Fetch letzte 100 Messages um zu schauen ob Welcome-Message schon existiert
+            // Fetch the last 100 messages to detect an existing welcome message.
             const messages = await textChannel.messages.fetch({ limit: 100 });
             const existingWelcome = messages.find(
-                (m) => m.author.id === client.user?.id && m.content.includes("Willkommen")
+                (m) => m.author.id === client.user?.id && m.content.includes("Welcome")
             );
 
             const message = existingWelcome ?? await textChannel.send({
@@ -104,32 +104,32 @@ export class WelcomeModule implements IBotModule {
                 try {
                     await message.reactions.removeAll();
                 } catch (error) {
-                    console.error("[Welcome] ✗ Fehler beim Entfernen alter Reactions:", error);
+                    console.error("[Welcome] Failed to remove old reactions:", error);
                 }
-                console.log("[Welcome] Welcome-Message aktualisiert.");
+                console.log("[Welcome] Welcome message updated.");
             }
 
-            // Pin die Welcome-Nachricht
+            // Pin the welcome message.
             try {
                 await message.pin();
-                console.log("[Welcome] ✓ Welcome-Message gepinnt.");
+                console.log("[Welcome] Welcome message pinned.");
             } catch (error) {
-                console.error("[Welcome] ✗ Fehler beim Pinnen der Nachricht:", error);
+                console.error("[Welcome] Failed to pin welcome message:", error);
             }
 
-            // Add reactions
+            // Add reactions.
             const emojis = this.assignmentService.getRoleEmojis();
             for (const emoji of emojis) {
                 try {
                     await message.react(emoji);
                 } catch (error) {
-                    console.error(`[Welcome] Fehler beim Hinzufügen von Reaction ${emoji}:`, error);
+                    console.error(`[Welcome] Failed to add reaction ${emoji}:`, error);
                 }
             }
 
-            // Set channel permissions: nur Reactions erlaubt, keine Nachrichten
+            // Set channel permissions: reactions only, no regular messages.
             try {
-                // @everyone darf nicht schreiben
+                // Prevent @everyone from sending messages.
                 await textChannel.permissionOverwrites.edit(guild.roles.everyone, {
                     SendMessages: false,
                     SendMessagesInThreads: false,
@@ -141,7 +141,7 @@ export class WelcomeModule implements IBotModule {
                     ViewChannel: true
                 });
 
-                // Bot braucht Permissions zum Managen und Reagieren
+                // Ensure bot can manage and react.
                 const botId = client.user?.id;
                 if (botId) {
                     await textChannel.permissionOverwrites.edit(botId, {
@@ -151,14 +151,14 @@ export class WelcomeModule implements IBotModule {
                     });
                 }
 
-                console.log("[Welcome] ✓ Channel-Permissions gesetzt: nur Reactions erlaubt.");
+                console.log("[Welcome] Channel permissions updated: reactions only.");
             } catch (error) {
-                console.error("[Welcome] ✗ Fehler beim Setzen der Permissions:", error);
+                console.error("[Welcome] Failed to update channel permissions:", error);
             }
 
-            console.log("[Welcome] Welcome-Message mit Reactions gesendet.");
+            console.log("[Welcome] Welcome message sent with reactions.");
         } catch (error) {
-            console.error("[Welcome] Fehler beim Senden der Welcome-Message:", error);
+            console.error("[Welcome] Failed to send welcome message:", error);
         }
     }
 
@@ -166,7 +166,7 @@ export class WelcomeModule implements IBotModule {
         reaction: MessageReaction,
         user: User
     ): Promise<boolean> {
-        // Check if this is a welcome message reaction
+        // Check if this is a welcome message reaction.
         if (!this.isWelcomeReaction(reaction)) {
             return false;
         }
@@ -190,7 +190,7 @@ export class WelcomeModule implements IBotModule {
             await this.assignmentService.assignRoleByReaction(guild, member, emoji);
             return true;
         } catch (error) {
-            console.error(`[Welcome] Fehler bei Rollenvergabe für "${emoji}":`, error);
+            console.error(`[Welcome] Failed role assignment for "${emoji}":`, error);
             return false;
         }
     }
@@ -199,7 +199,7 @@ export class WelcomeModule implements IBotModule {
         reaction: MessageReaction,
         user: User
     ): Promise<boolean> {
-        // Check if this is a welcome message reaction
+        // Check if this is a welcome message reaction.
         if (!this.isWelcomeReaction(reaction)) {
             return false;
         }
@@ -223,13 +223,13 @@ export class WelcomeModule implements IBotModule {
             await this.assignmentService.removeRoleByReaction(guild, member, emoji);
             return true;
         } catch (error) {
-            console.error(`[Welcome] Fehler beim Entfernen der Rolle für "${emoji}":`, error);
+            console.error(`[Welcome] Failed to remove role for "${emoji}":`, error);
             return false;
         }
     }
 
     private isWelcomeReaction(reaction: MessageReaction): boolean {
-        // Check if reaction is in the welcome channel
+        // Check if reaction is in the welcome channel.
         if (!this.welcomeChannelId) {
             return false;
         }
@@ -238,7 +238,7 @@ export class WelcomeModule implements IBotModule {
             return false;
         }
 
-        // Check if emoji is one of our welcome emojis
+        // Check if emoji is one of our welcome emojis.
         const emoji = this.getReactionEmojiKey(reaction);
         if (!emoji) {
             return false;

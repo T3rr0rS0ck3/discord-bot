@@ -4,7 +4,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class SkipCommand implements ICommand {
     public readonly name = "skip";
-    public readonly description = "Überspringt den aktuellen Titel";
+    public readonly description = "Skip the current track";
     private readonly playbackService: MusicPlaybackService;
 
     public readonly data = new SlashCommandBuilder()
@@ -17,7 +17,7 @@ export class SkipCommand implements ICommand {
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!interaction.inCachedGuild()) {
-            await interaction.reply({ content: "Dieser Command geht nur auf einem Server.", ephemeral: true });
+            await interaction.reply({ content: "This command can only be used in a server.", ephemeral: true });
             return;
         }
 
@@ -31,6 +31,6 @@ export class SkipCommand implements ICommand {
             return;
         }
 
-        await interaction.editReply("Kein Titel zum Skippen aktiv.");
+        await interaction.editReply("No track is currently available to skip.");
     }
 }

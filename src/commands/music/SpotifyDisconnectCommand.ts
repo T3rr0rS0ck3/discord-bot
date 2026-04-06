@@ -4,7 +4,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class SpotifyDisconnectCommand implements ICommand {
     public readonly name = "spotify-disconnect";
-    public readonly description = "Trennt die Verknüpfung zu deinem Spotify-Account";
+    public readonly description = "Unlink your Spotify account";
     private readonly spotifyService: SpotifyOAuthService;
 
     public readonly data = new SlashCommandBuilder()
@@ -20,14 +20,14 @@ export class SpotifyDisconnectCommand implements ICommand {
 
         if (!deleted) {
             await interaction.reply({
-                content: "Für deinen Discord-User war kein Spotify-Account gespeichert.",
+                content: "No Spotify account is linked to your Discord user.",
                 ephemeral: true
             });
             return;
         }
 
         await interaction.reply({
-            content: "Spotify-Verknüpfung wurde entfernt.",
+            content: "Spotify link removed.",
             ephemeral: true
         });
     }

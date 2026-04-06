@@ -70,31 +70,31 @@ export class MusicPlaybackService {
 
     public async enqueue(interaction: ChatInputCommandInteraction, sourceInput: string): Promise<string> {
         if (!interaction.inCachedGuild()) {
-            throw new Error("Dieser Command geht nur auf einem Server.");
+            throw new Error("This command can only be used in a server.");
         }
 
         if (!ffmpegPath) {
-            throw new Error("ffmpeg wurde nicht gefunden. Bitte installiere ffmpeg oder prüfe ffmpeg-static.");
+            throw new Error("ffmpeg was not found. Please install ffmpeg or check ffmpeg-static.");
         }
 
         const member = interaction.member;
         if (!(member instanceof GuildMember)) {
-            throw new Error("Konnte Guild-Member nicht auflösen.");
+            throw new Error("Could not resolve guild member.");
         }
 
         if (!this.hasAccess(member)) {
-            throw new Error("Du hast nicht die erforderliche Rolle für die Musikbefehle.");
+            throw new Error("You do not have the required role for music commands.");
         }
 
         const channel = member.voice.channel;
         if (!channel || !channel.isVoiceBased()) {
-            throw new Error("Du musst zuerst in einem Voice-Channel sein.");
+            throw new Error("You must be in a voice channel first.");
         }
 
         const botMember = interaction.guild.members.me ?? await interaction.guild.members.fetchMe();
         const permissions = channel.permissionsFor(botMember);
         if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
-            throw new Error("Dem Bot fehlen im Voice-Channel die Rechte Connect oder Speak.");
+            throw new Error("The bot is missing Connect or Speak permissions in the voice channel.");
         }
 
         const resolved = await this.resolveSource(interaction.user.id, sourceInput.trim());
@@ -114,13 +114,13 @@ export class MusicPlaybackService {
         if (!state.current) {
             await this.startTrack(interaction.guild.id, track);
             await this.ensureControllerMessage(interaction.guild.id);
-            return `Spiele jetzt ab: ${track.sourceLabel}`;
+            return `Now playing: ${track.sourceLabel}`;
         }
 
         state.queue.push(track);
         await this.ensureControllerMessage(interaction.guild.id);
         await this.refreshControllerMessage(interaction.guild.id);
-        return `Zur Queue hinzugefügt (#${state.queue.length}): ${track.sourceLabel}`;
+        return `Added to queue (#${state.queue.length}): ${track.sourceLabel}`;
     }
 
     public async skip(guildId: string): Promise<boolean> {
@@ -213,14 +213,14 @@ export class MusicPlaybackService {
             .setColor(0x1db954);
 
         if (!snapshot?.current) {
-            embed.setDescription("Aktuell läuft nichts.");
+            embed.setDescription("Nothing is currently playing.");
         }
         else {
-            embed.setDescription(`Jetzt: ${snapshot.current.sourceLabel}`)
+            embed.setDescription(`Now playing: ${snapshot.current.sourceLabel}`)
                 .addFields(
-                    { name: "Status", value: snapshot.paused ? "Pausiert" : "Spielt", inline: true },
-                    { name: "Lautstärke", value: `${snapshot.volumePercent}%`, inline: true },
-                    { name: "Queue", value: `${snapshot.queue.length} Titel`, inline: true }
+                    { name: "Status", value: snapshot.paused ? "Paused" : "Playing", inline: true },
+                    { name: "Volume", value: `${snapshot.volumePercent}%`, inline: true },
+                    { name: "Queue", value: `${snapshot.queue.length} tracks`, inline: true }
                 );
 
             if (snapshot.current.artworkUrl) {
@@ -229,12 +229,12 @@ export class MusicPlaybackService {
 
             if (snapshot.queue.length > 0) {
                 const preview = snapshot.queue.slice(0, 5).map((item, index) => `${index + 1}. ${item.sourceLabel}`).join("\n");
-                embed.addFields({ name: "Nächste Titel", value: preview });
+                embed.addFields({ name: "Up next", value: preview });
             }
         }
 
         const controls = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder().setCustomId("music:back").setLabel("Zurück").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music:back").setLabel("Back").setStyle(ButtonStyle.Secondary),
             new ButtonBuilder().setCustomId("music:pause-toggle").setLabel(snapshot?.paused ? "Play" : "Pause").setStyle(ButtonStyle.Primary),
             new ButtonBuilder().setCustomId("music:skip").setLabel("Skip").setStyle(ButtonStyle.Secondary)
         );
@@ -273,7 +273,7 @@ export class MusicPlaybackService {
         }
 
         if (!(interaction.member instanceof GuildMember) || !this.hasAccess(interaction.member)) {
-            await interaction.reply({ content: "Du hast nicht die erforderliche Rolle für die Musikbefehle.", ephemeral: true });
+            await interaction.reply({ content: "You do not have the required role for music commands.", ephemeral: true });
             return true;
         }
 
@@ -395,7 +395,7 @@ export class MusicPlaybackService {
         };
 
         player.on("error", (error) => {
-            console.error(`[Music] Player Fehler (${guildId}): ${error.message}`);
+            console.error(`[Music] Player error (${guildId}): ${error.message}`);
         });
 
         player.on(AudioPlayerStatus.Idle, () => {
@@ -403,7 +403,7 @@ export class MusicPlaybackService {
         });
 
         connection.on("error", (error) => {
-            console.error(`[Music] Connection Fehler (${guildId}): ${error.message}`);
+            console.error(`[Music] Connection error (${guildId}): ${error.message}`);
         });
 
         connection.subscribe(player);
@@ -416,7 +416,7 @@ export class MusicPlaybackService {
     private async startTrack(guildId: string, track: QueueTrack): Promise<void> {
         const state = this.guildStates.get(guildId);
         if (!state) {
-            throw new Error("Guild-Player wurde nicht initialisiert.");
+            throw new Error("Guild player was not initialized.");
         }
 
         if (track.streamKind === "youtube") {
@@ -457,7 +457,7 @@ export class MusicPlaybackService {
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            console.error(`[Music] Konnte nächsten Track nicht starten (${guildId}): ${message}`);
+            console.error(`[Music] Could not start next track (${guildId}): ${message}`);
             void this.handleIdle(guildId);
         }
     }
@@ -466,7 +466,7 @@ export class MusicPlaybackService {
         const inputUrl = track.streamKind === "youtube" ? await this.resolveYouTubeMediaUrl(track.sourceUrl) : track.sourceUrl;
 
         if (!ffmpegPath) {
-            throw new Error("ffmpeg wurde nicht gefunden. Bitte installiere ffmpeg oder prüfe ffmpeg-static.");
+            throw new Error("ffmpeg was not found. Please install ffmpeg or check ffmpeg-static.");
         }
 
         const ffmpeg = spawn(
@@ -566,14 +566,14 @@ export class MusicPlaybackService {
 
             const firstLine = String(output).split("\n").map((line) => line.trim()).find((line) => line.length > 0);
             if (!firstLine || !this.isHttpUrl(firstLine)) {
-                throw new Error("yt-dlp lieferte keine gültige Audio-URL.");
+                throw new Error("yt-dlp did not return a valid audio URL.");
             }
 
             return firstLine;
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            throw new Error(`YouTube-Stream konnte nicht aufgelöst werden: ${message}`);
+            throw new Error(`Failed to resolve YouTube stream: ${message}`);
         }
     }
 
@@ -584,7 +584,7 @@ export class MusicPlaybackService {
             this.logSearch("Input als Spotify-Track-URL erkannt.");
             const metadata = await this.spotifyService.resolveTrackMetadata(discordUserId, sourceInput);
             if (!metadata) {
-                throw new Error("Spotify-Track konnte nicht geladen werden.");
+                throw new Error("Could not load Spotify track.");
             }
 
             const fallback = await this.youtubeSearchService.resolveByQuery(`${metadata.artists.join(" ")} ${metadata.title}`, metadata, sourceInput);
@@ -600,7 +600,7 @@ export class MusicPlaybackService {
             this.logSearch("Input als YouTube-URL erkannt.");
             const normalized = this.youtubeSearchService.normalizeYouTubeUrl(sourceInput);
             if (!normalized) {
-                throw new Error("YouTube-Link ist ungültig oder nicht direkt abspielbar.");
+                throw new Error("YouTube link is invalid or not directly playable.");
             }
 
             return {

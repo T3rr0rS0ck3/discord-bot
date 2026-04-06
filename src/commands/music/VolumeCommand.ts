@@ -4,7 +4,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class VolumeCommand implements ICommand {
     public readonly name = "volume";
-    public readonly description = "Stellt die Lautstärke ein (0-100%)";
+    public readonly description = "Set the volume (0-100%)";
     private readonly playbackService: MusicPlaybackService;
 
     public readonly data = new SlashCommandBuilder()
@@ -13,7 +13,7 @@ export class VolumeCommand implements ICommand {
         .addIntegerOption((option) =>
             option
                 .setName("percent")
-                .setDescription("Lautstärke in Prozent (0 bis 100)")
+                .setDescription("Volume in percent (0 to 100)")
                 .setRequired(true)
                 .setMinValue(0)
                 .setMaxValue(100));
@@ -24,7 +24,7 @@ export class VolumeCommand implements ICommand {
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!interaction.inCachedGuild()) {
-            await interaction.reply({ content: "Dieser Command geht nur auf einem Server.", ephemeral: true });
+            await interaction.reply({ content: "This command can only be used in a server.", ephemeral: true });
             return;
         }
 
@@ -39,6 +39,6 @@ export class VolumeCommand implements ICommand {
             return;
         }
 
-        await interaction.editReply("Kein aktiver Player vorhanden.");
+        await interaction.editReply("No active player found.");
     }
 }

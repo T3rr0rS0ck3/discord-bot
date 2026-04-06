@@ -4,7 +4,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class QueueCommand implements ICommand {
     public readonly name = "queue";
-    public readonly description = "Zeigt die aktuelle Wiedergabe-Queue";
+    public readonly description = "Show the current playback queue";
     private readonly playbackService: MusicPlaybackService;
 
     public readonly data = new SlashCommandBuilder()
@@ -17,22 +17,22 @@ export class QueueCommand implements ICommand {
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!interaction.inCachedGuild()) {
-            await interaction.reply({ content: "Dieser Command geht nur auf einem Server.", ephemeral: true });
+            await interaction.reply({ content: "This command can only be used in a server.", ephemeral: true });
             return;
         }
 
         const snapshot = this.playbackService.getQueueSnapshot(interaction.guildId);
         if (!snapshot || !snapshot.current) {
-            await interaction.reply({ content: "Aktuell läuft nichts.", ephemeral: true });
+            await interaction.reply({ content: "Nothing is currently playing.", ephemeral: true });
             return;
         }
 
         const queuePreview = snapshot.queue.length > 0
             ? snapshot.queue.slice(0, 10).map((item, index) => `${index + 1}. ${item.sourceLabel}`).join("\n")
-            : "Queue ist leer.";
+            : "Queue is empty.";
 
         await interaction.reply({
-            content: `Jetzt: ${snapshot.current.sourceLabel}\nStatus: ${snapshot.paused ? "Pausiert" : "Spielt"}\nLautstärke: ${snapshot.volumePercent}%\n\n${queuePreview}`,
+            content: `Now playing: ${snapshot.current.sourceLabel}\nStatus: ${snapshot.paused ? "Paused" : "Playing"}\nVolume: ${snapshot.volumePercent}%\n\n${queuePreview}`,
             ephemeral: true
         });
     }

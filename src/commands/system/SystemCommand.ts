@@ -11,7 +11,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class SystemCommand implements ICommand {
     public readonly name = "system";
-    public readonly description = "System-Befehle und Moderation";
+    public readonly description = "System commands and moderation";
 
     public readonly data = new SlashCommandBuilder()
         .setName(this.name)
@@ -20,19 +20,19 @@ export class SystemCommand implements ICommand {
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("ping")
-                .setDescription("Antwortet mit Pong!"))
+                .setDescription("Reply with Pong!"))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("join")
-                .setDescription("Joint deinem aktuellen Voice-Channel"))
+                .setDescription("Join your current voice channel"))
         .addSubcommand((subcommand) =>
             subcommand
                 .setName("clear")
-                .setDescription("Loescht alle Nachrichten im aktuellen Channel"));
+                .setDescription("Delete all messages in the current channel"));
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!interaction.inCachedGuild()) {
-            await interaction.reply({ content: "Dieser Command geht nur auf einem Server.", ephemeral: true });
+            await interaction.reply({ content: "This command can only be used in a server.", ephemeral: true });
             return;
         }
 
@@ -51,7 +51,7 @@ export class SystemCommand implements ICommand {
                 await this.handleClear(cachedInteraction);
                 return;
             default:
-                await cachedInteraction.reply({ content: "Unbekannter Subcommand.", ephemeral: true });
+                await cachedInteraction.reply({ content: "Unknown subcommand.", ephemeral: true });
         }
     }
 
@@ -67,7 +67,7 @@ export class SystemCommand implements ICommand {
         const voiceChannel = member.voice.channel;
 
         if (!voiceChannel || !voiceChannel.isVoiceBased()) {
-            await interaction.reply({ content: "Du musst zuerst in einem Voice-Channel sein.", ephemeral: true });
+            await interaction.reply({ content: "You must be in a voice channel first.", ephemeral: true });
             return;
         }
 
@@ -79,37 +79,37 @@ export class SystemCommand implements ICommand {
             selfMute: false
         });
 
-        await interaction.reply(`Ich bin ${voiceChannel} beigetreten. 🎧`);
+        await interaction.reply(`I joined ${voiceChannel}. 🎧`);
     }
 
     private async handleClear(interaction: ChatInputCommandInteraction<"cached">): Promise<void> {
         const channel = interaction.channel;
         if (!channel || !channel.isTextBased() || !("messages" in channel)) {
-            await interaction.reply({ content: "Dieser Channel unterstuetzt keine Nachrichten-Loeschung.", ephemeral: true });
+            await interaction.reply({ content: "This channel does not support message deletion.", ephemeral: true });
             return;
         }
 
         const memberPerms = interaction.memberPermissions;
         if (!memberPerms?.has(PermissionFlagsBits.ManageMessages)) {
-            await interaction.reply({ content: "Du brauchst die Berechtigung 'Manage Messages'.", ephemeral: true });
+            await interaction.reply({ content: "You need the 'Manage Messages' permission.", ephemeral: true });
             return;
         }
 
         const botMember = interaction.guild.members.me;
         if (!botMember) {
-            await interaction.reply({ content: "Bot-Mitglied konnte nicht aufgeloest werden.", ephemeral: true });
+            await interaction.reply({ content: "Unable to resolve bot member.", ephemeral: true });
             return;
         }
 
         if (!("permissionsFor" in channel) || typeof channel.permissionsFor !== "function") {
-            await interaction.reply({ content: "Dieser Channel unterstuetzt keine Rechtepruefung.", ephemeral: true });
+            await interaction.reply({ content: "This channel does not support permission checks.", ephemeral: true });
             return;
         }
 
         const botPerms = channel.permissionsFor(botMember);
         if (!botPerms?.has(PermissionFlagsBits.ManageMessages) || !botPerms.has(PermissionFlagsBits.ReadMessageHistory)) {
             await interaction.reply({
-                content: "Mir fehlen Rechte im Channel (Manage Messages + Read Message History).",
+                content: "I am missing channel permissions (Manage Messages + Read Message History).",
                 ephemeral: true
             });
             return;
@@ -139,6 +139,6 @@ export class SystemCommand implements ICommand {
             lastMessageId = batch.last()?.id;
         }
 
-        await interaction.editReply(`Fertig. ${deletedCount} Nachrichten wurden im aktuellen Channel geloescht.`);
+        await interaction.editReply(`Done. Deleted ${deletedCount} messages from the current channel.`);
     }
 }
