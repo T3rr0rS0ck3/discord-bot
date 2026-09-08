@@ -19,6 +19,7 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV BOT_DATA_DIR=/data
+ENV ADMIN_UI_HOST=0.0.0.0
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 make g++ \
