@@ -127,6 +127,12 @@ Host-Ordner `data/` ausdrücklich nach `/app/data`; das Image verwendet für
 Home-Assistant standardmäßig `/data`. Der Datenpfad kann für weitere Deployments
 über `BOT_DATA_DIR` gesetzt werden.
 
+Die SQLite-Datei wird nicht mit Git oder dem Docker-Image ausgeliefert. Bei einem
+leeren Datenverzeichnis legt der Bot `bot-config.sqlite` beim ersten Start mit
+allen Tabellen, Migrationen, Standardrollen und dem initialen Login `admin` /
+`admin` an. Discord-, Spotify- und Twitch-Zugangsdaten werden erst über die
+Admin-Oberfläche in der persistenten Laufzeitdatenbank gespeichert.
+
 Das Release-Image in GHCR wird als Multi-Arch-Manifest veröffentlicht (`linux/amd64` + `linux/arm64`).
 
 Im Release-ZIP liegt die Image-basierte Compose-Datei als `docker-compose.yml`, damit du direkt nur mit dem Archiv arbeiten kannst.

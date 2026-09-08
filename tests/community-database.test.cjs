@@ -45,3 +45,13 @@ test('module switches survive SQLite reload with backwards compatible defaults',
         assert.equal(enabled.communityEnabled, false);
     } finally { await store.db?.close(); }
 });
+
+test('fresh SQLite deployment creates the default admin login without secrets', async () => {
+    const store = new AdminConfigStore(':memory:');
+    try {
+        const loaded = await store.load({ welcomeRoles: [] });
+        assert.equal(loaded.adminUiUsername, 'admin');
+        assert.equal(loaded.adminUiToken, 'admin');
+        assert.equal(loaded.discordToken, '');
+    } finally { await store.db?.close(); }
+});
