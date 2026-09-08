@@ -107,6 +107,26 @@ Release-Compose mit fertigem Image starten:
 docker compose -f docker-compose.release.yml up -d
 ```
 
+## Home Assistant App
+
+Das Verzeichnis `homeassistant-addon/` enthält eine Home-Assistant-App-Definition
+für dasselbe Multi-Arch-Image. Das Repository kann in Home Assistant unter
+
+```text
+Einstellungen -> Add-ons -> Add-on Store -> Repositories
+```
+
+als benutzerdefiniertes Repository hinzugefügt werden. Danach die App **Discord
+Bot** installieren und starten. Die Admin-Oberfläche ist über den App-Eintrag
+und Ingress erreichbar; die SQLite-Daten werden dauerhaft im Home-Assistant-
+App-Datenverzeichnis gespeichert. Der Spotify-Callback kann bei Bedarf über
+Port `3000` freigegeben werden.
+
+Die normale Docker- und Compose-Nutzung bleibt unverändert. Compose bindet den
+Host-Ordner `data/` ausdrücklich nach `/app/data`; das Image verwendet für
+Home-Assistant standardmäßig `/data`. Der Datenpfad kann für weitere Deployments
+über `BOT_DATA_DIR` gesetzt werden.
+
 Das Release-Image in GHCR wird als Multi-Arch-Manifest veröffentlicht (`linux/amd64` + `linux/arm64`).
 
 Im Release-ZIP liegt die Image-basierte Compose-Datei als `docker-compose.yml`, damit du direkt nur mit dem Archiv arbeiten kannst.

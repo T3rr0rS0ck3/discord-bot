@@ -1,0 +1,30 @@
+name: Discord Bot
+version: "1.0.0"
+slug: discord-bot
+description: Modularer Discord-Bot mit Musik, Welcome-, Twitch- und Community-Modulen
+url: https://github.com/t3rr0rs0ck/discord-bot
+image: ghcr.io/t3rr0rs0ck/discord-bot
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: false
+ingress: true
+ingress_port: 8787
+panel_icon: mdi:robot
+panel_title: Discord Bot
+ports:
+  8787/tcp: 8787
+  3000/tcp: 3000
+ports_description:
+  8787/tcp: Admin-Weboberflaeche (alternativ zu Ingress)
+  3000/tcp: Spotify OAuth Callback
+map:
+  - type: data
+    read_only: false
+    path: /data
+options: {}
+schema: {}
+webui: http://[HOST]:[PORT:8787]
+stage: stable

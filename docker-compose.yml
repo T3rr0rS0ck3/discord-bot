@@ -12,6 +12,7 @@ services:
       - ./data:/app/data
     environment:
       - NODE_ENV=production
+      - BOT_DATA_DIR=/app/data
       - ADMIN_UI_HOST=0.0.0.0
 
   sqlite-web:

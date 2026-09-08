@@ -52,8 +52,13 @@ export class Startup {
         const runtimeLogBuffer = new RuntimeLogBuffer(700);
         this.attachConsoleMirror(runtimeLogBuffer);
 
-        const sqlitePath = path.resolve(process.cwd(), "data", "bot-config.sqlite");
-        const legacyEnvValues = await this.readLegacyEnv(path.resolve(process.cwd(), ".env"));
+        const dataDirectory = this.normalizeString(process.env.BOT_DATA_DIR) ?? path.resolve(process.cwd(), "data");
+        const sqlitePath = path.resolve(dataDirectory, "bot-config.sqlite");
+        const fileEnvValues = await this.readLegacyEnv(path.resolve(process.cwd(), ".env"));
+        const processEnvValues = Object.fromEntries(
+            Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+        );
+        const legacyEnvValues = { ...fileEnvValues, ...processEnvValues };
         const defaultConfig: AdminConfig = {
             systemEnabled: true,
             musicEnabled: true,
