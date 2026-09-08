@@ -64,6 +64,16 @@ export class MusicPlaybackService {
         this.allowedRoleNames = new Set(roleNames.map((value) => value.trim()).filter((value) => value.length > 0));
     }
 
+    public shutdown(): void {
+        for (const state of this.guildStates.values()) {
+            state.player.removeAllListeners();
+            state.player.stop(true);
+            this.killFfmpeg(state);
+            state.connection.destroy();
+        }
+        this.guildStates.clear();
+    }
+
     public hasAccess(member: GuildMember): boolean {
         return RoleService.hasAccess(member, [...this.allowedRoleNames]);
     }

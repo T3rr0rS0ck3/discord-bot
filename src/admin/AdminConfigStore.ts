@@ -1,9 +1,19 @@
 import path from "node:path";
+import { communityChannelNamesSeedSql } from "./migrations/communityChannelNames";
 import sqlite3 from "sqlite3";
 import { open, type Database } from "sqlite";
 import type { WelcomeRoleOption } from "../types/Discord";
 
 export type AdminConfig = {
+    systemEnabled?: boolean;
+    musicEnabled?: boolean;
+    welcomeEnabled?: boolean;
+    twitchEnabled?: boolean;
+    communityEnabled?: boolean;
+    communityCategoryName?: string;
+    communityEmptyTimeoutSeconds?: number;
+    communityMaxChannels?: number;
+
     discordToken: string;
     guildId?: string;
     adminUiUsername: string;
@@ -18,6 +28,15 @@ export type AdminConfig = {
     spotifyRedirectUri?: string;
     welcomeChannelId?: string;
     welcomeRoles: WelcomeRoleOption[];
+    twitchBroadcasterName?: string;
+    twitchClientId?: string;
+    twitchClientSecret?: string;
+    twitchRedirectUri?: string;
+    twitchAccessToken?: string;
+    twitchRefreshToken?: string;
+    twitchAccessTokenExpiresAt?: number;
+    twitchFollowerRoleName?: string;
+    twitchSubscriberRoleName?: string;
 };
 
 export class AdminConfigStore {
@@ -56,6 +75,7 @@ export class AdminConfigStore {
         }
 
         await this.migrateRoles(defaults.welcomeRoles);
+        await this.initializeCommunityNames();
     }
 
     public async load(defaults: AdminConfig): Promise<AdminConfig> {
@@ -76,6 +96,35 @@ export class AdminConfigStore {
             ...loaded,
             welcomeRoles: roles.length > 0 ? roles : defaults.welcomeRoles
         });
+    }
+
+    public async initializeCommunityNames(): Promise<void> {
+        await this.ensureDb();
+        await this.db!.exec(`
+            CREATE TABLE IF NOT EXISTS community_channel_names (
+                name TEXT PRIMARY KEY CHECK(length(name) BETWEEN 1 AND 100)
+            );
+            CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY);
+        `);
+        // Seed once, atomically. Repeated deployments preserve edits in SQLite.
+        await this.db!.exec("BEGIN IMMEDIATE");
+        try {
+            const applied = await this.db!.get("SELECT id FROM schema_migrations WHERE id = ?", "community-names-v1");
+            if (!applied) {
+                await this.db!.exec(communityChannelNamesSeedSql);
+                await this.db!.run("INSERT INTO schema_migrations (id) VALUES (?)", "community-names-v1");
+            }
+            await this.db!.exec("COMMIT");
+        } catch (error) {
+            await this.db!.exec("ROLLBACK");
+            throw error;
+        }
+    }
+
+    public async getCommunityChannelNames(): Promise<string[]> {
+        await this.ensureDb();
+        const rows = await this.db!.all<Array<{ name: string }>>("SELECT name FROM community_channel_names ORDER BY name");
+        return rows.map(row => row.name);
     }
 
     public async save(config: AdminConfig): Promise<void> {
@@ -110,8 +159,25 @@ export class AdminConfigStore {
         const spotifyClientSecret = this.normalizeString(input.spotifyClientSecret);
         const spotifyRedirectUri = this.normalizeString(input.spotifyRedirectUri);
         const welcomeChannelId = input.welcomeChannelId ? String(input.welcomeChannelId).trim() : undefined;
+        const twitchBroadcasterName = this.normalizeString(input.twitchBroadcasterName);
+        const twitchClientId = this.normalizeString(input.twitchClientId);
+        const twitchClientSecret = this.normalizeString(input.twitchClientSecret);
+        const twitchRedirectUri = this.normalizeString(input.twitchRedirectUri);
+        const twitchAccessToken = this.normalizeString(input.twitchAccessToken);
+        const twitchRefreshToken = this.normalizeString(input.twitchRefreshToken);
+        const twitchAccessTokenExpiresAt = this.normalizeNumber(input.twitchAccessTokenExpiresAt, 1, Number.MAX_SAFE_INTEGER);
+        const twitchFollowerRoleName = this.normalizeString(input.twitchFollowerRoleName);
+        const twitchSubscriberRoleName = this.normalizeString(input.twitchSubscriberRoleName);
 
         return {
+            systemEnabled: input.systemEnabled !== false,
+            musicEnabled: input.musicEnabled !== false,
+            welcomeEnabled: input.welcomeEnabled !== false,
+            twitchEnabled: input.twitchEnabled !== false,
+            communityEnabled: input.communityEnabled !== false,
+            communityMaxChannels: Math.floor(this.normalizeNumber(input.communityMaxChannels, 1, 50) ?? 50),
+            communityCategoryName: String(input.communityCategoryName ?? "Community").trim().slice(0, 100) || "Community",
+            communityEmptyTimeoutSeconds: Math.floor(this.normalizeNumber(input.communityEmptyTimeoutSeconds, 1, 86400) ?? 60),
             discordToken,
             guildId,
             adminUiUsername,
@@ -125,7 +191,16 @@ export class AdminConfigStore {
             spotifyClientSecret,
             spotifyRedirectUri,
             welcomeChannelId: welcomeChannelId && welcomeChannelId.length > 0 ? welcomeChannelId : undefined,
-            welcomeRoles: roles
+            welcomeRoles: roles,
+            twitchBroadcasterName,
+            twitchClientId,
+            twitchClientSecret,
+            twitchRedirectUri,
+            twitchAccessToken,
+            twitchRefreshToken,
+            twitchAccessTokenExpiresAt,
+            twitchFollowerRoleName,
+            twitchSubscriberRoleName
         };
     }
 

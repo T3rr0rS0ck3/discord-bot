@@ -22,13 +22,41 @@ export type MusicPlaybackOptions = {
     allowedRoleNames?: string[];
 };
 
+export type TwitchRoleModuleOptions = {
+    guildId?: string;
+    broadcasterName?: string;
+    clientId?: string;
+    clientSecret?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    accessTokenExpiresAt?: number;
+    followerRoleName?: string;
+    subscriberRoleName?: string;
+    onTokensUpdated?: (tokens: {
+        accessToken: string;
+        refreshToken?: string;
+        accessTokenExpiresAt?: number;
+    }) => Promise<void> | void;
+};
+
 export type BotModuleFactoryOptions = {
+    systemEnabled?: boolean;
+    musicEnabled?: boolean;
+    welcomeEnabled?: boolean;
+    twitchEnabled?: boolean;
+    communityEnabled?: boolean;
+    getCommunityChannelNames: () => Promise<string[]>;
+    communityCategoryName?: string;
+    communityEmptyTimeoutSeconds?: number;
+    communityMaxChannels?: number;
+
     guildId?: string;
     musicRoleName: string;
     spotifyService: SpotifyServiceOptions;
     musicPlayback: MusicPlaybackOptions;
     welcomeChannelId?: string;
     welcomeRoles?: WelcomeRoleOption[];
+    twitchRole?: TwitchRoleModuleOptions;
 };
 
 export type MusicBotModuleOptions = {

@@ -38,7 +38,11 @@ export class DiscordBot {
     }
 
     public async start(): Promise<void> {
-        await this.client.login(this.token);
+        try {
+            await this.client.login(this.token);
+        } catch (error) {
+            console.error("[Discord] Login failed. Check the Discord token in the admin UI and restart the bot.", error);
+        }
     }
 
     public async stop(): Promise<void> {
@@ -50,35 +54,60 @@ export class DiscordBot {
     }
 
     private registerEvents(): void {
+        this.client.on("error", (error) => {
+            console.error("[Discord] Client error:", error);
+        });
+
         this.client.once("clientReady", async (readyClient) => {
-            console.log(`Bot ist online als ${readyClient.user.tag}`);
+            try {
+                console.log(`Bot ist online als ${readyClient.user.tag}`);
 
-            const commandData = [...this.commands.values()].map((command) => command.data.toJSON());
+                const commandData = [...this.commands.values()].map((command) => command.data.toJSON());
 
-            if (this.guildId) {
-                await readyClient.application.commands.set(commandData, this.guildId);
-                console.log(`Slash commands registered for guild ${this.guildId}.`);
+                if (this.guildId) {
+                    await readyClient.application.commands.set(commandData, this.guildId);
+                    console.log(`Slash commands registered for guild ${this.guildId}.`);
 
-                // Remove old global commands so Discord does not show duplicate old/new variants.
-                await readyClient.application.commands.set([]);
-                console.log("Old global slash commands removed.");
+                    // Remove old global commands so Discord does not show duplicate old/new variants.
+                    await readyClient.application.commands.set([]);
+                    console.log("Old global slash commands removed.");
+
+                    if (this.onReady) {
+                        await this.onReady(readyClient);
+                    }
+
+                    return;
+                }
+
+                await readyClient.application.commands.set(commandData);
+                console.log("Slash commands registered globally (can take up to 1 hour).");
 
                 if (this.onReady) {
                     await this.onReady(readyClient);
                 }
-
-                return;
-            }
-
-            await readyClient.application.commands.set(commandData);
-            console.log("Slash commands registered globally (can take up to 1 hour).");
-
-            if (this.onReady) {
-                await this.onReady(readyClient);
+            } catch (error) {
+                console.error(
+                    `[Discord] Startup setup failed (guild: ${this.guildId ?? "global"}). Check Guild ID and bot installation in the admin UI, then restart the bot. The admin UI remains available.`,
+                    error
+                );
             }
         });
 
         this.client.on("interactionCreate", async (interaction) => {
+            if (interaction.isRoleSelectMenu()) {
+                try {
+                    for (const module of this.modules) {
+                        if (await module.handleRoleSelectInteraction?.(interaction)) return;
+                    }
+                    await interaction.reply({ content: "Diese Rollenauswahl ist derzeit nicht aktiv.", ephemeral: true });
+                } catch (error) {
+                    console.error("Role select handling error:", error);
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({ content: "Die Rollenauswahl konnte nicht verarbeitet werden.", ephemeral: true });
+                    }
+                }
+                return;
+            }
             if (interaction.isButton() && this.buttonHandler) {
                 try {
                     const handled = await this.buttonHandler(interaction.customId, interaction);

@@ -1,6 +1,11 @@
 import type { AdminConfig, RestartRelevantState } from "../types";
 
 export const restartFieldLabels: Record<keyof RestartRelevantState, string> = {
+    systemEnabled: "Modul System",
+    musicEnabled: "Modul Musik",
+    welcomeEnabled: "Modul Welcome",
+    twitchEnabled: "Modul Twitch",
+    communityEnabled: "Modul Community",
     discordToken: "Discord Token",
     guildId: "Guild ID",
     musicRoleName: "Music Role",
@@ -14,6 +19,14 @@ export const restartFieldLabels: Record<keyof RestartRelevantState, string> = {
 
 export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
     return {
+        systemEnabled: input.systemEnabled !== false,
+            musicEnabled: input.musicEnabled !== false,
+            welcomeEnabled: input.welcomeEnabled !== false,
+            twitchEnabled: input.twitchEnabled !== false,
+            communityEnabled: input.communityEnabled !== false,
+            communityMaxChannels: Number(input.communityMaxChannels ?? 50),
+        communityCategoryName: String(input.communityCategoryName ?? "Community"),
+        communityEmptyTimeoutSeconds: Number(input.communityEmptyTimeoutSeconds ?? 60),
         discordToken: String(input.discordToken ?? ""),
         guildId: input.guildId ? String(input.guildId) : "",
         adminUiUsername: String(input.adminUiUsername ?? "admin"),
@@ -39,7 +52,19 @@ export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
                   name: String(role?.name ?? ""),
                   description: String(role?.description ?? "")
               }))
-            : []
+            : [],
+        twitchBroadcasterName: input.twitchBroadcasterName ? String(input.twitchBroadcasterName) : "",
+        twitchClientId: input.twitchClientId ? String(input.twitchClientId) : "",
+        twitchClientSecret: input.twitchClientSecret ? String(input.twitchClientSecret) : "",
+        twitchRedirectUri: input.twitchRedirectUri ? String(input.twitchRedirectUri) : "",
+        twitchAccessToken: input.twitchAccessToken ? String(input.twitchAccessToken) : "",
+        twitchRefreshToken: input.twitchRefreshToken ? String(input.twitchRefreshToken) : "",
+        twitchAccessTokenExpiresAt:
+            input.twitchAccessTokenExpiresAt === undefined || input.twitchAccessTokenExpiresAt === null
+                ? undefined
+                : Number(input.twitchAccessTokenExpiresAt),
+        twitchFollowerRoleName: input.twitchFollowerRoleName ? String(input.twitchFollowerRoleName) : "",
+        twitchSubscriberRoleName: input.twitchSubscriberRoleName ? String(input.twitchSubscriberRoleName) : ""
     };
 }
 
@@ -68,12 +93,29 @@ export function serializeConfig(cfg: AdminConfig): string {
             cfg.musicYoutubeSearchLimit === undefined || Number.isNaN(cfg.musicYoutubeSearchLimit)
                 ? ""
                 : String(cfg.musicYoutubeSearchLimit),
-        adminUiPort: Number.isNaN(cfg.adminUiPort) ? "" : String(cfg.adminUiPort)
+        adminUiPort: Number.isNaN(cfg.adminUiPort) ? "" : String(cfg.adminUiPort),
+        twitchBroadcasterName: cfg.twitchBroadcasterName?.trim() || "",
+        twitchClientId: cfg.twitchClientId?.trim() || "",
+        twitchClientSecret: cfg.twitchClientSecret?.trim() || "",
+        twitchRedirectUri: cfg.twitchRedirectUri?.trim() || "",
+        twitchAccessToken: cfg.twitchAccessToken?.trim() || "",
+        twitchRefreshToken: cfg.twitchRefreshToken?.trim() || "",
+        twitchAccessTokenExpiresAt:
+            cfg.twitchAccessTokenExpiresAt === undefined || Number.isNaN(cfg.twitchAccessTokenExpiresAt)
+                ? ""
+                : String(cfg.twitchAccessTokenExpiresAt),
+        twitchFollowerRoleName: cfg.twitchFollowerRoleName?.trim() || "",
+        twitchSubscriberRoleName: cfg.twitchSubscriberRoleName?.trim() || ""
     });
 }
 
 export function toRestartRelevantState(cfg: AdminConfig): RestartRelevantState {
     return {
+        systemEnabled: cfg.systemEnabled !== false,
+        musicEnabled: cfg.musicEnabled !== false,
+        welcomeEnabled: cfg.welcomeEnabled !== false,
+        twitchEnabled: cfg.twitchEnabled !== false,
+        communityEnabled: cfg.communityEnabled !== false,
         discordToken: cfg.discordToken.trim(),
         guildId: (cfg.guildId ?? "").trim(),
         musicRoleName: cfg.musicRoleName.trim(),

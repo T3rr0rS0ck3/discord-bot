@@ -47,6 +47,7 @@ export class MusicBotModule implements IBotModule {
     }
 
     public async shutdown(): Promise<void> {
+        this.playbackService.shutdown();
         if (!this.callbackServer) {
             return;
         }

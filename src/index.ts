@@ -55,6 +55,14 @@ export class Startup {
         const sqlitePath = path.resolve(process.cwd(), "data", "bot-config.sqlite");
         const legacyEnvValues = await this.readLegacyEnv(path.resolve(process.cwd(), ".env"));
         const defaultConfig: AdminConfig = {
+            systemEnabled: true,
+            musicEnabled: true,
+            welcomeEnabled: true,
+            twitchEnabled: true,
+            communityEnabled: true,
+            communityCategoryName: "Community",
+            communityEmptyTimeoutSeconds: 60,
+            communityMaxChannels: 50,
             discordToken: this.normalizeString(legacyEnvValues.DISCORD_TOKEN) ?? "",
             guildId: this.normalizeString(legacyEnvValues.GUILD_ID),
             adminUiUsername: this.normalizeString(legacyEnvValues.ADMIN_UI_USERNAME) ?? "admin",
@@ -68,6 +76,15 @@ export class Startup {
             spotifyClientSecret: this.normalizeString(legacyEnvValues.SPOTIFY_CLIENT_SECRET),
             spotifyRedirectUri: this.normalizeString(legacyEnvValues.SPOTIFY_REDIRECT_URI),
             welcomeChannelId: this.normalizeString(legacyEnvValues.WELCOME_CHANNEL_ID),
+            twitchBroadcasterName: this.normalizeString(legacyEnvValues.TWITCH_BROADCASTER_NAME),
+            twitchClientId: this.normalizeString(legacyEnvValues.TWITCH_CLIENT_ID),
+            twitchClientSecret: this.normalizeString(legacyEnvValues.TWITCH_CLIENT_SECRET),
+            twitchRedirectUri: this.normalizeString(legacyEnvValues.TWITCH_REDIRECT_URI),
+            twitchAccessToken: this.normalizeString(legacyEnvValues.TWITCH_ACCESS_TOKEN),
+            twitchRefreshToken: this.normalizeString(legacyEnvValues.TWITCH_REFRESH_TOKEN),
+            twitchAccessTokenExpiresAt: this.parseNumber(legacyEnvValues.TWITCH_ACCESS_TOKEN_EXPIRES_AT),
+            twitchFollowerRoleName: this.normalizeString(legacyEnvValues.TWITCH_FOLLOWER_ROLE_NAME),
+            twitchSubscriberRoleName: this.normalizeString(legacyEnvValues.TWITCH_SUBSCRIBER_ROLE_NAME),
             welcomeRoles: this.parseWelcomeRoles(legacyEnvValues.WELCOME_ROLES) ?? [
                 { emoji: "🎮", name: "Gaming", description: "For gamers and gaming enthusiasts" },
                 { emoji: "🎵", name: "Music", description: "For music lovers" }
@@ -78,6 +95,47 @@ export class Startup {
         let runtimeAdminConfig: AdminConfig = await adminConfigStore.load(defaultConfig);
         let modules: IBotModule[] = [];
         let bot: DiscordBot | undefined;
+
+        const applyRuntimeConfigToModules = async (): Promise<void> => {
+            const readyClient = bot?.getReadyClient();
+
+            for (const module of modules) {
+                if (!module.applyRuntimeConfig) {
+                    continue;
+                }
+
+                await module.applyRuntimeConfig(
+                    {
+                        communityCategoryName: runtimeAdminConfig.communityCategoryName,
+                        communityEmptyTimeoutSeconds: runtimeAdminConfig.communityEmptyTimeoutSeconds,
+                communityMaxChannels: runtimeAdminConfig.communityMaxChannels,
+                        welcomeChannelId: runtimeAdminConfig.welcomeChannelId,
+                        welcomeRoles: runtimeAdminConfig.welcomeRoles,
+                        twitchBroadcasterName: runtimeAdminConfig.twitchBroadcasterName,
+                        twitchClientId: runtimeAdminConfig.twitchClientId,
+                        twitchClientSecret: runtimeAdminConfig.twitchClientSecret,
+                        twitchRedirectUri: runtimeAdminConfig.twitchRedirectUri,
+                        twitchAccessToken: runtimeAdminConfig.twitchAccessToken,
+                        twitchRefreshToken: runtimeAdminConfig.twitchRefreshToken,
+                        twitchAccessTokenExpiresAt: runtimeAdminConfig.twitchAccessTokenExpiresAt,
+                        twitchFollowerRoleName: runtimeAdminConfig.twitchFollowerRoleName,
+                        twitchSubscriberRoleName: runtimeAdminConfig.twitchSubscriberRoleName
+                    },
+                    readyClient
+                );
+            }
+
+            if (readyClient) {
+                console.log("[AdminUI] Runtime configuration was applied directly to the bot.");
+            }
+        };
+
+        const persistRuntimeConfig = async (config: AdminConfig): Promise<void> => {
+            runtimeAdminConfig = config;
+            await adminConfigStore.save(config);
+            console.log(`[AdminUI] Configuration saved: ${sqlitePath}`);
+            await applyRuntimeConfigToModules();
+        };
 
         const startOrRestartBot = async (): Promise<void> => {
             if (!runtimeAdminConfig.discordToken) {
@@ -97,6 +155,15 @@ export class Startup {
             }
 
             modules = BotModuleFactory.create({
+                systemEnabled: runtimeAdminConfig.systemEnabled,
+                musicEnabled: runtimeAdminConfig.musicEnabled,
+                welcomeEnabled: runtimeAdminConfig.welcomeEnabled,
+                twitchEnabled: runtimeAdminConfig.twitchEnabled,
+                communityEnabled: runtimeAdminConfig.communityEnabled,
+                getCommunityChannelNames: () => adminConfigStore.getCommunityChannelNames(),
+                communityCategoryName: runtimeAdminConfig.communityCategoryName,
+                communityEmptyTimeoutSeconds: runtimeAdminConfig.communityEmptyTimeoutSeconds,
+                communityMaxChannels: runtimeAdminConfig.communityMaxChannels,
                 guildId: runtimeAdminConfig.guildId,
                 musicRoleName: runtimeAdminConfig.musicRoleName,
                 spotifyService: {
@@ -111,7 +178,28 @@ export class Startup {
                     allowedRoleNames: [runtimeAdminConfig.musicRoleName]
                 },
                 welcomeChannelId: runtimeAdminConfig.welcomeChannelId,
-                welcomeRoles: runtimeAdminConfig.welcomeRoles
+                welcomeRoles: runtimeAdminConfig.welcomeRoles,
+                twitchRole: {
+                    guildId: runtimeAdminConfig.guildId,
+                    broadcasterName: runtimeAdminConfig.twitchBroadcasterName,
+                    clientId: runtimeAdminConfig.twitchClientId,
+                    clientSecret: runtimeAdminConfig.twitchClientSecret,
+                    accessToken: runtimeAdminConfig.twitchAccessToken,
+                    refreshToken: runtimeAdminConfig.twitchRefreshToken,
+                    accessTokenExpiresAt: runtimeAdminConfig.twitchAccessTokenExpiresAt,
+                    followerRoleName: runtimeAdminConfig.twitchFollowerRoleName,
+                    subscriberRoleName: runtimeAdminConfig.twitchSubscriberRoleName,
+                    onTokensUpdated: async (tokens) => {
+                        runtimeAdminConfig = {
+                            ...runtimeAdminConfig,
+                            twitchAccessToken: tokens.accessToken,
+                            twitchRefreshToken: tokens.refreshToken,
+                            twitchAccessTokenExpiresAt: tokens.accessTokenExpiresAt
+                        };
+                        await adminConfigStore.save(runtimeAdminConfig);
+                        await applyRuntimeConfigToModules();
+                    }
+                }
             });
 
             for (const module of modules) {
@@ -216,28 +304,7 @@ export class Startup {
                     .sort((a, b) => a.label.localeCompare(b.label, "de"));
             },
             saveConfig: async (config) => {
-                runtimeAdminConfig = config;
-                await adminConfigStore.save(config);
-                console.log(`[AdminUI] Configuration saved: ${sqlitePath}`);
-
-                const readyClient = bot?.getReadyClient();
-                for (const module of modules) {
-                    if (!module.applyRuntimeConfig) {
-                        continue;
-                    }
-
-                    await module.applyRuntimeConfig(
-                        {
-                            welcomeChannelId: runtimeAdminConfig.welcomeChannelId,
-                            welcomeRoles: runtimeAdminConfig.welcomeRoles
-                        },
-                        readyClient
-                    );
-                }
-
-                if (readyClient) {
-                    console.log("[AdminUI] Runtime configuration was applied directly to the bot.");
-                }
+                await persistRuntimeConfig(config);
             }
         });
         adminWebServer.start();

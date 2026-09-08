@@ -21,7 +21,9 @@ export class AdminWebServer {
     private unicodeEmojisCache?: Array<{ value: string; label: string; group: string }>;
     private unicodeEmojiLoadFailed = false;
     private readonly sessions = new Map<string, { username: string; expiresAt: number }>();
+    private readonly twitchOAuthStates = new Map<string, { createdAt: number }>();
     private readonly sessionTtlMs = 8 * 60 * 60 * 1000;
+    private readonly twitchStateTtlMs = 10 * 60 * 1000;
 
     public constructor(options: AdminWebServerOptions) {
         this.options = options;
@@ -102,6 +104,38 @@ export class AdminWebServer {
             }
             this.clearSessionCookie(res);
             this.sendJson(res, 200, { ok: true });
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/twitch/oauth/start") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+
+            const config = this.options.getConfig();
+            const twitchConfig = this.getTwitchOAuthConfig(config);
+            if (!twitchConfig) {
+                this.sendJson(res, 400, {
+                    error: "Twitch OAuth is not configured. Set Twitch Client ID, Client Secret, and Redirect URI first."
+                });
+                return;
+            }
+
+            const state = randomUUID();
+            this.twitchOAuthStates.set(state, { createdAt: Date.now() });
+            this.pruneExpiredTwitchOAuthStates();
+
+            res.writeHead(302, {
+                Location: this.buildTwitchAuthorizeUrl(twitchConfig, state),
+                "Cache-Control": "no-store"
+            });
+            res.end();
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/twitch/oauth/callback") {
+            await this.handleTwitchOAuthCallback(res, url);
             return;
         }
 
@@ -202,6 +236,14 @@ export class AdminWebServer {
             : [];
 
         return {
+            systemEnabled: input.systemEnabled !== false,
+            musicEnabled: input.musicEnabled !== false,
+            welcomeEnabled: input.welcomeEnabled !== false,
+            twitchEnabled: input.twitchEnabled !== false,
+            communityEnabled: input.communityEnabled !== false,
+            communityMaxChannels: Math.floor(this.normalizeNumber(input.communityMaxChannels, 1, 50) ?? 50),
+            communityCategoryName: String(input.communityCategoryName ?? "Community").trim().slice(0, 100) || "Community",
+            communityEmptyTimeoutSeconds: Math.floor(this.normalizeNumber(input.communityEmptyTimeoutSeconds, 1, 86400) ?? 60),
             discordToken: String(input.discordToken ?? "").trim(),
             guildId: this.normalizeString(input.guildId),
             adminUiUsername: String(input.adminUiUsername ?? "admin").trim() || "admin",
@@ -215,12 +257,222 @@ export class AdminWebServer {
             spotifyClientSecret: this.normalizeString(input.spotifyClientSecret),
             spotifyRedirectUri: this.normalizeString(input.spotifyRedirectUri),
             welcomeChannelId: this.normalizeString(input.welcomeChannelId),
-            welcomeRoles: roles
+            welcomeRoles: roles,
+            twitchBroadcasterName: this.normalizeString(input.twitchBroadcasterName),
+            twitchClientId: this.normalizeString(input.twitchClientId),
+            twitchClientSecret: this.normalizeString(input.twitchClientSecret),
+            twitchRedirectUri: this.normalizeString(input.twitchRedirectUri),
+            twitchAccessToken: this.normalizeString(input.twitchAccessToken),
+            twitchRefreshToken: this.normalizeString(input.twitchRefreshToken),
+            twitchAccessTokenExpiresAt: this.normalizeNumber(input.twitchAccessTokenExpiresAt, 1, Number.MAX_SAFE_INTEGER),
+            twitchFollowerRoleName: this.normalizeString(input.twitchFollowerRoleName),
+            twitchSubscriberRoleName: this.normalizeString(input.twitchSubscriberRoleName)
         };
+    }
+
+    private getTwitchOAuthConfig(config: AdminConfig): { clientId: string; clientSecret: string; redirectUri: string } | null {
+        const clientId = (config.twitchClientId ?? "").trim();
+        const clientSecret = (config.twitchClientSecret ?? "").trim();
+        const redirectUri = (config.twitchRedirectUri ?? "").trim();
+
+        if (!clientId || !clientSecret || !redirectUri) {
+            return null;
+        }
+
+        return { clientId, clientSecret, redirectUri };
+    }
+
+    private buildTwitchAuthorizeUrl(
+        config: { clientId: string; clientSecret: string; redirectUri: string },
+        state: string
+    ): string {
+        const url = new URL("https://id.twitch.tv/oauth2/authorize");
+        url.searchParams.set("response_type", "code");
+        url.searchParams.set("client_id", config.clientId);
+        url.searchParams.set("redirect_uri", config.redirectUri);
+        url.searchParams.set("scope", "moderator:read:followers channel:read:subscriptions");
+        url.searchParams.set("state", state);
+        return url.toString();
+    }
+
+    private pruneExpiredTwitchOAuthStates(): void {
+        const now = Date.now();
+        for (const [state, entry] of this.twitchOAuthStates.entries()) {
+            if (entry.createdAt + this.twitchStateTtlMs <= now) {
+                this.twitchOAuthStates.delete(state);
+            }
+        }
+    }
+
+    private async handleTwitchOAuthCallback(res: ServerResponse, url: URL): Promise<void> {
+        const error = url.searchParams.get("error");
+        if (error) {
+            const description = url.searchParams.get("error_description") ?? "Twitch denied the login request.";
+            this.sendHtml(res, this.renderSimpleHtml("Twitch OAuth Failed", this.escapeHtml(description)));
+            return;
+        }
+
+        const code = url.searchParams.get("code") ?? "";
+        const state = url.searchParams.get("state") ?? "";
+        if (!code || !state) {
+            res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(this.renderSimpleHtml("Twitch OAuth Failed", this.escapeHtml("Missing OAuth code or state.")));
+            return;
+        }
+
+        this.pruneExpiredTwitchOAuthStates();
+        if (!this.twitchOAuthStates.has(state)) {
+            res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(this.renderSimpleHtml("Twitch OAuth Failed", this.escapeHtml("OAuth state expired or is invalid.")));
+            return;
+        }
+        this.twitchOAuthStates.delete(state);
+
+        const config = this.options.getConfig();
+        const twitchConfig = this.getTwitchOAuthConfig(config);
+        if (!twitchConfig) {
+            res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(this.renderSimpleHtml("Twitch OAuth Failed", this.escapeHtml("Twitch OAuth is not fully configured.")));
+            return;
+        }
+
+        try {
+            const tokenResult = await this.exchangeTwitchCodeForTokens(code, twitchConfig);
+            const profile = await this.fetchTwitchProfile(tokenResult.accessToken, twitchConfig.clientId);
+
+            const next: AdminConfig = {
+                ...config,
+                twitchBroadcasterName: profile.login,
+                twitchClientId: twitchConfig.clientId,
+                twitchClientSecret: twitchConfig.clientSecret,
+                twitchRedirectUri: twitchConfig.redirectUri,
+                twitchAccessToken: tokenResult.accessToken,
+                twitchRefreshToken: tokenResult.refreshToken,
+                twitchAccessTokenExpiresAt: Date.now() + tokenResult.expiresIn * 1000
+            };
+
+            await this.options.saveConfig(next);
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(
+                this.renderSimpleHtml(
+                    "Twitch OAuth Connected",
+                    `Twitch account <strong>${this.escapeHtml(profile.displayName ?? profile.login)}</strong> was connected successfully. You can close this tab.`
+                )
+            );
+        } catch (oauthError) {
+            const message = oauthError instanceof Error ? oauthError.message : String(oauthError);
+            res.writeHead(500, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(this.renderSimpleHtml("Twitch OAuth Failed", this.escapeHtml(message)));
+        }
+    }
+
+    private async exchangeTwitchCodeForTokens(
+        code: string,
+        config: { clientId: string; clientSecret: string; redirectUri: string }
+    ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+        const body = new URLSearchParams({
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            code,
+            grant_type: "authorization_code",
+            redirect_uri: config.redirectUri
+        });
+
+        const response = await fetch("https://id.twitch.tv/oauth2/token", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body
+        });
+
+        if (!response.ok) {
+            throw new Error(`Twitch token exchange failed with HTTP ${response.status}`);
+        }
+
+        const payload = (await response.json()) as {
+            access_token?: string;
+            refresh_token?: string;
+            expires_in?: number;
+        };
+
+        if (!payload.access_token || !payload.refresh_token || !payload.expires_in) {
+            throw new Error("Twitch token exchange returned incomplete data.");
+        }
+
+        return {
+            accessToken: payload.access_token,
+            refreshToken: payload.refresh_token,
+            expiresIn: payload.expires_in
+        };
+    }
+
+    private async fetchTwitchProfile(
+        accessToken: string,
+        clientId: string
+    ): Promise<{ login: string; displayName?: string }> {
+        const response = await fetch("https://api.twitch.tv/helix/users", {
+            headers: {
+                "Client-ID": clientId,
+                Authorization: `Bearer ${accessToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Twitch profile lookup failed with HTTP ${response.status}`);
+        }
+
+        const payload = (await response.json()) as { data?: Array<{ login?: string; display_name?: string }> };
+        const user = payload.data?.[0];
+        if (!user?.login) {
+            throw new Error("Twitch profile lookup returned no user.");
+        }
+
+        return {
+            login: user.login,
+            displayName: user.display_name
+        };
+    }
+
+    private renderSimpleHtml(title: string, message: string): string {
+        return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${this.escapeHtml(title)}</title>
+  <style>
+    body { font-family: Segoe UI, Tahoma, sans-serif; background:#0b1022; color:#f8fafc; margin:0; display:grid; place-items:center; min-height:100vh; }
+    .card { max-width: 640px; background:#131a33; border:1px solid #2a3558; border-radius:16px; padding:24px; box-shadow:0 12px 36px rgba(0,0,0,.35); }
+    h1 { margin:0 0 10px; font-size:28px; }
+    p { color:#c8d1ea; line-height:1.5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>${this.escapeHtml(title)}</h1>
+    <p>${message}</p>
+  </div>
+</body>
+</html>`;
+    }
+
+    private escapeHtml(value: string): string {
+        return value
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
     }
 
     private getRestartRequirement(previous: AdminConfig, next: AdminConfig): { required: boolean; fields: string[] } {
       const fields: Array<{ key: keyof AdminConfig; label: string }> = [
+        { key: "systemEnabled", label: "Modul System" },
+        { key: "musicEnabled", label: "Modul Musik" },
+        { key: "welcomeEnabled", label: "Modul Welcome" },
+        { key: "twitchEnabled", label: "Modul Twitch" },
+        { key: "communityEnabled", label: "Modul Community" },
         { key: "discordToken", label: "Discord Token" },
         { key: "guildId", label: "Guild ID" },
                 { key: "musicRoleName", label: "Music Role" },

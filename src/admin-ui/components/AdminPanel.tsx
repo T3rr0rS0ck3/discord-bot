@@ -1,9 +1,12 @@
 import React, { useEffect, useRef } from "react";
 import type { AdminConfig, ChannelOption, EmojiOption, LogEntry, StatusState } from "../types";
 import { ActionBar } from "./admin/ActionBar";
+import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
+import { ModuleSettingsSection } from "./admin/ModuleSettingsSection";
 import { CoreSettingsSection } from "./admin/CoreSettingsSection";
 import { MusicSettingsSection } from "./admin/MusicSettingsSection";
 import { SpotifySettingsSection } from "./admin/SpotifySettingsSection";
+import { TwitchSettingsSection } from "./admin/TwitchSettingsSection";
 import { WelcomeSettingsSection } from "./admin/WelcomeSettingsSection";
 
 type CollapsibleRegionProps = {
@@ -116,12 +119,19 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
 
                             {props.config ? (
                                 <>
+                                    <CollapsibleRegion title="Module" defaultOpen={true}>
+                                        <ModuleSettingsSection config={props.config} busy={props.busy} onUpdateConfig={props.onUpdateConfig} />
+                                    </CollapsibleRegion>
                                     <CollapsibleRegion title="Core Settings" defaultOpen={true}>
                                         <CoreSettingsSection
                                             config={props.config}
                                             busy={props.busy}
                                             onUpdateConfig={props.onUpdateConfig}
                                         />
+                                    </CollapsibleRegion>
+
+                                    <CollapsibleRegion title="Community Sprachkanäle" defaultOpen={true}>
+                                        <CommunitySettingsSection config={props.config} busy={props.busy} onUpdateConfig={props.onUpdateConfig} />
                                     </CollapsibleRegion>
 
                                     <CollapsibleRegion title="Music Settings" defaultOpen={true}>
@@ -140,7 +150,15 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                         />
                                     </CollapsibleRegion>
 
-                                    <CollapsibleRegion title="Welcome Role Assignment" defaultOpen={true}>
+                                    <CollapsibleRegion title="Twitch Settings" defaultOpen={false}>
+                                        <TwitchSettingsSection
+                                            config={props.config}
+                                            busy={props.busy}
+                                            onUpdateConfig={props.onUpdateConfig}
+                                        />
+                                    </CollapsibleRegion>
+
+                                    <CollapsibleRegion title="Welcome Role Select" defaultOpen={true}>
                                         <WelcomeSettingsSection
                                             config={props.config}
                                             channels={props.channels}

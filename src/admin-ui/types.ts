@@ -5,6 +5,15 @@ export type RoleConfig = {
 };
 
 export type AdminConfig = {
+    systemEnabled?: boolean;
+    musicEnabled?: boolean;
+    welcomeEnabled?: boolean;
+    twitchEnabled?: boolean;
+    communityEnabled?: boolean;
+    communityCategoryName?: string;
+    communityEmptyTimeoutSeconds?: number;
+    communityMaxChannels?: number;
+
     discordToken: string;
     guildId?: string;
     adminUiUsername: string;
@@ -19,6 +28,15 @@ export type AdminConfig = {
     spotifyRedirectUri?: string;
     welcomeChannelId?: string;
     welcomeRoles: RoleConfig[];
+    twitchBroadcasterName?: string;
+    twitchClientId?: string;
+    twitchClientSecret?: string;
+    twitchRedirectUri?: string;
+    twitchAccessToken?: string;
+    twitchRefreshToken?: string;
+    twitchAccessTokenExpiresAt?: number;
+    twitchFollowerRoleName?: string;
+    twitchSubscriberRoleName?: string;
 };
 
 export type AuthState = {
@@ -43,6 +61,11 @@ export type ChannelOption = {
 };
 
 export type RestartRelevantState = {
+    systemEnabled: boolean;
+    musicEnabled: boolean;
+    welcomeEnabled: boolean;
+    twitchEnabled: boolean;
+    communityEnabled: boolean;
     discordToken: string;
     guildId: string;
     musicRoleName: string;

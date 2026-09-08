@@ -153,6 +153,25 @@ Hinweis zur Laufzeit:
 
 ## Hinweis
 
+### Module ein- und ausschalten
+
+Die Adminoberfläche bietet unter **Module** Schalter für System, Musik (inklusive Spotify), Welcome, Twitch und Community. Die Auswahl wird in SQLite gespeichert und über **Save and restart** angewendet. Nur **Save** speichert die Auswahl für den nächsten Bot-Neustart. Vorhandene Installationen behalten standardmäßig alle Module eingeschaltet; Welcome und Twitch benötigen zusätzlich ihre Konfiguration.
+
+Ausgeschaltete Module registrieren keine Befehle und starten keine Verarbeitung. Beim Neustart wird laufende Musik beendet. Bestehende Rollen und Kanäle bleiben erhalten; die Community räumt ihre temporären Kanäle erst nach erneutem Einschalten wieder auf. Die Adminoberfläche bleibt unabhängig von den Modulschaltern erreichbar.
+
+### Temporäre Community-Sprachkanäle
+
+- Mit gesetzter Guild ID erstellt der Bot beim Start eine Kategorie `Community` und darunter den Sprachkanal `➕ Sprachkanal erstellen`.
+- Wer diesem Kanal beitritt, erhält einen eigenen Sprachkanal und wird automatisch dorthin verschoben.
+- Neue Sprachkanäle erhalten zufällige Namen aus der SQLite-Tabelle `community_channel_names` in `data/bot-config.sqlite`. Bereits verwendete Namen werden nach Möglichkeit übersprungen. Die versionierte Migration `src/admin/migrations/communityChannelNames.ts` enthält die 10.000 Startnamen und ist im Build und Docker-Image enthalten. Beim ersten Start wird die Tabelle automatisch befüllt, auch bei bestehenden Installationen. Weitere Starts/Deployments überschreiben keine Änderungen an den Namen. Eine separate JSON-Namensdatei ist nicht nötig.
+- **Maximale Anzahl temporärer Sprachkanäle** ist in der Adminoberfläche von 1 bis 50 einstellbar (Standard 50). Leere Kanäle während des Timeouts zählen mit. Discord erlaubt insgesamt 50 Kanäle pro Kategorie, daher sind mit dem Erstellen-Kanal höchstens 49 temporäre Kanäle möglich; weitere fremde Kanäle in derselben Kategorie reduzieren die verfügbaren Plätze. Es werden keine zusätzlichen Kategorien angelegt.
+- Bei erreichtem Limit wird der Nutzer vom Erstellen-Kanal getrennt und der Grund im Bot-Log vermerkt. Nach Freiwerden eines Platzes kann er erneut beitreten. Eine Verringerung des Limits löscht keine bestehenden Kanäle.
+- Ein erzeugter Kanal wird nach 60 Sekunden ohne Teilnehmer gelöscht. Ein erneuter Beitritt bricht die Löschung ab.
+- In der Adminoberfläche unter **Community Sprachkanäle** lassen sich Kategoriename und Timeout (1–86400 Sekunden) ändern. Speichern wendet die Änderungen live an; eine Timeout-Änderung startet laufende Wartezeiten neu.
+- Der Bot benötigt **Kanäle verwalten**, **Mitglieder verschieben**, **Kanal ansehen** und **Verbinden** in dieser Kategorie.
+- Die IDs der vom Bot erzeugten Kanäle werden in `data/community-<guild-id>.json` gespeichert. Diese Dateien zusammen mit den übrigen Laufzeitdaten behalten. Nach einem Neustart beginnt für noch vorhandene leere Kanäle der Timeout erneut. Andere Kanäle werden nicht gelöscht.
+- Funktionstests ohne Discord-Verbindung: `node tests/community.test.cjs`.
+
 - `GUILD_ID` sorgt dafür, dass `/ping` sofort auf deinem Server verfügbar ist.
 - Ohne `GUILD_ID` wird der Command global registriert (kann bis zu 1h dauern).
 - Für `/join` braucht der Bot Voice-Rechte auf dem Channel (`Connect`, optional `Speak`).
