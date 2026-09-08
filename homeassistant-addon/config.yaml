@@ -1,9 +1,9 @@
 name: Discord Bot
-version: "1.0.0"
+version: "0.0.12"
 slug: discord-bot
 description: Modularer Discord-Bot mit Musik, Welcome-, Twitch- und Community-Modulen
-url: https://github.com/t3rr0rs0ck/discord-bot
-image: ghcr.io/t3rr0rs0ck/discord-bot
+url: https://github.com/T3rr0rS0ck3/discord-bot
+image: ghcr.io/t3rr0rs0ck3/discord-bot
 arch:
   - amd64
   - aarch64

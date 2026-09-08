@@ -27,6 +27,27 @@ jobs:
         id: image
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
+      - name: Update Home Assistant app version
+        env:
+          APP_VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          git fetch origin main
+          VERSION_WORKTREE="$RUNNER_TEMP/homeassistant-version"
+          git worktree add --detach "$VERSION_WORKTREE" origin/main
+          sed -i -E "s/^version: \"[^\"]*\"/version: \"${APP_VERSION}\"/" "$VERSION_WORKTREE/homeassistant-addon/config.yaml"
+
+          if git -C "$VERSION_WORKTREE" diff --quiet -- homeassistant-addon/config.yaml; then
+            git worktree remove "$VERSION_WORKTREE"
+            exit 0
+          fi
+
+          git -C "$VERSION_WORKTREE" config user.name "github-actions[bot]"
+          git -C "$VERSION_WORKTREE" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$VERSION_WORKTREE" add homeassistant-addon/config.yaml
+          git -C "$VERSION_WORKTREE" commit -m "Update Home Assistant app version to ${APP_VERSION}"
+          git -C "$VERSION_WORKTREE" push origin HEAD:main
+          git worktree remove "$VERSION_WORKTREE"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
