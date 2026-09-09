@@ -41,7 +41,15 @@ export class DiscordBot {
         try {
             await this.client.login(this.token);
         } catch (error) {
-            console.error("[Discord] Login failed. Check the Discord token in the admin UI and restart the bot.", error);
+            const code = error && typeof error === "object" && "code" in error
+                ? String((error as { code?: unknown }).code)
+                : "UnknownError";
+            const message = code === "TokenInvalid"
+                ? "Invalid Discord token. Update it in the admin UI and restart the bot."
+                : `Discord login failed (${code}). Check the token and Discord connection.`;
+
+            console.warn(`[Discord] ${message} The admin UI remains available.`);
+            this.client.destroy();
         }
     }
 

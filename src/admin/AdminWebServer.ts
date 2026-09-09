@@ -35,7 +35,14 @@ export class AdminWebServer {
             try {
                 await this.route(req, res);
             } catch (error) {
-                console.error("[AdminUI] Unhandled error:", error);
+                const message = error instanceof Error ? error.message : String(error);
+                if (req.url?.startsWith("/api/")) {
+                    console.warn(`[AdminUI] Request rejected: ${message}`);
+                    this.sendJson(res, 400, { error: message });
+                    return;
+                }
+
+                console.error("[AdminUI] Internal error:", error);
                 this.sendJson(res, 500, { error: "Internal Server Error" });
             }
         });
