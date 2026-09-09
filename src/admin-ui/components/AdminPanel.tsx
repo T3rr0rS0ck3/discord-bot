@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from "react";
 import type { AdminConfig, ChannelOption, EmojiOption, LogEntry, StatusState } from "../types";
 import { ActionBar } from "./admin/ActionBar";
 import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
-import { ModuleSettingsSection } from "./admin/ModuleSettingsSection";
 import { CoreSettingsSection } from "./admin/CoreSettingsSection";
 import { MusicSettingsSection } from "./admin/MusicSettingsSection";
 import { SpotifySettingsSection } from "./admin/SpotifySettingsSection";
@@ -12,16 +11,38 @@ import { WelcomeSettingsSection } from "./admin/WelcomeSettingsSection";
 type CollapsibleRegionProps = {
     title: string;
     defaultOpen?: boolean;
+    enabled?: boolean;
+    enabledLabel?: string;
+    onToggle?: (enabled: boolean) => void;
     children: React.ReactNode;
 };
 
 function CollapsibleRegion(props: CollapsibleRegionProps): React.JSX.Element {
+    const enabled = props.enabled ?? true;
     return (
-        <details className="region" open={props.defaultOpen ?? true}>
-            <summary className="region-summary">{props.title}</summary>
-            <div className="region-content">{props.children}</div>
+        <details className="region" open={enabled && (props.defaultOpen ?? true)}>
+            <summary className="region-summary">
+                <span>{props.title}</span>
+                {props.onToggle ? (
+                    <label className="region-toggle" onClick={event => event.stopPropagation()}>
+                        <input
+                            type="checkbox"
+                            role="switch"
+                            checked={enabled}
+                            disabled={!props.onToggle}
+                            onChange={event => props.onToggle?.(event.target.checked)}
+                        />
+                        <span>{enabledLabelText(props.enabledLabel, enabled)}</span>
+                    </label>
+                ) : null}
+            </summary>
+            {enabled ? <div className="region-content">{props.children}</div> : null}
         </details>
     );
+}
+
+function enabledLabelText(label: string | undefined, enabled: boolean): string {
+    return `${label ?? "Modul"}: ${enabled ? "Ein" : "Aus"}`;
 }
 
 type AdminPanelProps = {
@@ -119,10 +140,13 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
 
                             {props.config ? (
                                 <>
-                                    <CollapsibleRegion title="Module" defaultOpen={true}>
-                                        <ModuleSettingsSection config={props.config} busy={props.busy} onUpdateConfig={props.onUpdateConfig} />
-                                    </CollapsibleRegion>
-                                    <CollapsibleRegion title="Core Settings" defaultOpen={true}>
+                                    <CollapsibleRegion
+                                        title="Core Settings"
+                                        defaultOpen={true}
+                                        enabled={props.config.systemEnabled !== false}
+                                        enabledLabel="System"
+                                        onToggle={enabled => props.onUpdateConfig("systemEnabled", enabled)}
+                                    >
                                         <CoreSettingsSection
                                             config={props.config}
                                             busy={props.busy}
@@ -130,11 +154,23 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                         />
                                     </CollapsibleRegion>
 
-                                    <CollapsibleRegion title="Community Sprachkanäle" defaultOpen={true}>
+                                    <CollapsibleRegion
+                                        title="Community Sprachkanäle"
+                                        defaultOpen={true}
+                                        enabled={props.config.communityEnabled !== false}
+                                        enabledLabel="Community"
+                                        onToggle={enabled => props.onUpdateConfig("communityEnabled", enabled)}
+                                    >
                                         <CommunitySettingsSection config={props.config} busy={props.busy} onUpdateConfig={props.onUpdateConfig} />
                                     </CollapsibleRegion>
 
-                                    <CollapsibleRegion title="Music Settings" defaultOpen={true}>
+                                    <CollapsibleRegion
+                                        title="Music Settings"
+                                        defaultOpen={true}
+                                        enabled={props.config.musicEnabled !== false}
+                                        enabledLabel="Musik"
+                                        onToggle={enabled => props.onUpdateConfig("musicEnabled", enabled)}
+                                    >
                                         <MusicSettingsSection
                                             config={props.config}
                                             busy={props.busy}
@@ -142,7 +178,13 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                         />
                                     </CollapsibleRegion>
 
-                                    <CollapsibleRegion title="Spotify Settings" defaultOpen={false}>
+                                    <CollapsibleRegion
+                                        title="Spotify Settings"
+                                        defaultOpen={false}
+                                        enabled={props.config.musicEnabled !== false}
+                                        enabledLabel="Musik"
+                                        onToggle={enabled => props.onUpdateConfig("musicEnabled", enabled)}
+                                    >
                                         <SpotifySettingsSection
                                             config={props.config}
                                             busy={props.busy}
@@ -150,7 +192,13 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                         />
                                     </CollapsibleRegion>
 
-                                    <CollapsibleRegion title="Twitch Settings" defaultOpen={false}>
+                                    <CollapsibleRegion
+                                        title="Twitch Settings"
+                                        defaultOpen={false}
+                                        enabled={props.config.twitchEnabled !== false}
+                                        enabledLabel="Twitch"
+                                        onToggle={enabled => props.onUpdateConfig("twitchEnabled", enabled)}
+                                    >
                                         <TwitchSettingsSection
                                             config={props.config}
                                             busy={props.busy}
@@ -158,7 +206,13 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                         />
                                     </CollapsibleRegion>
 
-                                    <CollapsibleRegion title="Welcome Role Select" defaultOpen={true}>
+                                    <CollapsibleRegion
+                                        title="Welcome Role Select"
+                                        defaultOpen={true}
+                                        enabled={props.config.welcomeEnabled !== false}
+                                        enabledLabel="Welcome"
+                                        onToggle={enabled => props.onUpdateConfig("welcomeEnabled", enabled)}
+                                    >
                                         <WelcomeSettingsSection
                                             config={props.config}
                                             channels={props.channels}
