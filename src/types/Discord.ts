@@ -46,6 +46,16 @@ export type BotModuleFactoryOptions = {
     twitchEnabled?: boolean;
     communityEnabled?: boolean;
     getCommunityChannelNames: () => Promise<string[]>;
+    getCommunityState?: (guildId: string) => Promise<{
+        categoryId?: string;
+        entryId?: string;
+        temporaryIds: string[];
+    } | undefined>;
+    saveCommunityState?: (guildId: string, state: {
+        categoryId?: string;
+        entryId?: string;
+        temporaryIds: string[];
+    }) => Promise<void>;
     communityCategoryName?: string;
     communityEmptyTimeoutSeconds?: number;
     communityMaxChannels?: number;

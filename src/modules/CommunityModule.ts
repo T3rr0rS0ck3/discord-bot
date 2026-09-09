@@ -2,10 +2,11 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ChannelType, Client, Guild, VoiceState } from "discord.js";
 import type { IBotModule } from "./interfaces/IBotModule";
+import type { CommunityState } from "../admin/AdminConfigStore";
 
 
 type Config = { communityCategoryName?: string; communityEmptyTimeoutSeconds?: number; communityMaxChannels?: number };
-type SavedState = { categoryId?: string; entryId?: string; temporaryIds: string[] };
+type SavedState = CommunityState;
 
 /** Tracks only channels created by this module; unrelated channels are never deleted. */
 export class CommunityModule implements IBotModule {
@@ -29,7 +30,12 @@ export class CommunityModule implements IBotModule {
         });
     };
 
-    public constructor(private readonly options: Config & { guildId?: string; getCommunityChannelNames: () => Promise<string[]> }) {
+    public constructor(private readonly options: Config & {
+        guildId?: string;
+        getCommunityChannelNames: () => Promise<string[]>;
+        getCommunityState?: (guildId: string) => Promise<SavedState | undefined>;
+        saveCommunityState?: (guildId: string, state: SavedState) => Promise<void>;
+    }) {
         this.config = options;
         // The configured guild ID is never used as a path component without validation.
         const key = /^\d+$/.test(options.guildId ?? "") ? options.guildId : "unconfigured";
@@ -51,14 +57,11 @@ export class CommunityModule implements IBotModule {
         client.on("voiceStateUpdate", this.listener);
         await this.enqueue(async () => {
             this.guild = await client.guilds.fetch(this.options.guildId!);
-            try {
-                const saved = JSON.parse(await fs.readFile(this.statePath, "utf8")) as SavedState;
-                if (!Array.isArray(saved.temporaryIds) || !saved.temporaryIds.every(id => /^\d+$/.test(id))) {
-                    throw new Error("Invalid Community channel state");
-                }
-                this.state = saved;
-            } catch (error) {
-                if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+            const persisted = await this.options.getCommunityState?.(this.options.guildId!);
+            if (persisted) {
+                this.state = persisted;
+            } else {
+                await this.migrateLegacyState();
             }
             await this.setup();
             for (const id of this.state.temporaryIds) this.scheduleDeletion(id);
@@ -167,9 +170,30 @@ export class CommunityModule implements IBotModule {
     }
 
     private async persist(): Promise<void> {
+        if (this.options.saveCommunityState && this.options.guildId) {
+            await this.options.saveCommunityState(this.options.guildId, this.state);
+            return;
+        }
+
         await fs.mkdir(path.dirname(this.statePath), { recursive: true });
         await fs.writeFile(`${this.statePath}.tmp`, JSON.stringify(this.state), "utf8");
         await fs.rename(`${this.statePath}.tmp`, this.statePath);
+    }
+
+    private async migrateLegacyState(): Promise<void> {
+        try {
+            const saved = JSON.parse(await fs.readFile(this.statePath, "utf8")) as SavedState;
+            if (!Array.isArray(saved.temporaryIds) || !saved.temporaryIds.every(id => /^\d+$/.test(id))) {
+                throw new Error("Invalid Community channel state");
+            }
+            this.state = saved;
+            if (this.options.saveCommunityState && this.options.guildId) {
+                await this.options.saveCommunityState(this.options.guildId, this.state);
+                await fs.unlink(this.statePath);
+            }
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
     }
 
     public async shutdown(): Promise<void> {

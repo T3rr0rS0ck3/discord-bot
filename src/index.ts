@@ -166,6 +166,8 @@ export class Startup {
                 twitchEnabled: runtimeAdminConfig.twitchEnabled,
                 communityEnabled: runtimeAdminConfig.communityEnabled,
                 getCommunityChannelNames: () => adminConfigStore.getCommunityChannelNames(),
+                getCommunityState: (guildId) => adminConfigStore.getCommunityState(guildId),
+                saveCommunityState: (guildId, state) => adminConfigStore.saveCommunityState(guildId, state),
                 communityCategoryName: runtimeAdminConfig.communityCategoryName,
                 communityEmptyTimeoutSeconds: runtimeAdminConfig.communityEmptyTimeoutSeconds,
                 communityMaxChannels: runtimeAdminConfig.communityMaxChannels,

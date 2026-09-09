@@ -39,6 +39,12 @@ export type AdminConfig = {
     twitchSubscriberRoleName?: string;
 };
 
+export type CommunityState = {
+    categoryId?: string;
+    entryId?: string;
+    temporaryIds: string[];
+};
+
 export class AdminConfigStore {
     private readonly filePath: string;
     private db?: Database;
@@ -63,6 +69,15 @@ export class AdminConfigStore {
                 emoji TEXT NOT NULL,
                 description TEXT NOT NULL,
                 sort_order INTEGER NOT NULL
+            );
+        `);
+
+        await this.db!.exec(`
+            CREATE TABLE IF NOT EXISTS community_state (
+                guild_id TEXT PRIMARY KEY,
+                category_id TEXT,
+                entry_id TEXT,
+                temporary_ids TEXT NOT NULL
             );
         `);
 
@@ -125,6 +140,38 @@ export class AdminConfigStore {
         await this.ensureDb();
         const rows = await this.db!.all<Array<{ name: string }>>("SELECT name FROM community_channel_names ORDER BY name");
         return rows.map(row => row.name);
+    }
+
+    public async getCommunityState(guildId: string): Promise<CommunityState | undefined> {
+        await this.ensureDb();
+        const row = await this.db!.get<{ category_id?: string; entry_id?: string; temporary_ids: string }>(
+            "SELECT category_id, entry_id, temporary_ids FROM community_state WHERE guild_id = ?",
+            guildId
+        );
+        if (!row) return undefined;
+
+        const temporaryIds = JSON.parse(row.temporary_ids);
+        if (!Array.isArray(temporaryIds) || !temporaryIds.every(id => typeof id === "string" && /^\d+$/.test(id))) {
+            throw new Error(`Invalid community state for guild ${guildId}`);
+        }
+
+        return { categoryId: row.category_id, entryId: row.entry_id, temporaryIds };
+    }
+
+    public async saveCommunityState(guildId: string, state: CommunityState): Promise<void> {
+        await this.ensureDb();
+        await this.db!.run(
+            `INSERT INTO community_state (guild_id, category_id, entry_id, temporary_ids)
+             VALUES (?, ?, ?, ?)
+             ON CONFLICT(guild_id) DO UPDATE SET
+                category_id = excluded.category_id,
+                entry_id = excluded.entry_id,
+                temporary_ids = excluded.temporary_ids`,
+            guildId,
+            state.categoryId ?? null,
+            state.entryId ?? null,
+            JSON.stringify(state.temporaryIds)
+        );
     }
 
     public async save(config: AdminConfig): Promise<void> {

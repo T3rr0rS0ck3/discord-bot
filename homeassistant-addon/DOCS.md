@@ -12,6 +12,10 @@ Beim ersten Start wird die SQLite-Datenbank mit dem aktuellen Schema automatisch
 im persistenten `/data`-Verzeichnis angelegt. Eine Datenbankdatei muss nicht in
 das App-Repository oder Docker-Image aufgenommen werden.
 
+Der Status der automatisch erstellten Community-Kanäle wird in der SQLite-Tabelle
+`community_state` gespeichert. Vorhandene JSON-Statusdateien aus älteren
+Installationen werden beim ersten Start automatisch migriert.
+
 Der Spotify-OAuth-Callback ist bei Bedarf ueber Port `3000` erreichbar. Fuer
 direkte Zugriffe auf die Admin-Oberflaeche kann Port `8787` zusaetzlich in den
 App-Netzwerkeinstellungen freigegeben werden.

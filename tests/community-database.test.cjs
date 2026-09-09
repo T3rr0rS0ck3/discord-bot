@@ -55,3 +55,33 @@ test('fresh SQLite deployment creates the default admin login without secrets', 
         assert.equal(loaded.discordToken, '');
     } finally { await store.db?.close(); }
 });
+
+test('community channel state survives a SQLite store restart', async () => {
+    const filePath = require('node:path').join(require('node:os').tmpdir(), `community-state-${process.pid}.sqlite`);
+    let first;
+    let second;
+    try {
+        first = new AdminConfigStore(filePath);
+        await first.initialize({ welcomeRoles: [] });
+        await first.saveCommunityState('123', {
+            categoryId: '456',
+            entryId: '789',
+            temporaryIds: ['101', '102']
+        });
+        if (first.db) {
+            await first.db.close();
+            first.db = undefined;
+        }
+
+        second = new AdminConfigStore(filePath);
+        assert.deepEqual(await second.getCommunityState('123'), {
+            categoryId: '456',
+            entryId: '789',
+            temporaryIds: ['101', '102']
+        });
+    } finally {
+        if (second?.db) await second.db.close();
+        if (first?.db) await first.db.close();
+        require('node:fs').rmSync(filePath, { force: true, maxRetries: 5, retryDelay: 50 });
+    }
+});

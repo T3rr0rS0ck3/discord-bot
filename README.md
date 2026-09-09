@@ -195,7 +195,7 @@ Ausgeschaltete Module registrieren keine Befehle und starten keine Verarbeitung.
 - Ein erzeugter Kanal wird nach 60 Sekunden ohne Teilnehmer gelöscht. Ein erneuter Beitritt bricht die Löschung ab.
 - In der Adminoberfläche unter **Community Sprachkanäle** lassen sich Kategoriename und Timeout (1–86400 Sekunden) ändern. Speichern wendet die Änderungen live an; eine Timeout-Änderung startet laufende Wartezeiten neu.
 - Der Bot benötigt **Kanäle verwalten**, **Mitglieder verschieben**, **Kanal ansehen** und **Verbinden** in dieser Kategorie.
-- Die IDs der vom Bot erzeugten Kanäle werden in `data/community-<guild-id>.json` gespeichert. Diese Dateien zusammen mit den übrigen Laufzeitdaten behalten. Nach einem Neustart beginnt für noch vorhandene leere Kanäle der Timeout erneut. Andere Kanäle werden nicht gelöscht.
+- Die IDs der vom Bot erzeugten Kanäle werden in der Tabelle `community_state` in `data/bot-config.sqlite` gespeichert. Beim ersten Start nach dem Update wird ein vorhandener `data/community-<guild-id>.json`-Status automatisch einmalig in SQLite übernommen. Die SQLite-Datei zusammen mit den übrigen Laufzeitdaten behalten. Nach einem Neustart beginnt für noch vorhandene leere Kanäle der Timeout erneut. Andere Kanäle werden nicht gelöscht.
 - Funktionstests ohne Discord-Verbindung: `node tests/community.test.cjs`.
 
 - `GUILD_ID` sorgt dafür, dass `/ping` sofort auf deinem Server verfügbar ist.
