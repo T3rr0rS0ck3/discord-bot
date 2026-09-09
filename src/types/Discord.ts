@@ -7,6 +7,13 @@ export type DiscordBotOptions = {
     commands: ICommand[];
     buttonHandler?: (customId: string, interaction: import("discord.js").ButtonInteraction) => Promise<boolean>;
     onReady?: (client: Client) => Promise<void> | void;
+    onStatusChange?: (status: DiscordRuntimeStatus) => void;
+};
+
+export type DiscordRuntimeStatus = {
+    state: "offline" | "starting" | "online" | "token-invalid" | "guild-unreachable" | "error";
+    message: string;
+    updatedAt: string;
 };
 
 export type SpotifyServiceOptions = {

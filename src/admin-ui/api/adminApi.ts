@@ -4,7 +4,8 @@ import type {
     EmojisResponse,
     LogsResponse,
     LoginResponse,
-    SaveResponse
+    SaveResponse,
+    DiscordRuntimeStatus
 } from "../types";
 
 async function request<T>(path: string, method = "GET", body?: unknown): Promise<T> {
@@ -49,5 +50,8 @@ export const adminApi = {
     },
     loadLogs(): Promise<LogsResponse> {
         return request<LogsResponse>("/api/logs");
+    },
+    loadStatus(): Promise<DiscordRuntimeStatus> {
+        return request<DiscordRuntimeStatus>("/api/status");
     }
 };

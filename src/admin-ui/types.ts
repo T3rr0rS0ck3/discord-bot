@@ -57,6 +57,12 @@ export type ToastState = {
     tone: "system" | "error";
 };
 
+export type DiscordRuntimeStatus = {
+    state: "offline" | "starting" | "online" | "token-invalid" | "guild-unreachable" | "error";
+    message: string;
+    updatedAt: string;
+};
+
 export type EmojiOption = {
     value: string;
     label: string;

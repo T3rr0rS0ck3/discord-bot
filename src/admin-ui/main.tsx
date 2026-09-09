@@ -56,6 +56,7 @@ function App(): React.JSX.Element {
             channels={state.channels}
             emojis={state.emojis}
             logs={state.logs}
+            discordStatus={state.discordStatus}
             restartHintText={state.restartHintText}
             hasPendingRestart={state.hasPendingRestart}
             saveDisabled={state.saveDisabled}

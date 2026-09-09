@@ -4,6 +4,7 @@ import type {
     AdminConfig,
     AuthState,
     ChannelOption,
+    DiscordRuntimeStatus,
     EmojiOption,
     LogEntry,
     RestartRelevantState,
@@ -38,6 +39,11 @@ export function useAdminApp(initialAuth: AuthState) {
     const [channels, setChannels] = useState<ChannelOption[]>([]);
     const [emojis, setEmojis] = useState<EmojiOption[]>([]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [discordStatus, setDiscordStatus] = useState<DiscordRuntimeStatus>({
+        state: "offline",
+        message: "Bot is offline.",
+        updatedAt: new Date().toISOString()
+    });
 
     const changedRestartLabels = useMemo(() => {
         if (!config || !restartBaseline) {
@@ -141,9 +147,20 @@ export function useAdminApp(initialAuth: AuthState) {
             }
         };
 
+        const loadStatus = async () => {
+            try {
+                const result = await adminApi.loadStatus();
+                if (!cancelled) setDiscordStatus(result);
+            } catch {
+                if (!cancelled) setDiscordStatus({ state: "error", message: "Status unavailable.", updatedAt: new Date().toISOString() });
+            }
+        };
+
         void loadLogs();
+        void loadStatus();
         const timer = setInterval(() => {
             void loadLogs();
+            void loadStatus();
         }, 2000);
 
         return () => {
@@ -345,6 +362,7 @@ export function useAdminApp(initialAuth: AuthState) {
         channels,
         emojis,
         logs,
+        discordStatus,
         restartHintText,
         hasPendingRestart,
         saveDisabled,

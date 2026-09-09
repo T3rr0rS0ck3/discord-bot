@@ -6,6 +6,7 @@ import { AdminWebServer } from "./admin/AdminWebServer";
 import { DiscordBot } from "./bot/DiscordBot";
 import { BotModuleFactory } from "./modules/BotModuleFactory";
 import { IBotModule } from "./modules/interfaces/IBotModule";
+import type { DiscordRuntimeStatus } from "./types/Discord";
 
 type RuntimeLogEntry = {
     timestamp: number;
@@ -102,6 +103,11 @@ export class Startup {
         let runtimeAdminConfig: AdminConfig = await adminConfigStore.load(defaultConfig);
         let modules: IBotModule[] = [];
         let bot: DiscordBot | undefined;
+        let discordStatus: DiscordRuntimeStatus = {
+            state: "offline",
+            message: "Bot is offline.",
+            updatedAt: new Date().toISOString()
+        };
 
         const applyRuntimeConfigToModules = async (): Promise<void> => {
             const readyClient = bot?.getReadyClient();
@@ -235,6 +241,9 @@ export class Startup {
                         }
                     }
                 },
+                onStatusChange: (status) => {
+                    discordStatus = status;
+                },
                 buttonHandler: async (customId, interaction) => {
                     for (const module of modules) {
                         if (!module.handleButtonInteraction) {
@@ -289,6 +298,7 @@ export class Startup {
                     .map((channel) => ({ id: channel.id, name: `#${channel.name}` }))
                     .sort((a, b) => a.name.localeCompare(b.name, "de"));
             },
+            getDiscordStatus: () => bot?.getStatus() ?? discordStatus,
             getServerEmojis: async () => {
                 const guildId = runtimeAdminConfig.guildId;
                 if (!guildId) {

@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import http, { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import type { AdminConfig } from "./AdminConfigStore";
+import type { DiscordRuntimeStatus } from "../types/Discord";
 
 type AdminWebServerOptions = {
     port: number;
@@ -13,6 +14,7 @@ type AdminWebServerOptions = {
     restartBot: () => Promise<void>;
     getServerEmojis: () => Promise<Array<{ value: string; label: string }>>;
     getWelcomeChannels: () => Promise<Array<{ id: string; name: string }>>;
+    getDiscordStatus: () => DiscordRuntimeStatus;
 };
 
 export class AdminWebServer {
@@ -92,6 +94,15 @@ export class AdminWebServer {
                 authenticated: Boolean(authenticatedUser),
                 username: authenticatedUser ?? null
             });
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/status") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+            this.sendJson(res, 200, this.options.getDiscordStatus());
             return;
         }
 
@@ -1086,6 +1097,23 @@ export class AdminWebServer {
     p { color: var(--muted); }
         label { display:block; font-size: 12px; text-transform: uppercase; letter-spacing:.4px; color: #94a2c9; margin: 12px 0 6px; }
         .required-mark { color:#dc3545 !important; font-weight:800; }
+        .discord-status {
+            display:flex;
+            align-items:center;
+            gap:8px;
+            width:max-content;
+            max-width:100%;
+            margin:14px 0;
+            padding:8px 12px;
+            border:1px solid;
+            border-radius:6px;
+            font-size:13px;
+        }
+        .discord-status-dot { width:9px; height:9px; border-radius:50%; background:currentColor; flex:0 0 auto; }
+        .discord-status-online { color:#146c43; background:#d1e7dd; border-color:#a3cfbb; }
+        .discord-status-starting { color:#084298; background:#cfe2ff; border-color:#9ec5fe; }
+        .discord-status-token-invalid, .discord-status-guild-unreachable, .discord-status-error { color:#842029; background:#f8d7da; border-color:#f1aeb5; }
+        .discord-status-offline { color:#41464b; background:#e2e3e5; border-color:#c4c8cb; }
         input, select {
             width:100%;
             padding:11px 12px;

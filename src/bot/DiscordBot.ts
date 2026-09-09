@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits, IntentsBitField, Partials } from "discord.js";
-import type { DiscordBotOptions } from "../types/Discord";
+import type { DiscordBotOptions, DiscordRuntimeStatus } from "../types/Discord";
 import { ICommand } from "../commands/interfaces/ICommand";
 import { IBotModule } from "../modules/interfaces/IBotModule";
 
@@ -9,6 +9,8 @@ export class DiscordBot {
     private readonly guildId?: string;
     private readonly buttonHandler?: (customId: string, interaction: import("discord.js").ButtonInteraction) => Promise<boolean>;
     private readonly onReady?: (client: Client) => Promise<void> | void;
+    private readonly onStatusChange?: (status: DiscordRuntimeStatus) => void;
+    private status: DiscordRuntimeStatus = { state: "offline", message: "Bot is offline.", updatedAt: new Date().toISOString() };
     private readonly modules: IBotModule[] = [];
     private readonly commands = new Map<string, ICommand>();
 
@@ -17,6 +19,7 @@ export class DiscordBot {
         this.guildId = options.guildId;
         this.buttonHandler = options.buttonHandler;
         this.onReady = options.onReady;
+        this.onStatusChange = options.onStatusChange;
         this.modules = options.modules ?? [];
 
         this.client = new Client({
@@ -38,6 +41,7 @@ export class DiscordBot {
     }
 
     public async start(): Promise<void> {
+        this.setStatus("starting", "Connecting to Discord...");
         try {
             await this.client.login(this.token);
         } catch (error) {
@@ -48,6 +52,7 @@ export class DiscordBot {
                 ? "Invalid Discord token. Update it in the admin UI and restart the bot."
                 : `Discord login failed (${code}). Check the token and Discord connection.`;
 
+            this.setStatus(code === "TokenInvalid" ? "token-invalid" : "error", message);
             console.warn(`[Discord] ${message} The admin UI remains available.`);
             this.client.destroy();
         }
@@ -55,10 +60,20 @@ export class DiscordBot {
 
     public async stop(): Promise<void> {
         this.client.destroy();
+        this.setStatus("offline", "Bot is offline.");
     }
 
     public getReadyClient(): Client | undefined {
         return this.client.isReady() ? this.client : undefined;
+    }
+
+    public getStatus(): DiscordRuntimeStatus {
+        return this.status;
+    }
+
+    private setStatus(state: DiscordRuntimeStatus["state"], message: string): void {
+        this.status = { state, message, updatedAt: new Date().toISOString() };
+        this.onStatusChange?.(this.status);
     }
 
     private registerEvents(): void {
@@ -67,6 +82,7 @@ export class DiscordBot {
         });
 
         this.client.once("clientReady", async (readyClient) => {
+            this.setStatus("online", `Connected as ${readyClient.user.tag}.`);
             try {
                 console.log(`Bot ist online als ${readyClient.user.tag}`);
 
@@ -94,6 +110,11 @@ export class DiscordBot {
                     await this.onReady(readyClient);
                 }
             } catch (error) {
+                if (this.guildId) {
+                    this.setStatus("guild-unreachable", `Discord is online, but guild ${this.guildId} is unreachable.`);
+                } else {
+                    this.setStatus("error", "Discord connected, but startup setup failed.");
+                }
                 console.error(
                     `[Discord] Startup setup failed (guild: ${this.guildId ?? "global"}). Check Guild ID and bot installation in the admin UI, then restart the bot. The admin UI remains available.`,
                     error

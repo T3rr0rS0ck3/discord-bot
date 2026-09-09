@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import type { AdminConfig, ChannelOption, EmojiOption, LogEntry, StatusState, ToastState } from "../types";
+import type { AdminConfig, ChannelOption, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState } from "../types";
 import { ActionBar } from "./admin/ActionBar";
 import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
 import { CoreSettingsSection } from "./admin/CoreSettingsSection";
@@ -56,6 +56,7 @@ type AdminPanelProps = {
     channels: ChannelOption[];
     emojis: EmojiOption[];
     logs: LogEntry[];
+    discordStatus: DiscordRuntimeStatus;
     restartHintText: string;
     hasPendingRestart: boolean;
     saveDisabled: boolean;
@@ -165,7 +166,12 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                         <>
                             <h1>Manage <strong>Discord Bot</strong> Runtime</h1>
                             <p className="muted">Signed in as: {props.username ?? "admin"}</p>
-                            <p>All settings are stored in SQLite. Restart is required for Discord/Admin changes.</p>
+                            <div className={`discord-status discord-status-${props.discordStatus.state}`} role="status">
+                                <span className="discord-status-dot" aria-hidden="true"></span>
+                                <span>
+                                    <strong>Discord: </strong>{props.discordStatus.message}
+                                </span>
+                            </div>
 
                             {props.config ? (
                                 <>
