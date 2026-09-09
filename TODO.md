@@ -5,7 +5,7 @@
 - [x] Healthcheck-Endpunkt fuer Docker und Home Assistant ergaenzen
 - [x] Docker-Healthcheck fuer Port `8787` konfigurieren
 - [x] Statusanzeige in der Admin-UI einfuehren: online, Token ungueltig, Guild nicht erreichbar
-- [ ] Graceful Shutdown bei Container- und Home-Assistant-Neustarts pruefen
+- [x] Graceful Shutdown bei Container- und Home-Assistant-Neustarts pruefen
 - [ ] Automatische Datenbankmigrationen mit Versionsanzeige ergaenzen
 - [ ] Rate-Limit- und Timeout-Behandlung fuer TheAudioDB und YouTube verbessern
 

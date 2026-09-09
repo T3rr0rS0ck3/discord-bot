@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
-import http, { IncomingMessage, ServerResponse } from "node:http";
+import http, { IncomingMessage, Server, ServerResponse } from "node:http";
 import path from "node:path";
 import type { AdminConfig } from "./AdminConfigStore";
 import type { DiscordRuntimeStatus } from "../types/Discord";
@@ -26,6 +26,7 @@ export class AdminWebServer {
     private readonly twitchOAuthStates = new Map<string, { createdAt: number }>();
     private readonly sessionTtlMs = 8 * 60 * 60 * 1000;
     private readonly twitchStateTtlMs = 10 * 60 * 1000;
+    private server?: Server;
 
     public constructor(options: AdminWebServerOptions) {
         this.options = options;
@@ -61,9 +62,18 @@ export class AdminWebServer {
         });
 
         const bindHost = (process.env.ADMIN_UI_HOST ?? "127.0.0.1").trim() || "127.0.0.1";
+        this.server = server;
         server.listen(this.options.port, bindHost, () => {
             console.log(`[AdminUI] Running at http://${bindHost}:${this.options.port}`);
         });
+    }
+
+    public async stop(): Promise<void> {
+        if (!this.server) return;
+        const server = this.server;
+        this.server = undefined;
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+        console.log("[AdminUI] Server stopped.");
     }
 
     private async route(req: IncomingMessage, res: ServerResponse): Promise<void> {

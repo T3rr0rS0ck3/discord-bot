@@ -192,6 +192,12 @@ export class AdminConfigStore {
         await this.saveRoles(normalized.welcomeRoles);
     }
 
+    public async close(): Promise<void> {
+        if (!this.db) return;
+        await this.db.close();
+        this.db = undefined;
+    }
+
     private normalize(input: Partial<AdminConfig>): AdminConfig {
         const roles = this.normalizeRoles(input.welcomeRoles);
 

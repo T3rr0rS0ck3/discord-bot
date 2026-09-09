@@ -108,6 +108,7 @@ export class Startup {
             message: "Bot is offline.",
             updatedAt: new Date().toISOString()
         };
+        let shuttingDown = false;
 
         const applyRuntimeConfigToModules = async (): Promise<void> => {
             const readyClient = bot?.getReadyClient();
@@ -329,6 +330,28 @@ export class Startup {
             }
         });
         adminWebServer.start();
+
+        const shutdown = async (signal: string): Promise<void> => {
+            if (shuttingDown) return;
+            shuttingDown = true;
+            console.log(`[Shutdown] Received ${signal}. Stopping services...`);
+            try {
+                for (const module of modules) {
+                    await module.shutdown?.();
+                }
+                await bot?.stop();
+                bot = undefined;
+                await adminWebServer.stop();
+                await adminConfigStore.close();
+                console.log("[Shutdown] Services stopped cleanly.");
+            } catch (error) {
+                console.error("[Shutdown] Failed to stop services cleanly:", error instanceof Error ? error.message : String(error));
+                process.exitCode = 1;
+            }
+        };
+
+        process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
+        process.once("SIGINT", () => { void shutdown("SIGINT"); });
 
         await startOrRestartBot();
     }
