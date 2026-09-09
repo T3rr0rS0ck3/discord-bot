@@ -73,6 +73,15 @@ export class AdminWebServer {
             return;
         }
 
+        if (req.method === "GET" && url.pathname === "/health") {
+            this.sendJson(res, 200, {
+                status: "ok",
+                service: "discord-bot-admin",
+                timestamp: new Date().toISOString()
+            });
+            return;
+        }
+
                 if (req.method === "GET" && url.pathname === "/admin/app.js") {
                         await this.sendJavaScriptFile(res, this.adminAppBundlePath);
                         return;
