@@ -8,6 +8,7 @@
 - [x] Graceful Shutdown bei Container- und Home-Assistant-Neustarts pruefen
 - [ ] Automatische Datenbankmigrationen mit Versionsanzeige ergaenzen
 - [ ] Rate-Limit- und Timeout-Behandlung fuer TheAudioDB und YouTube verbessern
+- [ ] Multi Server support. Unterstüztung für mehrere verschieden DiscordServer mit nur einem bot
 
 ## Prioritaet 2: Sicherheit und Konfiguration
 
