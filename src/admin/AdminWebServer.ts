@@ -1140,13 +1140,19 @@ export class AdminWebServer {
         .log-level.warn { color:#f3d077; }
         .log-level.error { color:#f49ab4; }
         .region {
+            position:relative;
+            z-index:0;
             border:1px solid #2f3d67;
             border-radius:12px;
             background:#0a1123;
             margin-top:12px;
-            overflow:hidden;
+            overflow:visible;
         }
+        .region:has(.emoji-dropdown.is-open) { z-index:50; }
         .region-summary {
+            display:flex;
+            align-items:center;
+            gap:10px;
             cursor:pointer;
             user-select:none;
             list-style:none;
@@ -1154,6 +1160,60 @@ export class AdminWebServer {
             color:#d7def4;
             font-weight:700;
             border-bottom:1px solid rgba(120,136,184,.22);
+        }
+        .region-title { min-width:0; }
+        .region-status {
+            color:#93a2c9;
+            font-size:12px;
+            font-weight:600;
+            margin-left:auto;
+            padding-right:18px;
+            white-space:nowrap;
+        }
+        .module-switch {
+            display:inline-flex;
+            flex:0 0 auto;
+            align-items:center;
+            cursor:pointer;
+        }
+        .module-switch input {
+            position:absolute;
+            width:1px;
+            height:1px;
+            opacity:0;
+            pointer-events:none;
+        }
+        .module-switch-track {
+            position:relative;
+            display:inline-flex;
+            align-items:center;
+            width:38px;
+            height:22px;
+            padding:2px;
+            border:1px solid #4a5a86;
+            border-radius:999px;
+            background:#18223f;
+            transition:background .18s ease, border-color .18s ease;
+        }
+        .module-switch-thumb {
+            width:16px;
+            height:16px;
+            border-radius:50%;
+            background:#9aa8ca;
+            box-shadow:0 1px 3px rgba(0,0,0,.35);
+            transition:transform .18s ease, background .18s ease;
+        }
+        .module-switch input:checked + .module-switch-track {
+            border-color:#5ee6b0;
+            background:#164c4a;
+        }
+        .module-switch input:checked + .module-switch-track .module-switch-thumb {
+            background:#7bf1bf;
+            transform:translateX(16px);
+        }
+        .module-switch input:focus-visible + .module-switch-track {
+            outline:2px solid #b05cff;
+            outline-offset:2px;
         }
         .region-summary::-webkit-details-marker { display:none; }
         .region-summary::after {
@@ -1164,6 +1224,22 @@ export class AdminWebServer {
         }
         .region:not([open]) .region-summary::after { transform:rotate(-90deg); }
         .region-content { padding:10px 12px 12px; }
+        .region-content { position:relative; z-index:1; }
+        .settings-subsection {
+            margin-top:18px;
+            padding-top:16px;
+            border-top:1px solid rgba(120,136,184,.22);
+        }
+        .settings-subsection h2 {
+            margin:0 0 12px;
+            color:#d7def4;
+            font-size:15px;
+        }
+        @media (max-width: 560px) {
+            .region-summary { flex-wrap:wrap; }
+            .region-status { margin-left:0; padding-right:18px; }
+            .region-title { flex:1 1 auto; }
+        }
         .sqlite-browser-frame {
             overflow:hidden;
             border:1px solid #2f3d67;

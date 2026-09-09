@@ -12,7 +12,8 @@
         "build": "npm run clean && npm run typecheck && npm run build:admin && esbuild src/index.ts --bundle --packages=external --platform=node --target=node22 --format=cjs --outfile=dist/index.js",
         "publish": "docker compose build",
         "start": "node dist/index.js",
-        "dev": "concurrently \"npm:dev:admin\" \"tsx watch src/index.ts\""
+        "dev": "concurrently \"npm:dev:admin\" \"tsx watch src/index.ts\"",
+        "local": "npm run build && npm run start"
     },
     "dependencies": {
         "@discordjs/voice": "^0.19.2",

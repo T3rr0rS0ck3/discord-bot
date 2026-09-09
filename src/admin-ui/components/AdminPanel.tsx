@@ -22,19 +22,21 @@ function CollapsibleRegion(props: CollapsibleRegionProps): React.JSX.Element {
     return (
         <details className="region" open={enabled && (props.defaultOpen ?? true)}>
             <summary className="region-summary">
-                <span>{props.title}</span>
                 {props.onToggle ? (
-                    <label className="region-toggle" onClick={event => event.stopPropagation()}>
+                    <label className="module-switch" onClick={event => event.stopPropagation()}>
                         <input
                             type="checkbox"
                             role="switch"
                             checked={enabled}
-                            disabled={!props.onToggle}
                             onChange={event => props.onToggle?.(event.target.checked)}
                         />
-                        <span>{enabledLabelText(props.enabledLabel, enabled)}</span>
+                        <span className="module-switch-track" aria-hidden="true">
+                            <span className="module-switch-thumb"></span>
+                        </span>
                     </label>
                 ) : null}
+                <span className="region-title">{props.title}</span>
+                {props.onToggle ? <span className="region-status">{enabledLabelText(props.enabledLabel, enabled)}</span> : null}
             </summary>
             {enabled ? <div className="region-content">{props.children}</div> : null}
         </details>
@@ -74,13 +76,29 @@ type AdminPanelProps = {
 
 export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
     const logBodyRef = useRef<HTMLDivElement | null>(null);
+    const logAutoScrollRef = useRef(true);
 
     useEffect(() => {
         if (!logBodyRef.current) {
             return;
         }
 
-        logBodyRef.current.scrollTop = logBodyRef.current.scrollHeight;
+        const logBody = logBodyRef.current;
+        const updateAutoScroll = (): void => {
+            const distanceFromBottom = logBody.scrollHeight - logBody.scrollTop - logBody.clientHeight;
+            logAutoScrollRef.current = distanceFromBottom <= 12;
+        };
+
+        logBody.addEventListener("scroll", updateAutoScroll, { passive: true });
+        updateAutoScroll();
+
+        return () => logBody.removeEventListener("scroll", updateAutoScroll);
+    }, [props.config]);
+
+    useEffect(() => {
+        if (logBodyRef.current && logAutoScrollRef.current) {
+            logBodyRef.current.scrollTop = logBodyRef.current.scrollHeight;
+        }
     }, [props.logs]);
 
     return (
@@ -143,9 +161,6 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                     <CollapsibleRegion
                                         title="Core Settings"
                                         defaultOpen={true}
-                                        enabled={props.config.systemEnabled !== false}
-                                        enabledLabel="System"
-                                        onToggle={enabled => props.onUpdateConfig("systemEnabled", enabled)}
                                     >
                                         <CoreSettingsSection
                                             config={props.config}
@@ -176,20 +191,14 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                             busy={props.busy}
                                             onUpdateConfig={props.onUpdateConfig}
                                         />
-                                    </CollapsibleRegion>
-
-                                    <CollapsibleRegion
-                                        title="Spotify Settings"
-                                        defaultOpen={false}
-                                        enabled={props.config.musicEnabled !== false}
-                                        enabledLabel="Musik"
-                                        onToggle={enabled => props.onUpdateConfig("musicEnabled", enabled)}
-                                    >
-                                        <SpotifySettingsSection
-                                            config={props.config}
-                                            busy={props.busy}
-                                            onUpdateConfig={props.onUpdateConfig}
-                                        />
+                                        <div className="settings-subsection">
+                                            <h2>Spotify Settings</h2>
+                                            <SpotifySettingsSection
+                                                config={props.config}
+                                                busy={props.busy}
+                                                onUpdateConfig={props.onUpdateConfig}
+                                            />
+                                        </div>
                                     </CollapsibleRegion>
 
                                     <CollapsibleRegion

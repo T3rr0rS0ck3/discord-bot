@@ -68,7 +68,7 @@ function EmojiDropdown(props: EmojiDropdownProps): React.JSX.Element {
     }, [props.groupedEmojis, query]);
 
     return (
-        <div className="emoji-dropdown" ref={wrapperRef}>
+        <div className={`emoji-dropdown${open ? " is-open" : ""}`} ref={wrapperRef}>
             <button
                 type="button"
                 className="emoji-trigger"
