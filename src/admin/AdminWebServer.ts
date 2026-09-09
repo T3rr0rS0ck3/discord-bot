@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import http, { IncomingMessage, Server, ServerResponse } from "node:http";
 import path from "node:path";
-import type { AdminConfig } from "./AdminConfigStore";
+import type { AdminConfig, DatabaseStatus } from "./AdminConfigStore";
 import type { DiscordRuntimeStatus } from "../types/Discord";
 
 type AdminWebServerOptions = {
@@ -15,6 +15,7 @@ type AdminWebServerOptions = {
     getServerEmojis: () => Promise<Array<{ value: string; label: string }>>;
     getWelcomeChannels: () => Promise<Array<{ id: string; name: string }>>;
     getDiscordStatus: () => DiscordRuntimeStatus;
+    getDatabaseStatus: () => Promise<DatabaseStatus>;
 };
 
 export class AdminWebServer {
@@ -113,6 +114,15 @@ export class AdminWebServer {
                 return;
             }
             this.sendJson(res, 200, this.options.getDiscordStatus());
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/database-status") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+            this.sendJson(res, 200, await this.options.getDatabaseStatus());
             return;
         }
 
@@ -1124,6 +1134,7 @@ export class AdminWebServer {
         .discord-status-starting { color:#084298; background:#cfe2ff; border-color:#9ec5fe; }
         .discord-status-token-invalid, .discord-status-guild-unreachable, .discord-status-error { color:#842029; background:#f8d7da; border-color:#f1aeb5; }
         .discord-status-offline { color:#41464b; background:#e2e3e5; border-color:#c4c8cb; }
+        .database-status { color:#6c757d; font-size:12px; margin:8px 0 14px; }
         input, select {
             width:100%;
             padding:11px 12px;

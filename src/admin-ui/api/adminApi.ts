@@ -5,7 +5,8 @@ import type {
     LogsResponse,
     LoginResponse,
     SaveResponse,
-    DiscordRuntimeStatus
+    DiscordRuntimeStatus,
+    DatabaseStatus
 } from "../types";
 
 async function request<T>(path: string, method = "GET", body?: unknown): Promise<T> {
@@ -53,5 +54,8 @@ export const adminApi = {
     },
     loadStatus(): Promise<DiscordRuntimeStatus> {
         return request<DiscordRuntimeStatus>("/api/status");
+    },
+    loadDatabaseStatus(): Promise<DatabaseStatus> {
+        return request<DatabaseStatus>("/api/database-status");
     }
 };

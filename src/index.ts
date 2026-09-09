@@ -300,6 +300,7 @@ export class Startup {
                     .sort((a, b) => a.name.localeCompare(b.name, "de"));
             },
             getDiscordStatus: () => bot?.getStatus() ?? discordStatus,
+            getDatabaseStatus: () => adminConfigStore.getDatabaseStatus(),
             getServerEmojis: async () => {
                 const guildId = runtimeAdminConfig.guildId;
                 if (!guildId) {

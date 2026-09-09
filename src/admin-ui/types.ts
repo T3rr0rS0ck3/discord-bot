@@ -63,6 +63,12 @@ export type DiscordRuntimeStatus = {
     updatedAt: string;
 };
 
+export type DatabaseStatus = {
+    schemaVersion: number;
+    latestMigration: string | null;
+    appliedMigrations: string[];
+};
+
 export type EmojiOption = {
     value: string;
     label: string;

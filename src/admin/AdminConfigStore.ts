@@ -47,6 +47,17 @@ export type CommunityState = {
     temporaryIds: string[];
 };
 
+export type DatabaseStatus = {
+    schemaVersion: number;
+    latestMigration: string | null;
+    appliedMigrations: string[];
+};
+
+const databaseMigrations = [
+    { version: 1, id: "community-names-v1" },
+    { version: 2, id: "community-state-v1" }
+] as const;
+
 export class AdminConfigStore {
     private readonly filePath: string;
     private db?: Database;
@@ -83,6 +94,14 @@ export class AdminConfigStore {
             );
         `);
 
+        await this.db!.exec(`
+            CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS schema_version (
+                id INTEGER PRIMARY KEY CHECK(id = 1),
+                version INTEGER NOT NULL
+            );
+        `);
+
         for (const [key, value] of Object.entries(defaults).filter(([key]) => key !== "welcomeRoles")) {
             await this.db!.run(
                 "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
@@ -92,7 +111,7 @@ export class AdminConfigStore {
         }
 
         await this.migrateRoles(defaults.welcomeRoles);
-        await this.initializeCommunityNames();
+        await this.runMigrations();
     }
 
     public async load(defaults: AdminConfig): Promise<AdminConfig> {
@@ -136,6 +155,22 @@ export class AdminConfigStore {
             await this.db!.exec("ROLLBACK");
             throw error;
         }
+    }
+
+    public async getDatabaseStatus(): Promise<DatabaseStatus> {
+        await this.ensureDb();
+        const rows = await this.db!.all<Array<{ id: string }>>(
+            "SELECT id FROM schema_migrations ORDER BY id"
+        );
+        const appliedMigrations = rows.map(row => row.id);
+        const schemaVersion = appliedMigrations.reduce((version, id) => {
+            const migration = databaseMigrations.find(item => item.id === id);
+            return migration ? Math.max(version, migration.version) : version;
+        }, 0);
+        const latestMigration = databaseMigrations
+            .filter(migration => appliedMigrations.includes(migration.id))
+            .at(-1)?.id ?? null;
+        return { schemaVersion, latestMigration, appliedMigrations };
     }
 
     public async getCommunityChannelNames(): Promise<string[]> {
@@ -196,6 +231,46 @@ export class AdminConfigStore {
         if (!this.db) return;
         await this.db.close();
         this.db = undefined;
+    }
+
+    private async runMigrations(): Promise<void> {
+        await this.db!.exec("BEGIN IMMEDIATE");
+        try {
+            await this.db!.exec(`
+                CREATE TABLE IF NOT EXISTS community_channel_names (
+                    name TEXT PRIMARY KEY CHECK(length(name) BETWEEN 1 AND 100)
+                );
+            `);
+
+            const namesApplied = await this.db!.get("SELECT id FROM schema_migrations WHERE id = ?", "community-names-v1");
+            if (!namesApplied) {
+                await this.db!.exec(communityChannelNamesSeedSql);
+                await this.db!.run("INSERT INTO schema_migrations (id) VALUES (?)", "community-names-v1");
+            }
+
+            const stateApplied = await this.db!.get("SELECT id FROM schema_migrations WHERE id = ?", "community-state-v1");
+            if (!stateApplied) {
+                await this.db!.exec(`
+                    CREATE TABLE IF NOT EXISTS community_state (
+                        guild_id TEXT PRIMARY KEY,
+                        category_id TEXT,
+                        entry_id TEXT,
+                        temporary_ids TEXT NOT NULL
+                    );
+                `);
+                await this.db!.run("INSERT INTO schema_migrations (id) VALUES (?)", "community-state-v1");
+            }
+
+            const status = await this.getDatabaseStatus();
+            await this.db!.run(
+                "INSERT INTO schema_version (id, version) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET version = excluded.version",
+                status.schemaVersion
+            );
+            await this.db!.exec("COMMIT");
+        } catch (error) {
+            await this.db!.exec("ROLLBACK");
+            throw error;
+        }
     }
 
     private normalize(input: Partial<AdminConfig>): AdminConfig {

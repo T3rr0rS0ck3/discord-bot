@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import type { AdminConfig, ChannelOption, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState } from "../types";
+import type { AdminConfig, ChannelOption, DatabaseStatus, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState } from "../types";
 import { ActionBar } from "./admin/ActionBar";
 import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
 import { CoreSettingsSection } from "./admin/CoreSettingsSection";
@@ -57,6 +57,7 @@ type AdminPanelProps = {
     emojis: EmojiOption[];
     logs: LogEntry[];
     discordStatus: DiscordRuntimeStatus;
+    databaseStatus: DatabaseStatus;
     restartHintText: string;
     hasPendingRestart: boolean;
     saveDisabled: boolean;
@@ -171,6 +172,10 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                 <span>
                                     <strong>Discord: </strong>{props.discordStatus.message}
                                 </span>
+                            </div>
+                            <div className="database-status">
+                                <strong>Database schema:</strong> v{props.databaseStatus.schemaVersion}
+                                {props.databaseStatus.latestMigration ? ` (${props.databaseStatus.latestMigration})` : ""}
                             </div>
 
                             {props.config ? (

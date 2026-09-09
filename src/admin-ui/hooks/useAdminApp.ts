@@ -4,6 +4,7 @@ import type {
     AdminConfig,
     AuthState,
     ChannelOption,
+    DatabaseStatus,
     DiscordRuntimeStatus,
     EmojiOption,
     LogEntry,
@@ -43,6 +44,11 @@ export function useAdminApp(initialAuth: AuthState) {
         state: "offline",
         message: "Bot is offline.",
         updatedAt: new Date().toISOString()
+    });
+    const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus>({
+        schemaVersion: 0,
+        latestMigration: null,
+        appliedMigrations: []
     });
 
     const changedRestartLabels = useMemo(() => {
@@ -156,11 +162,22 @@ export function useAdminApp(initialAuth: AuthState) {
             }
         };
 
+        const loadDatabaseStatus = async () => {
+            try {
+                const result = await adminApi.loadDatabaseStatus();
+                if (!cancelled) setDatabaseStatus(result);
+            } catch {
+                // Keep the dashboard usable if the status endpoint is temporarily unavailable.
+            }
+        };
+
         void loadLogs();
         void loadStatus();
+        void loadDatabaseStatus();
         const timer = setInterval(() => {
             void loadLogs();
             void loadStatus();
+            void loadDatabaseStatus();
         }, 2000);
 
         return () => {
@@ -363,6 +380,7 @@ export function useAdminApp(initialAuth: AuthState) {
         emojis,
         logs,
         discordStatus,
+        databaseStatus,
         restartHintText,
         hasPendingRestart,
         saveDisabled,
