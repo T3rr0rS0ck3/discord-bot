@@ -17,52 +17,56 @@ export function TwitchSettingsSection(props: TwitchSettingsSectionProps): React.
     return (
         <div>
             <div className="input-group">
-                <label htmlFor="twitchBroadcasterName">Broadcaster Name</label>
+                <label htmlFor="twitchBroadcasterName">Broadcaster Name <span className="required-mark">*</span></label>
                 <input
                     id="twitchBroadcasterName"
                     type="text"
                     disabled={props.busy}
                     placeholder="Your Twitch broadcaster name (e.g. t3rr0rs0ck3)"
                     value={props.config.twitchBroadcasterName ?? ""}
+                    required
                     onChange={(e) => props.onUpdateConfig("twitchBroadcasterName", e.target.value)}
                 />
                 <p className="input-hint">The Twitch channel name to sync followers/subscribers from.</p>
             </div>
 
             <div className="input-group">
-                <label htmlFor="twitchClientId">Twitch Client ID</label>
+                <label htmlFor="twitchClientId">Twitch Client ID <span className="required-mark">*</span></label>
                 <input
                     id="twitchClientId"
                     type="text"
                     disabled={props.busy}
                     placeholder="Your Twitch app client ID"
                     value={props.config.twitchClientId ?? ""}
+                    required
                     onChange={(e) => props.onUpdateConfig("twitchClientId", e.target.value)}
                 />
                 <p className="input-hint">Create an app in the Twitch Developer Console and copy the client ID here.</p>
             </div>
 
             <div className="input-group">
-                <label htmlFor="twitchClientSecret">Twitch Client Secret</label>
+                <label htmlFor="twitchClientSecret">Twitch Client Secret <span className="required-mark">*</span></label>
                 <input
                     id="twitchClientSecret"
                     type="password"
                     disabled={props.busy}
                     placeholder="Your Twitch app client secret"
                     value={props.config.twitchClientSecret ?? ""}
+                    required
                     onChange={(e) => props.onUpdateConfig("twitchClientSecret", e.target.value)}
                 />
                 <p className="input-hint">Used on the server to exchange the OAuth code and refresh the token.</p>
             </div>
 
             <div className="input-group">
-                <label htmlFor="twitchRedirectUri">Twitch Redirect URI</label>
+                <label htmlFor="twitchRedirectUri">Twitch Redirect URI <span className="required-mark">*</span></label>
                 <input
                     id="twitchRedirectUri"
                     type="text"
                     disabled={props.busy}
                     placeholder="Exact callback URL registered in Twitch"
                     value={props.config.twitchRedirectUri ?? ""}
+                    required
                     onChange={(e) => props.onUpdateConfig("twitchRedirectUri", e.target.value)}
                 />
                 <p className="input-hint">This must exactly match the redirect URL in your Twitch app.</p>

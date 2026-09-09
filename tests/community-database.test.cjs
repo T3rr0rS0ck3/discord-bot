@@ -35,7 +35,7 @@ test('module switches survive SQLite reload with backwards compatible defaults',
         const defaults = { welcomeRoles: [] };
         const loaded = await store.load(defaults);
         const keys = ['systemEnabled', 'musicEnabled', 'welcomeEnabled', 'twitchEnabled', 'communityEnabled'];
-        for (const key of keys) assert.equal(loaded[key], true);
+        for (const key of keys) assert.equal(loaded[key], false);
         await store.save({ ...loaded, ...Object.fromEntries(keys.map(key => [key, false])) });
         const disabled = await store.load(defaults);
         for (const key of keys) assert.equal(disabled[key], false);

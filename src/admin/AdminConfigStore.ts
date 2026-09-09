@@ -23,6 +23,8 @@ export type AdminConfig = {
     musicDefaultVolumePercent?: number;
     musicDebugSearch: boolean;
     musicYoutubeSearchLimit?: number;
+    audioDbApiKey?: string;
+    audioDbApiVersion?: "v1" | "v2";
     spotifyClientId?: string;
     spotifyClientSecret?: string;
     spotifyRedirectUri?: string;
@@ -199,8 +201,10 @@ export class AdminConfigStore {
         const adminUiToken = String(input.adminUiToken ?? "admin").trim() || "admin";
         const adminUiPort = this.normalizeNumber(input.adminUiPort, 1, 65535) ?? 8787;
         const musicRoleName = String(input.musicRoleName ?? "Music Bot").trim() || "Music Bot";
-        const musicDefaultVolumePercent = this.normalizeNumber(input.musicDefaultVolumePercent, 0, 100);
-        const musicYoutubeSearchLimit = this.normalizeNumber(input.musicYoutubeSearchLimit, 1, 200);
+        const musicDefaultVolumePercent = this.normalizeNumber(input.musicDefaultVolumePercent, 0, 100) ?? 50;
+        const musicYoutubeSearchLimit = this.normalizeNumber(input.musicYoutubeSearchLimit, 10, 100) ?? 25;
+        const audioDbApiKey = this.normalizeString(input.audioDbApiKey) ?? "123";
+        const audioDbApiVersion = input.audioDbApiVersion === "v2" ? "v2" : "v1";
         const musicDebugSearch = input.musicDebugSearch === undefined ? true : Boolean(input.musicDebugSearch);
         const spotifyClientId = this.normalizeString(input.spotifyClientId);
         const spotifyClientSecret = this.normalizeString(input.spotifyClientSecret);
@@ -217,11 +221,11 @@ export class AdminConfigStore {
         const twitchSubscriberRoleName = this.normalizeString(input.twitchSubscriberRoleName);
 
         return {
-            systemEnabled: input.systemEnabled !== false,
-            musicEnabled: input.musicEnabled !== false,
-            welcomeEnabled: input.welcomeEnabled !== false,
-            twitchEnabled: input.twitchEnabled !== false,
-            communityEnabled: input.communityEnabled !== false,
+            systemEnabled: input.systemEnabled === true,
+            musicEnabled: input.musicEnabled === true,
+            welcomeEnabled: input.welcomeEnabled === true,
+            twitchEnabled: input.twitchEnabled === true,
+            communityEnabled: input.communityEnabled === true,
             communityMaxChannels: Math.floor(this.normalizeNumber(input.communityMaxChannels, 1, 50) ?? 50),
             communityCategoryName: String(input.communityCategoryName ?? "Community").trim().slice(0, 100) || "Community",
             communityEmptyTimeoutSeconds: Math.floor(this.normalizeNumber(input.communityEmptyTimeoutSeconds, 1, 86400) ?? 60),
@@ -234,6 +238,8 @@ export class AdminConfigStore {
             musicDefaultVolumePercent,
             musicDebugSearch,
             musicYoutubeSearchLimit,
+            audioDbApiKey,
+            audioDbApiVersion,
             spotifyClientId,
             spotifyClientSecret,
             spotifyRedirectUri,

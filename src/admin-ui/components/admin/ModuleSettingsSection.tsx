@@ -3,7 +3,7 @@ import type { AdminConfig } from "../../types";
 
 const modules = [
     ["systemEnabled", "System", "Ping, Sprachkanal beitreten und Nachrichten löschen"],
-    ["musicEnabled", "Musik", "Wiedergabe, Player und Spotify-Verbindung"],
+    ["musicEnabled", "Musik", "Wiedergabe, Player und TheAudioDB-Metadaten"],
     ["welcomeEnabled", "Welcome", "Willkommensnachricht und Role-Select-Rollenauswahl"],
     ["twitchEnabled", "Twitch", "Follower- und Abonnentenrollen synchronisieren"],
     ["communityEnabled", "Community", "Temporäre Sprachkanäle erstellen und aufräumen"]

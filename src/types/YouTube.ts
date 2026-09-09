@@ -1,4 +1,4 @@
-import type { SpotifyTrackMetadata } from "./Spotify";
+import type { AudioDbTrackMetadata } from "./AudioDb";
 
 export type YouTubeCandidate = {
     url: string;
@@ -23,7 +23,7 @@ export type YouTubeResolvedResult = {
 
 export type YouTubeSearchOptions = {
     query: string;
-    expected?: SpotifyTrackMetadata;
+    expected?: AudioDbTrackMetadata;
     queryHint?: string;
 };
 

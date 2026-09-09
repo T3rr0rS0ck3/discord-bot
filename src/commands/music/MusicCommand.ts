@@ -1,20 +1,13 @@
-import {
-    ActionRowBuilder,
-    AutocompleteInteraction,
-    ButtonBuilder,
-    ButtonStyle,
-    ChatInputCommandInteraction,
-    SlashCommandBuilder
-} from "discord.js";
+import { AutocompleteInteraction, ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { MusicPlaybackService } from "../../services/MusicPlaybackService";
-import { SpotifyOAuthService } from "../../services/SpotifyOAuthService";
+import { TheAudioDbService } from "../../services/TheAudioDbService";
 import { ICommand } from "../interfaces/ICommand";
 
 export class MusicCommand implements ICommand {
     public readonly name = "music";
     public readonly description = "Music playback and player controls";
     private readonly playbackService: MusicPlaybackService;
-    private readonly spotifyService: SpotifyOAuthService;
+    private readonly audioDbService: TheAudioDbService;
 
     public readonly data = new SlashCommandBuilder()
         .setName(this.name)
@@ -26,7 +19,7 @@ export class MusicCommand implements ICommand {
                 .addStringOption((option) =>
                     option
                         .setName("query")
-                        .setDescription("MP3 URL, Spotify link, YouTube link, or search text")
+                        .setDescription("MP3 URL, YouTube link, or artist/title search")
                         .setAutocomplete(true)
                         .setRequired(true)))
         .addSubcommand((subcommand) =>
@@ -64,18 +57,11 @@ export class MusicCommand implements ICommand {
                         .setRequired(true)
                         .setMinValue(0)
                         .setMaxValue(100)))
-        .addSubcommand((subcommand) =>
-            subcommand
-                .setName("spotify-connect")
-                .setDescription("Link your Spotify account via OAuth"))
-        .addSubcommand((subcommand) =>
-            subcommand
-                .setName("spotify-disconnect")
-                .setDescription("Unlink your Spotify account"));
+        ;
 
-    public constructor(playbackService: MusicPlaybackService, spotifyService: SpotifyOAuthService) {
+    public constructor(playbackService: MusicPlaybackService, audioDbService: TheAudioDbService) {
         this.playbackService = playbackService;
-        this.spotifyService = spotifyService;
+        this.audioDbService = audioDbService;
     }
 
     public async executeAutocomplete(interaction: AutocompleteInteraction): Promise<void> {
@@ -97,7 +83,7 @@ export class MusicCommand implements ICommand {
             return;
         }
 
-        const suggestions = await this.spotifyService.searchTrackSuggestions(input, 10);
+        const suggestions = await this.audioDbService.searchTrackSuggestions(input, 10);
         await interaction.respond(
             suggestions.map((entry) => ({
                 name: entry.label,
@@ -157,16 +143,6 @@ export class MusicCommand implements ICommand {
 
             case "back": {
                 await this.handleBack(interaction);
-                return;
-            }
-
-            case "spotify-connect": {
-                await this.handleSpotifyConnect(interaction);
-                return;
-            }
-
-            case "spotify-disconnect": {
-                await this.handleSpotifyDisconnect(interaction);
                 return;
             }
 
@@ -284,35 +260,6 @@ export class MusicCommand implements ICommand {
         }
 
         await interaction.editReply("No previous track available.");
-    }
-
-    private async handleSpotifyConnect(interaction: ChatInputCommandInteraction): Promise<void> {
-        if (!this.spotifyService.isConfigured()) {
-            await interaction.reply({ content: "Spotify OAuth is not configured on this bot.", ephemeral: true });
-            return;
-        }
-
-        const url = this.spotifyService.createAuthorizationUrl(interaction.user.id);
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder()
-                .setStyle(ButtonStyle.Link)
-                .setURL(url)
-                .setLabel("Open Spotify Connect")
-        );
-
-        await interaction.reply({
-            content: "Click the button to connect your Spotify account.",
-            components: [row],
-            ephemeral: true
-        });
-    }
-
-    private async handleSpotifyDisconnect(interaction: ChatInputCommandInteraction): Promise<void> {
-        const deleted = await this.spotifyService.unlink(interaction.user.id);
-        await interaction.reply({
-            content: deleted ? "Spotify link removed." : "No Spotify account is linked to your Discord user.",
-            ephemeral: true
-        });
     }
 
     private requireGuildId(interaction: ChatInputCommandInteraction): string {

@@ -23,6 +23,8 @@ export type AdminConfig = {
     musicDefaultVolumePercent?: number;
     musicDebugSearch: boolean;
     musicYoutubeSearchLimit?: number;
+    audioDbApiKey?: string;
+    audioDbApiVersion?: "v1" | "v2";
     spotifyClientId?: string;
     spotifyClientSecret?: string;
     spotifyRedirectUri?: string;
@@ -49,6 +51,12 @@ export type StatusState = {
     color: string;
 };
 
+export type ToastState = {
+    id: number;
+    text: string;
+    tone: "system" | "error";
+};
+
 export type EmojiOption = {
     value: string;
     label: string;
@@ -72,6 +80,8 @@ export type RestartRelevantState = {
     musicDefaultVolumePercent: string;
     musicDebugSearch: boolean;
     musicYoutubeSearchLimit: string;
+    audioDbApiKey: string;
+    audioDbApiVersion: "v1" | "v2";
     spotifyClientId: string;
     spotifyClientSecret: string;
     spotifyRedirectUri: string;

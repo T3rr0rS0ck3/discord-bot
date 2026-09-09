@@ -4,7 +4,7 @@ import { ICommand } from "../interfaces/ICommand";
 
 export class PlayCommand implements ICommand {
     public readonly name = "play";
-    public readonly description = "Play MP3 URLs, Spotify (link/search), and YouTube links in voice channels";
+    public readonly description = "Play MP3 URLs, YouTube links, or artist/title searches in voice channels";
     private readonly playbackService: MusicPlaybackService;
 
     public readonly data = new SlashCommandBuilder()
@@ -13,7 +13,7 @@ export class PlayCommand implements ICommand {
         .addStringOption((option) =>
             option
                 .setName("source")
-                .setDescription("MP3 URL, Spotify track URL, or search text (title/artist)")
+                .setDescription("MP3 URL, YouTube link, or search text (artist/title)")
                 .setRequired(true));
 
     public constructor(playbackService: MusicPlaybackService) {

@@ -1,5 +1,5 @@
 import * as play from "play-dl";
-import type { SpotifyTrackMetadata } from "../types/Spotify";
+import type { AudioDbTrackMetadata } from "../types/AudioDb";
 import type { YouTubeCandidate, YouTubeSearchConfig, YouTubeResolvedResult, YouTubeScoreEntry, ParsedArtistTitle } from "../types/YouTube";
 
 export class YouTubeTrackSearchService {
@@ -13,7 +13,7 @@ export class YouTubeTrackSearchService {
         this.logger = config.logger;
     }
 
-    public async resolveByQuery(query: string, expected?: SpotifyTrackMetadata, queryHint?: string): Promise<YouTubeResolvedResult> {
+    public async resolveByQuery(query: string, expected?: AudioDbTrackMetadata, queryHint?: string): Promise<YouTubeResolvedResult> {
         this.log(`YouTube search started: query="${query}"${queryHint ? `, queryHint="${queryHint}"` : ""}`);
         if (expected) {
             this.log(`Expected track: ${expected.title} - ${expected.artists.join(", ")} (${expected.durationSec}s)`);
@@ -161,7 +161,7 @@ export class YouTubeTrackSearchService {
         }
     }
 
-    private buildYouTubeSearchVariants(baseQuery: string, expected?: SpotifyTrackMetadata, queryHint?: string): string[] {
+    private buildYouTubeSearchVariants(baseQuery: string, expected?: AudioDbTrackMetadata, queryHint?: string): string[] {
         const variants = new Set<string>();
         const add = (value: string): void => {
             const trimmed = value.trim();
@@ -275,7 +275,7 @@ export class YouTubeTrackSearchService {
         return `${base} official audio official offiziell original studio version`;
     }
 
-    private scoreYouTubeCandidate(candidate: YouTubeCandidate, expected?: SpotifyTrackMetadata, queryHint?: string): number {
+    private scoreYouTubeCandidate(candidate: YouTubeCandidate, expected?: AudioDbTrackMetadata, queryHint?: string): number {
         const title = candidate.title.toLowerCase();
         const channel = candidate.channelName;
         let score = 0;
@@ -366,7 +366,7 @@ export class YouTubeTrackSearchService {
         return score;
     }
 
-    private matchesRequiredSongTerms(candidate: YouTubeCandidate, expected?: SpotifyTrackMetadata, queryHint?: string): boolean {
+    private matchesRequiredSongTerms(candidate: YouTubeCandidate, expected?: AudioDbTrackMetadata, queryHint?: string): boolean {
         const normalizedTitle = this.normalizeText(candidate.title);
         const normalizedChannel = this.normalizeText(candidate.channelName);
 

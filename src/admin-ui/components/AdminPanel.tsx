@@ -1,10 +1,9 @@
 import React, { useEffect, useRef } from "react";
-import type { AdminConfig, ChannelOption, EmojiOption, LogEntry, StatusState } from "../types";
+import type { AdminConfig, ChannelOption, EmojiOption, LogEntry, StatusState, ToastState } from "../types";
 import { ActionBar } from "./admin/ActionBar";
 import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
 import { CoreSettingsSection } from "./admin/CoreSettingsSection";
 import { MusicSettingsSection } from "./admin/MusicSettingsSection";
-import { SpotifySettingsSection } from "./admin/SpotifySettingsSection";
 import { TwitchSettingsSection } from "./admin/TwitchSettingsSection";
 import { WelcomeSettingsSection } from "./admin/WelcomeSettingsSection";
 
@@ -51,7 +50,7 @@ type AdminPanelProps = {
     activePage: "dashboard" | "sqlite";
     username: string | null;
     config: AdminConfig | null;
-    status: StatusState;
+    toast: ToastState[];
     busy: boolean;
     busyText: string;
     channels: ChannelOption[];
@@ -149,6 +148,18 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                             <div>{props.busyText || "Please wait..."}</div>
                         </div>
                     </div>
+                    {props.toast.length > 0 ? (
+                        <div className="admin-toast-stack" aria-live="polite">
+                            {props.toast.map((toast) => (
+                                <div className={`admin-toast admin-toast-${toast.tone}`} role="status" key={toast.id}>
+                                    <span className="admin-toast-icon" aria-hidden="true">
+                                        <i className={`fa-solid ${toast.tone === "error" ? "fa-circle-exclamation" : "fa-circle-info"}`}></i>
+                                    </span>
+                                    <span>{toast.text}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
 
                     {props.activePage === "dashboard" ? (
                         <>
@@ -172,7 +183,7 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                     <CollapsibleRegion
                                         title="Community Sprachkanäle"
                                         defaultOpen={true}
-                                        enabled={props.config.communityEnabled !== false}
+                                        enabled={props.config.communityEnabled === true}
                                         enabledLabel="Community"
                                         onToggle={enabled => props.onUpdateConfig("communityEnabled", enabled)}
                                     >
@@ -182,7 +193,7 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                     <CollapsibleRegion
                                         title="Music Settings"
                                         defaultOpen={true}
-                                        enabled={props.config.musicEnabled !== false}
+                                        enabled={props.config.musicEnabled === true}
                                         enabledLabel="Musik"
                                         onToggle={enabled => props.onUpdateConfig("musicEnabled", enabled)}
                                     >
@@ -191,20 +202,12 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                             busy={props.busy}
                                             onUpdateConfig={props.onUpdateConfig}
                                         />
-                                        <div className="settings-subsection">
-                                            <h2>Spotify Settings</h2>
-                                            <SpotifySettingsSection
-                                                config={props.config}
-                                                busy={props.busy}
-                                                onUpdateConfig={props.onUpdateConfig}
-                                            />
-                                        </div>
                                     </CollapsibleRegion>
 
                                     <CollapsibleRegion
                                         title="Twitch Settings"
                                         defaultOpen={false}
-                                        enabled={props.config.twitchEnabled !== false}
+                                        enabled={props.config.twitchEnabled === true}
                                         enabledLabel="Twitch"
                                         onToggle={enabled => props.onUpdateConfig("twitchEnabled", enabled)}
                                     >
@@ -218,7 +221,7 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                     <CollapsibleRegion
                                         title="Welcome Role Select"
                                         defaultOpen={true}
-                                        enabled={props.config.welcomeEnabled !== false}
+                                        enabled={props.config.welcomeEnabled === true}
                                         enabledLabel="Welcome"
                                         onToggle={enabled => props.onUpdateConfig("welcomeEnabled", enabled)}
                                     >
@@ -244,9 +247,6 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                         onSaveAndRestart={props.onSaveAndRestart}
                                     />
 
-                                    <div className="status" style={{ color: props.status.color }}>
-                                        {props.status.text}
-                                    </div>
                                     <div
                                         className="status"
                                         style={{ display: props.hasPendingRestart ? "block" : "none", color: "#fbbf24" }}
@@ -310,3 +310,4 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
         </div>
     );
 }
+

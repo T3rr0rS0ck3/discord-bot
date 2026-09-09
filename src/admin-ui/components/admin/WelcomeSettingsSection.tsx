@@ -184,11 +184,12 @@ export function WelcomeSettingsSection(props: WelcomeSettingsSectionProps): Reac
 
     return (
         <>
-            <label>Welcome Channel</label>
+            <label>Welcome Channel <span className="required-mark">*</span></label>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                 <select
                     style={{ flex: 1 }}
                     value={props.config.welcomeChannelId ?? ""}
+                    required
                     disabled={props.busy}
                     onChange={(event) => props.onUpdateConfig("welcomeChannelId", event.target.value)}
                 >
@@ -262,14 +263,16 @@ export function WelcomeSettingsSection(props: WelcomeSettingsSectionProps): Reac
                                 onChange={(value) => props.onUpdateRole(index, { emoji: value })}
                             />
                             <input
-                                placeholder="Enter a role name"
+                                placeholder="Enter a role name *"
                                 value={role.name}
+                                required
                                 disabled={props.busy}
                                 onChange={(event) => props.onUpdateRole(index, { name: event.target.value })}
                             />
                             <input
-                                placeholder="Describe what this role is for"
+                                placeholder="Describe what this role is for *"
                                 value={role.description}
+                                required
                                 disabled={props.busy}
                                 onChange={(event) =>
                                     props.onUpdateRole(index, { description: event.target.value })

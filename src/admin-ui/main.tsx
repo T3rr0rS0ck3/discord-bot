@@ -50,7 +50,7 @@ function App(): React.JSX.Element {
                 activePage={page}
             username={state.auth.username}
             config={state.config}
-            status={state.status}
+            toast={state.toast}
             busy={state.busy}
             busyText={state.busyText}
             channels={state.channels}

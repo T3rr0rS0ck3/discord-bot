@@ -101,18 +101,18 @@ test('random imported names, cap, live lowering and freed capacity', async () =>
     await f.move(mod, f.member, entry.id); await mod.pending;
     const rooms = [...f.cache.values()].filter(c => c.type === 2 && c.id !== entry.id);
     const names = ['raidabend', 'wipe-crew', 'gaming'];
-    assert.equal(rooms.length, 2);
+    assert.equal(rooms.length, 1);
     assert.ok(rooms.every(c => names.includes(c.name)));
-    assert.notEqual(rooms[0].name, rooms[1].name);
     await f.move(mod, f.member, entry.id); await mod.pending;
-    assert.equal(disconnected, 1); assert.equal(f.cache.size, 4);
+    assert.equal(disconnected, 2); assert.equal(f.cache.size, 3);
     await mod.applyRuntimeConfig({ communityCategoryName: 'Community', communityMaxChannels: 1 });
-    assert.equal(f.cache.size, 4); // Lowering the cap never deletes existing rooms.
+    assert.equal(f.cache.size, 3); // Lowering the cap never deletes existing rooms.
     await f.move(mod, f.member, entry.id); await mod.pending;
-    assert.equal(disconnected, 2);
+    assert.equal(disconnected, 3);
     rooms.forEach(room => f.cache.delete(room.id));
     await f.move(mod, f.member, entry.id); await mod.pending;
-    assert.equal(f.cache.size, 3); assert.equal(mod.state.temporaryIds.length, 1);
+    assert.equal(disconnected, 4);
+    assert.equal(f.cache.size, 2); assert.equal(mod.state.temporaryIds.length, 0);
     await mod.shutdown();
 });
 

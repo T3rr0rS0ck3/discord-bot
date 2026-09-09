@@ -10,13 +10,13 @@ import { CommunityModule } from "./CommunityModule";
 export class BotModuleFactory {
     public static create(options: BotModuleFactoryOptions): IBotModule[] {
         const modules: IBotModule[] = [
-            ...(options.communityEnabled !== false ? [new CommunityModule(options)] : []),
-            ...(options.systemEnabled !== false ? [new SystemModule()] : []),
-            ...(options.musicEnabled !== false ? [new MusicBotModule(options)] : [])
+            ...(options.communityEnabled === true ? [new CommunityModule(options)] : []),
+            ...(options.systemEnabled === true ? [new SystemModule()] : []),
+            ...(options.musicEnabled === true ? [new MusicBotModule(options)] : [])
         ];
 
         // Welcome module is optional when configured.
-        if (options.welcomeEnabled !== false && options.welcomeChannelId && options.welcomeRoles && options.welcomeRoles.length > 0) {
+        if (options.welcomeEnabled === true && options.welcomeChannelId && options.welcomeRoles && options.welcomeRoles.length > 0) {
             modules.push(
                 new WelcomeModule({
                     guildId: options.guildId,
@@ -27,7 +27,7 @@ export class BotModuleFactory {
         }
 
         // Twitch role module is optional when configured.
-        if (options.twitchEnabled !== false && options.twitchRole && (options.twitchRole.followerRoleName || options.twitchRole.subscriberRoleName)) {
+        if (options.twitchEnabled === true && options.twitchRole && (options.twitchRole.followerRoleName || options.twitchRole.subscriberRoleName)) {
             modules.push(
                 new TwitchRoleModule({
                     guildId: options.guildId,

@@ -12,6 +12,8 @@ export const restartFieldLabels: Record<keyof RestartRelevantState, string> = {
     musicDefaultVolumePercent: "Music Default Volume",
     musicDebugSearch: "Music Debug Search",
     musicYoutubeSearchLimit: "Music YouTube Search Limit",
+    audioDbApiKey: "TheAudioDB API Key",
+    audioDbApiVersion: "TheAudioDB API Version",
     spotifyClientId: "Spotify Client ID",
     spotifyClientSecret: "Spotify Client Secret",
     spotifyRedirectUri: "Spotify Redirect URI"
@@ -19,11 +21,11 @@ export const restartFieldLabels: Record<keyof RestartRelevantState, string> = {
 
 export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
     return {
-        systemEnabled: input.systemEnabled !== false,
-            musicEnabled: input.musicEnabled !== false,
-            welcomeEnabled: input.welcomeEnabled !== false,
-            twitchEnabled: input.twitchEnabled !== false,
-            communityEnabled: input.communityEnabled !== false,
+        systemEnabled: input.systemEnabled === true,
+            musicEnabled: input.musicEnabled === true,
+            welcomeEnabled: input.welcomeEnabled === true,
+            twitchEnabled: input.twitchEnabled === true,
+            communityEnabled: input.communityEnabled === true,
             communityMaxChannels: Number(input.communityMaxChannels ?? 50),
         communityCategoryName: String(input.communityCategoryName ?? "Community"),
         communityEmptyTimeoutSeconds: Number(input.communityEmptyTimeoutSeconds ?? 60),
@@ -35,13 +37,15 @@ export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
         musicRoleName: String(input.musicRoleName ?? "Music Bot"),
         musicDefaultVolumePercent:
             input.musicDefaultVolumePercent === undefined || input.musicDefaultVolumePercent === null
-                ? undefined
+                ? 50
                 : Number(input.musicDefaultVolumePercent),
         musicDebugSearch: input.musicDebugSearch !== false,
         musicYoutubeSearchLimit:
             input.musicYoutubeSearchLimit === undefined || input.musicYoutubeSearchLimit === null
-                ? undefined
+                ? 25
                 : Number(input.musicYoutubeSearchLimit),
+            audioDbApiKey: input.audioDbApiKey ? String(input.audioDbApiKey) : "123",
+            audioDbApiVersion: input.audioDbApiVersion === "v2" ? "v2" : "v1",
         spotifyClientId: input.spotifyClientId ? String(input.spotifyClientId) : "",
         spotifyClientSecret: input.spotifyClientSecret ? String(input.spotifyClientSecret) : "",
         spotifyRedirectUri: input.spotifyRedirectUri ? String(input.spotifyRedirectUri) : "",
@@ -93,6 +97,8 @@ export function serializeConfig(cfg: AdminConfig): string {
             cfg.musicYoutubeSearchLimit === undefined || Number.isNaN(cfg.musicYoutubeSearchLimit)
                 ? ""
                 : String(cfg.musicYoutubeSearchLimit),
+            audioDbApiKey: cfg.audioDbApiKey?.trim() || "123",
+            audioDbApiVersion: cfg.audioDbApiVersion === "v2" ? "v2" : "v1",
         adminUiPort: Number.isNaN(cfg.adminUiPort) ? "" : String(cfg.adminUiPort),
         twitchBroadcasterName: cfg.twitchBroadcasterName?.trim() || "",
         twitchClientId: cfg.twitchClientId?.trim() || "",
@@ -111,11 +117,11 @@ export function serializeConfig(cfg: AdminConfig): string {
 
 export function toRestartRelevantState(cfg: AdminConfig): RestartRelevantState {
     return {
-        systemEnabled: cfg.systemEnabled !== false,
-        musicEnabled: cfg.musicEnabled !== false,
-        welcomeEnabled: cfg.welcomeEnabled !== false,
-        twitchEnabled: cfg.twitchEnabled !== false,
-        communityEnabled: cfg.communityEnabled !== false,
+        systemEnabled: cfg.systemEnabled === true,
+        musicEnabled: cfg.musicEnabled === true,
+        welcomeEnabled: cfg.welcomeEnabled === true,
+        twitchEnabled: cfg.twitchEnabled === true,
+        communityEnabled: cfg.communityEnabled === true,
         discordToken: cfg.discordToken.trim(),
         guildId: (cfg.guildId ?? "").trim(),
         musicRoleName: cfg.musicRoleName.trim(),
@@ -128,6 +134,8 @@ export function toRestartRelevantState(cfg: AdminConfig): RestartRelevantState {
             cfg.musicYoutubeSearchLimit === undefined || Number.isNaN(cfg.musicYoutubeSearchLimit)
                 ? ""
                 : String(cfg.musicYoutubeSearchLimit),
+            audioDbApiKey: (cfg.audioDbApiKey ?? "").trim(),
+            audioDbApiVersion: cfg.audioDbApiVersion === "v2" ? "v2" : "v1",
         spotifyClientId: (cfg.spotifyClientId ?? "").trim(),
         spotifyClientSecret: (cfg.spotifyClientSecret ?? "").trim(),
         spotifyRedirectUri: (cfg.spotifyRedirectUri ?? "").trim()

@@ -20,6 +20,8 @@ export type MusicPlaybackOptions = {
     debugSearch?: boolean;
     youtubeSearchLimit?: number;
     allowedRoleNames?: string[];
+    audioDbApiKey?: string;
+    audioDbApiVersion?: "v1" | "v2";
 };
 
 export type TwitchRoleModuleOptions = {

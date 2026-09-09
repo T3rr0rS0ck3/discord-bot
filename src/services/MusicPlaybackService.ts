@@ -28,7 +28,7 @@ import ffmpegPath from "ffmpeg-static";
 import ytdlp from "yt-dlp-exec";
 import type { ResolvedSource, QueueTrack, GuildPlayerState } from "../types/Music";
 import { RoleService } from "./RoleService";
-import { SpotifyOAuthService } from "./SpotifyOAuthService";
+import { TheAudioDbService } from "./TheAudioDbService";
 import { YouTubeTrackSearchService } from "./YouTubeTrackSearchService";
 
 type MusicPlaybackServiceOptions = {
@@ -39,7 +39,7 @@ type MusicPlaybackServiceOptions = {
 };
 
 export class MusicPlaybackService {
-    private readonly spotifyService: SpotifyOAuthService;
+    private readonly audioDbService: TheAudioDbService;
     private readonly defaultVolume: number;
     private readonly searchDebugEnabled: boolean;
     private readonly youtubeSearchLimit: number;
@@ -47,8 +47,8 @@ export class MusicPlaybackService {
     private readonly guildStates = new Map<string, GuildPlayerState>();
     private allowedRoleNames: Set<string>;
 
-    public constructor(spotifyService: SpotifyOAuthService, options: MusicPlaybackServiceOptions) {
-        this.spotifyService = spotifyService;
+    public constructor(audioDbService: TheAudioDbService, options: MusicPlaybackServiceOptions) {
+        this.audioDbService = audioDbService;
         this.defaultVolume = this.parseDefaultVolume(options.defaultVolumePercent);
         this.searchDebugEnabled = options.debugSearch ?? true;
         this.youtubeSearchLimit = this.parseYouTubeSearchLimit(options.youtubeSearchLimit);
@@ -587,24 +587,8 @@ export class MusicPlaybackService {
         }
     }
 
-    private async resolveSource(discordUserId: string, sourceInput: string): Promise<ResolvedSource> {
+    private async resolveSource(_discordUserId: string, sourceInput: string): Promise<ResolvedSource> {
         this.logSearch(`resolveSource input=\"${sourceInput}\"`);
-
-        if (this.spotifyService.isSpotifyTrackUrl(sourceInput)) {
-            this.logSearch("Input als Spotify-Track-URL erkannt.");
-            const metadata = await this.spotifyService.resolveTrackMetadata(discordUserId, sourceInput);
-            if (!metadata) {
-                throw new Error("Could not load Spotify track.");
-            }
-
-            const fallback = await this.youtubeSearchService.resolveByQuery(`${metadata.artists.join(" ")} ${metadata.title}`, metadata, sourceInput);
-            return {
-                streamKind: "youtube",
-                sourceUrl: fallback.url,
-                sourceLabel: `${metadata.title} - ${metadata.artists.join(", ")}`,
-                artworkUrl: metadata.artworkUrl ?? fallback.thumbnailUrl
-            };
-        }
 
         if (this.isYouTubeUrl(sourceInput)) {
             this.logSearch("Input als YouTube-URL erkannt.");
@@ -630,9 +614,9 @@ export class MusicPlaybackService {
             };
         }
 
-        this.logSearch("Versuche Spotify-Metadaten fuer Textsuche.");
+        this.logSearch("Versuche TheAudioDB-Metadaten fuer Textsuche.");
         try {
-            const metadata = await this.spotifyService.searchTrackMetadata(discordUserId, sourceInput);
+            const metadata = await this.audioDbService.searchTrackMetadata(sourceInput);
             if (metadata) {
                 const fallback = await this.youtubeSearchService.resolveByQuery(`${metadata.artists.join(" ")} ${metadata.title}`, metadata, sourceInput);
                 return {

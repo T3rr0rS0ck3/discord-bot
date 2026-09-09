@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { adminApi } from "../api/adminApi";
 import type {
     AdminConfig,
@@ -8,7 +8,8 @@ import type {
     LogEntry,
     RestartRelevantState,
     RoleConfig,
-    StatusState
+    StatusState,
+    ToastState
 } from "../types";
 import {
     normalizeConfig,
@@ -25,6 +26,9 @@ export function useAdminApp(initialAuth: AuthState) {
 
     const [config, setConfig] = useState<AdminConfig | null>(null);
     const [status, setStatus] = useState<StatusState>({ text: "", color: "#86efac" });
+    const [toasts, setToasts] = useState<ToastState[]>([]);
+    const toastTimersRef = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+    const nextToastIdRef = useRef(0);
     const [busy, setBusy] = useState(false);
     const [busyText, setBusyText] = useState("Restarting bot...");
 
@@ -68,6 +72,16 @@ export function useAdminApp(initialAuth: AuthState) {
     const restartDisabled = busy || !config;
     const saveAndRestartDisabled = busy || !config || (!hasUnsavedChanges && !hasPendingRestart);
 
+    function showToast(text: string, tone: ToastState["tone"]): void {
+        const id = nextToastIdRef.current++;
+        setToasts((current) => [...current, { id, text, tone }]);
+        const timer = setTimeout(() => {
+            setToasts((current) => current.filter((toast) => toast.id !== id));
+            toastTimersRef.current.delete(id);
+        }, 6000);
+        toastTimersRef.current.set(id, timer);
+    }
+
     async function loadConfigAndMetadata(showLoadedStatus: boolean): Promise<void> {
         const [cfgResult, channelsResult, emojisResult] = await Promise.all([
             adminApi.loadConfig(),
@@ -85,6 +99,7 @@ export function useAdminApp(initialAuth: AuthState) {
 
         if (showLoadedStatus) {
             setStatus({ text: "Configuration loaded.", color: "#86efac" });
+            showToast("Configuration loaded.", "system");
         }
     }
 
@@ -103,6 +118,7 @@ export function useAdminApp(initialAuth: AuthState) {
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
                 setStatus({ text: message, color: "#fca5a5" });
+                showToast(message, "error");
             }
         })();
     }, [auth.authenticated]);
@@ -174,9 +190,11 @@ export function useAdminApp(initialAuth: AuthState) {
             setChannels(Array.isArray(channelsResult.channels) ? channelsResult.channels : []);
             setEmojis(Array.isArray(emojisResult.emojis) ? emojisResult.emojis : []);
             setStatus({ text: "Channel and emoji list refreshed.", color: "#86efac" });
+            showToast("Channel and emoji list refreshed.", "system");
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             setStatus({ text: message, color: "#fca5a5" });
+            showToast(message, "error");
         }
     }
 
@@ -196,6 +214,7 @@ export function useAdminApp(initialAuth: AuthState) {
             await adminApi.restart();
             setRestartBaseline(toRestartRelevantState(savedConfig));
             setStatus({ text: "Saved and bot restarted.", color: "#86efac" });
+            showToast("Configuration saved and bot restarted.", "system");
             return;
         }
 
@@ -218,6 +237,7 @@ export function useAdminApp(initialAuth: AuthState) {
                 : "Saved. Changes applied live.",
             color: "#86efac"
         });
+        showToast("Configuration saved.", "system");
     }
 
     function updateConfig<K extends keyof AdminConfig>(key: K, value: AdminConfig[K]): void {
@@ -273,6 +293,7 @@ export function useAdminApp(initialAuth: AuthState) {
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             setStatus({ text: message, color: "#fca5a5" });
+            showToast(message, "error");
         }
     }
 
@@ -287,9 +308,11 @@ export function useAdminApp(initialAuth: AuthState) {
             await adminApi.restart();
             setRestartBaseline(toRestartRelevantState(config));
             setStatus({ text: "Bot restarted.", color: "#86efac" });
+            showToast("Bot restarted.", "system");
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             setStatus({ text: message, color: "#fca5a5" });
+            showToast(message, "error");
         } finally {
             setBusy(false);
         }
@@ -303,6 +326,7 @@ export function useAdminApp(initialAuth: AuthState) {
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             setStatus({ text: message, color: "#fca5a5" });
+            showToast(message, "error");
         } finally {
             setBusy(false);
         }
@@ -315,6 +339,7 @@ export function useAdminApp(initialAuth: AuthState) {
         loginStatus,
         config,
         status,
+        toast: toasts,
         busy,
         busyText,
         channels,

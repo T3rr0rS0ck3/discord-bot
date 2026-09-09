@@ -34,6 +34,7 @@ export type {
     SpotifyTokenRecord,
     SpotifyTrackSuggestion
 } from "./Spotify";
+export type { AudioDbTrackMetadata, AudioDbTrack, AudioDbTrackResponse } from "./AudioDb";
 
 // Discord Bot Types
 export type {

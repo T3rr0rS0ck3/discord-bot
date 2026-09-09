@@ -3,7 +3,7 @@
 Modularer Discord-Bot mit erweiterbarer Modul-Architektur.
 
 - `system`-Modul: `/ping`, `/join`
-- `musicbot`-Modul: `/music` inkl. Player, Queue, Volume und Spotify OAuth
+- `musicbot`-Modul: `/music` inkl. Player, Queue, Volume und TheAudioDB-Metadaten
 
 ## Voraussetzungen
 
@@ -37,7 +37,7 @@ Modularer Discord-Bot mit erweiterbarer Modul-Architektur.
    - Benutzername: `admin`
    - Token: `admin`
 
-   Dort kannst du alle Einstellungen setzen, inkl. `DISCORD_TOKEN`, `GUILD_ID`, Music/Spotify/Welcome und Admin-Login.
+   Dort kannst du alle Einstellungen setzen, inkl. `DISCORD_TOKEN`, `GUILD_ID`, Music/Welcome und Admin-Login.
 
 ## Entwicklung starten
 
@@ -50,10 +50,7 @@ Dann im Discord-Channel:
 ```text
 /ping
 /join
-/music spotify-connect
-/music spotify-disconnect
 /music play query:https://example.com/audio.mp3
-/music play query:https://open.spotify.com/track/11dFghVXANMlKmJXsNCbNl
 /music play query:https://www.youtube.com/watch?v=dQw4w9WgXcQ
 /music play query:Linkin Park Numb
 /music queue
@@ -72,12 +69,16 @@ Pong! 🏓
 ```
 
 Bei `/join` joint der Bot deinen aktuellen Voice-Channel.
-Bei `/play` wird eine direkte MP3-URL, ein Spotify-Track-Link oder ein YouTube-Link abgespielt.
-Bei `/play query:<titel interpret>` nutzt der Bot Spotify für Metadaten und sucht dann eine passende YouTube-Quelle.
-Bei Spotify-Track-Links wird ebenfalls immer eine passende YouTube-Quelle verwendet (kein Playback über Spotify `preview_url`).
+Bei `/play` wird eine direkte MP3-URL oder ein YouTube-Link abgespielt.
+Bei `/play query:<titel interpret>` nutzt der Bot TheAudioDB für Metadaten und sucht danach eine passende YouTube-Quelle.
+TheAudioDB-Key und API-Modus (Free/v1 oder Premium/v2) lassen sich unter Music
+Settings konfigurieren und werden in SQLite gespeichert. Ohne eigenen Key wird
+im Free-Modus der öffentliche Key `2` verwendet; im Premium-Modus ist der
+Premium-Key üblicherweise `123`. Alternativ können `AUDIODB_API_KEY` und
+`AUDIODB_API_VERSION` (`v1` oder `v2`) als Startwerte gesetzt werden.
 Mit `/music player` wird ein Player-Panel im Chat mit Buttons für Zurück, Pause/Play und Skip angezeigt.
 Mit den `/music`-Subcommands steuerst du die Wiedergabe (`volume` = 0 bis 100).
-Bei `/music play query` bekommst du beim Tippen Spotify-Vorschläge und kannst den exakten Song direkt auswählen.
+Bei `/music play query` bekommst du beim Tippen TheAudioDB-Vorschläge und kannst den gefundenen Song direkt auswählen.
 
 ## Build + Start
 
@@ -119,8 +120,7 @@ Einstellungen -> Add-ons -> Add-on Store -> Repositories
 als benutzerdefiniertes Repository hinzugefügt werden. Danach die App **Discord
 Bot** installieren und starten. Die Admin-Oberfläche ist über den App-Eintrag
 und Ingress erreichbar; die SQLite-Daten werden dauerhaft im Home-Assistant-
-App-Datenverzeichnis gespeichert. Der Spotify-Callback kann bei Bedarf über
-Port `3000` freigegeben werden.
+App-Datenverzeichnis gespeichert.
 
 Die normale Docker- und Compose-Nutzung bleibt unverändert. Compose bindet den
 Host-Ordner `data/` ausdrücklich nach `/app/data`; das Image verwendet für
@@ -130,7 +130,7 @@ Home-Assistant standardmäßig `/data`. Der Datenpfad kann für weitere Deployme
 Die SQLite-Datei wird nicht mit Git oder dem Docker-Image ausgeliefert. Bei einem
 leeren Datenverzeichnis legt der Bot `bot-config.sqlite` beim ersten Start mit
 allen Tabellen, Migrationen, Standardrollen und dem initialen Login `admin` /
-`admin` an. Discord-, Spotify- und Twitch-Zugangsdaten werden erst über die
+`admin` an. Discord- und Twitch-Zugangsdaten werden erst über die
 Admin-Oberfläche in der persistenten Laufzeitdatenbank gespeichert.
 
 Das Release-Image in GHCR wird als Multi-Arch-Manifest veröffentlicht (`linux/amd64` + `linux/arm64`).
@@ -160,7 +160,6 @@ docker compose down
 Wichtige Ports (in `docker-compose.yml`):
 
 - `8787:8787` Admin-UI
-- `3000:3000` Spotify OAuth Callback
 - SQLite Web GUI ist in die Admin-Oberflaeche eingebettet und laeuft nur innerhalb der angemeldeten Session.
 
 Hinweis: Wenn du den Admin-Port in der UI änderst, musst du das Port-Mapping in `docker-compose.yml` entsprechend anpassen.
@@ -181,7 +180,7 @@ Hinweis zur Laufzeit:
 
 ### Module ein- und ausschalten
 
-Die Adminoberfläche bietet unter **Module** Schalter für System, Musik (inklusive Spotify), Welcome, Twitch und Community. Die Auswahl wird in SQLite gespeichert und über **Save and restart** angewendet. Nur **Save** speichert die Auswahl für den nächsten Bot-Neustart. Vorhandene Installationen behalten standardmäßig alle Module eingeschaltet; Welcome und Twitch benötigen zusätzlich ihre Konfiguration.
+Die Adminoberfläche bietet Schalter für Musik, Welcome, Twitch und Community. Die Auswahl wird in SQLite gespeichert und über **Save and restart** angewendet. Nur **Save** speichert die Auswahl für den nächsten Bot-Neustart. Vorhandene Installationen behalten standardmäßig alle Module eingeschaltet; Welcome und Twitch benötigen zusätzlich ihre Konfiguration.
 
 Ausgeschaltete Module registrieren keine Befehle und starten keine Verarbeitung. Beim Neustart wird laufende Musik beendet. Bestehende Rollen und Kanäle bleiben erhalten; die Community räumt ihre temporären Kanäle erst nach erneutem Einschalten wieder auf. Die Adminoberfläche bleibt unabhängig von den Modulschaltern erreichbar.
 
@@ -201,10 +200,9 @@ Ausgeschaltete Module registrieren keine Befehle und starten keine Verarbeitung.
 - `GUILD_ID` sorgt dafür, dass `/ping` sofort auf deinem Server verfügbar ist.
 - Ohne `GUILD_ID` wird der Command global registriert (kann bis zu 1h dauern).
 - Für `/join` braucht der Bot Voice-Rechte auf dem Channel (`Connect`, optional `Speak`).
-- Für Spotify musst du zuerst `/music spotify-connect` ausführen und OAuth bestätigen.
-- Für `/play` kannst du MP3-URLs, Spotify-Track-URLs, YouTube-Links oder Suchtext (Titel/Interpret) verwenden.
+- Für `/play` kannst du MP3-URLs, YouTube-Links oder Suchtext (Titel/Interpret) verwenden. Suchtext wird über TheAudioDB mit Metadaten angereichert und anschließend auf YouTube aufgelöst.
 - Wenn du MP3/WAV/ähnliche Dateien abspielen willst, wird `ffmpeg-static` mitinstalliert.
 - Der Bot legt beim Start in der Ziel-Guild automatisch eine Rolle mit dem Namen aus `MUSIC_ROLE_NAME` an oder verwendet eine vorhandene Rolle gleichen Namens. Nur Mitglieder mit dieser Rolle können die Musikbefehle nutzen.
 - Dafür braucht der Bot in der Guild die Berechtigung `Manage Roles`.
-- Die Start-Lautstärke pro Guild-Player kommt aus `MUSIC_DEFAULT_VOLUME_PERCENT` (0 bis 100, Standard: 100).
+- Die Start-Lautstärke pro Guild-Player kommt aus `MUSIC_DEFAULT_VOLUME_PERCENT` (0 bis 100, Standard: 50).
 - Für YouTube-Suche werden standardmäßig 25 Treffer betrachtet (`MUSIC_YOUTUBE_SEARCH_LIMIT`, Bereich 10-100).

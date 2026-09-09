@@ -203,6 +203,11 @@ export class AdminWebServer {
         if (req.method === "POST" && url.pathname === "/api/config") {
             const body = await this.readBody(req);
             const parsed = JSON.parse(body) as Partial<AdminConfig>;
+            const validationErrors = this.validateConfigInput(parsed);
+            if (validationErrors.length > 0) {
+                this.sendJson(res, 400, { error: validationErrors.join(" ") });
+                return;
+            }
             const next = this.normalize(parsed);
           const restartInfo = this.getRestartRequirement(this.options.getConfig(), next);
             await this.options.saveConfig(next);
@@ -236,11 +241,11 @@ export class AdminWebServer {
             : [];
 
         return {
-            systemEnabled: input.systemEnabled !== false,
-            musicEnabled: input.musicEnabled !== false,
-            welcomeEnabled: input.welcomeEnabled !== false,
-            twitchEnabled: input.twitchEnabled !== false,
-            communityEnabled: input.communityEnabled !== false,
+            systemEnabled: input.systemEnabled === true,
+            musicEnabled: input.musicEnabled === true,
+            welcomeEnabled: input.welcomeEnabled === true,
+            twitchEnabled: input.twitchEnabled === true,
+            communityEnabled: input.communityEnabled === true,
             communityMaxChannels: Math.floor(this.normalizeNumber(input.communityMaxChannels, 1, 50) ?? 50),
             communityCategoryName: String(input.communityCategoryName ?? "Community").trim().slice(0, 100) || "Community",
             communityEmptyTimeoutSeconds: Math.floor(this.normalizeNumber(input.communityEmptyTimeoutSeconds, 1, 86400) ?? 60),
@@ -250,9 +255,11 @@ export class AdminWebServer {
             adminUiToken: String(input.adminUiToken ?? "admin").trim() || "admin",
             adminUiPort: this.normalizeNumber(input.adminUiPort, 1, 65535) ?? 8787,
             musicRoleName: String(input.musicRoleName ?? "Music Bot").trim() || "Music Bot",
-            musicDefaultVolumePercent: this.normalizeNumber(input.musicDefaultVolumePercent, 0, 100),
+            musicDefaultVolumePercent: this.normalizeNumber(input.musicDefaultVolumePercent, 0, 100) ?? 50,
             musicDebugSearch: input.musicDebugSearch === undefined ? true : Boolean(input.musicDebugSearch),
-            musicYoutubeSearchLimit: this.normalizeNumber(input.musicYoutubeSearchLimit, 1, 200),
+            musicYoutubeSearchLimit: this.normalizeNumber(input.musicYoutubeSearchLimit, 10, 100) ?? 25,
+            audioDbApiKey: this.normalizeString(input.audioDbApiKey) ?? "123",
+            audioDbApiVersion: input.audioDbApiVersion === "v2" ? "v2" : "v1",
             spotifyClientId: this.normalizeString(input.spotifyClientId),
             spotifyClientSecret: this.normalizeString(input.spotifyClientSecret),
             spotifyRedirectUri: this.normalizeString(input.spotifyRedirectUri),
@@ -268,6 +275,63 @@ export class AdminWebServer {
             twitchFollowerRoleName: this.normalizeString(input.twitchFollowerRoleName),
             twitchSubscriberRoleName: this.normalizeString(input.twitchSubscriberRoleName)
         };
+    }
+
+    private validateConfigInput(input: Partial<AdminConfig>): string[] {
+        const errors: string[] = [];
+        const required = (value: unknown, label: string): void => {
+            if (String(value ?? "").trim().length === 0) errors.push(`${label} is required.`);
+        };
+        const integerInRange = (value: unknown, min: number, max: number, label: string): void => {
+            const parsed = Number(value);
+            if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+                errors.push(`${label} must be an integer between ${min} and ${max}.`);
+            }
+        };
+
+        required(input.discordToken, "Discord Token");
+        required(input.adminUiUsername, "Admin Username");
+        required(input.adminUiToken, "Admin Password");
+        integerInRange(input.adminUiPort, 1, 65535, "Admin UI Port");
+
+        if (input.musicEnabled === true) {
+            required(input.musicRoleName, "Music Role Name");
+            required(input.audioDbApiKey, "TheAudioDB API Key");
+            if (input.audioDbApiVersion !== "v1" && input.audioDbApiVersion !== "v2") {
+                errors.push("TheAudioDB API Version must be v1 or v2.");
+            }
+        }
+
+        if (input.communityEnabled === true) {
+            required(input.communityCategoryName, "Community Category Name");
+            integerInRange(input.communityMaxChannels, 1, 50, "Community Channel Limit");
+            integerInRange(input.communityEmptyTimeoutSeconds, 1, 86400, "Community Empty Timeout");
+        }
+
+        if (input.welcomeEnabled === true) {
+            required(input.welcomeChannelId, "Welcome Channel");
+            if (!Array.isArray(input.welcomeRoles) || input.welcomeRoles.length === 0) {
+                errors.push("At least one Welcome Role is required.");
+            } else {
+                input.welcomeRoles.forEach((role, index) => {
+                    required(role?.emoji, `Welcome Role ${index + 1} Emoji`);
+                    required(role?.name, `Welcome Role ${index + 1} Name`);
+                    required(role?.description, `Welcome Role ${index + 1} Description`);
+                });
+            }
+        }
+
+        if (input.twitchEnabled === true) {
+            required(input.twitchBroadcasterName, "Twitch Broadcaster Name");
+            required(input.twitchClientId, "Twitch Client ID");
+            required(input.twitchClientSecret, "Twitch Client Secret");
+            required(input.twitchRedirectUri, "Twitch Redirect URI");
+            if (!String(input.twitchFollowerRoleName ?? "").trim() && !String(input.twitchSubscriberRoleName ?? "").trim()) {
+                errors.push("At least one Twitch role name is required.");
+            }
+        }
+
+        return errors;
     }
 
     private getTwitchOAuthConfig(config: AdminConfig): { clientId: string; clientSecret: string; redirectUri: string } | null {
@@ -1005,6 +1069,7 @@ export class AdminWebServer {
         h1 strong { color: var(--accent); }
     p { color: var(--muted); }
         label { display:block; font-size: 12px; text-transform: uppercase; letter-spacing:.4px; color: #94a2c9; margin: 12px 0 6px; }
+        .required-mark { color:#dc3545 !important; font-weight:800; }
         input, select {
             width:100%;
             padding:11px 12px;
@@ -1215,6 +1280,31 @@ export class AdminWebServer {
             outline:2px solid #b05cff;
             outline-offset:2px;
         }
+        .setting-switch {
+            display:flex;
+            align-items:center;
+            gap:12px;
+            width:max-content;
+            margin:16px 0 10px;
+            text-transform:none;
+            letter-spacing:0;
+            color:#d7def4;
+            cursor:pointer;
+        }
+        .setting-switch > span:last-child { margin-left:4px; }
+        .secret-field { position:relative; display:block; width:100%; }
+        .secret-field input { display:block; width:100%; padding-right:48px; }
+        .secret-toggle {
+            position:absolute;
+            right:4px;
+            top:50%;
+            width:36px;
+            height:36px;
+            background:transparent;
+            color:#9aa8ca;
+            transform:translateY(-50%);
+        }
+        .secret-toggle:hover { color:#f8fafc; background:rgba(124,58,237,.18); transform:translateY(-50%); }
         .region-summary::-webkit-details-marker { display:none; }
         .region-summary::after {
             content:"▾";
@@ -1257,6 +1347,46 @@ export class AdminWebServer {
         }
     .loading-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,.82); border-radius:14px; z-index:20; }
     .loading-overlay.active { display:flex; }
+        .admin-toast-stack {
+            position:fixed;
+            bottom:24px;
+            left:50%;
+            transform:translateX(-50%);
+            z-index:100;
+            width:min(760px, calc(100vw - 48px));
+            display:flex;
+            flex-direction:column;
+            gap:12px;
+            pointer-events:none;
+        }
+        .admin-toast {
+            width:100%;
+            display:flex;
+            align-items:center;
+            gap:10px;
+            min-height:76px;
+            padding:20px 24px;
+            border:1px solid;
+            border-left-width:4px;
+            border-radius:4px;
+            box-shadow:0 8px 22px rgba(17,45,78,.18);
+            font-size:16px;
+            line-height:1.5;
+            animation:toast-in .18s ease-out;
+        }
+        .admin-toast-system { background:#cfe2ff; border-color:#9ec5fe; color:#084298; }
+        .admin-toast-error { background:#f8d7da; border-color:#f1aeb5; color:#842029; }
+        .admin-toast-icon { font-size:22px; flex:0 0 auto; }
+        @keyframes toast-in {
+            from { opacity:0; transform:translateY(8px); }
+            to { opacity:1; transform:translateY(0); }
+        }
+        @media (max-width:560px) {
+            .admin-toast-stack {
+                bottom:12px;
+                width:calc(100vw - 24px);
+            }
+        }
     .loading-box { display:flex; flex-direction:column; align-items:center; gap:10px; color:#e5e7eb; }
         .spinner { width:34px; height:34px; border:4px solid rgba(148,163,184,.3); border-top-color:var(--accent); border-radius:999px; animation:spin 0.85s linear infinite; }
         @media (max-width: 900px) {
@@ -1265,11 +1395,10 @@ export class AdminWebServer {
             .grid2 { grid-template-columns: 1fr; }
         }
         @media (max-width: 680px) {
-            .site-shell { padding: 12px; }
-            .row { grid-template-columns: 1fr; }
-            .wrap { max-width: 100%; }
+            .admin-toast-stack { width:calc(100vw - 24px); }
+            .admin-toast { min-height:64px; padding:16px 18px; font-size:14px; }
         }
-    @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>

@@ -113,7 +113,7 @@ export class CommunityModule implements IBotModule {
         const configured = this.config.communityMaxChannels ?? 50;
         const limit = Number.isFinite(configured) ? Math.max(1, Math.min(50, Math.floor(configured))) : 50;
         const children = [...guild.channels.cache.values()].filter(channel => channel.parentId === this.state.categoryId);
-        if (this.state.temporaryIds.length >= limit || children.length >= 50 || guild.channels.cache.size >= 500) {
+        if (children.length >= limit || guild.channels.cache.size >= 500) {
             console.log(`[Community] Kein neuer Sprachkanal: Kanal-Limit erreicht (Einstellung: ${limit}).`);
             await member.voice.disconnect("Maximale Anzahl Community-Sprachkanäle erreicht");
             return;
