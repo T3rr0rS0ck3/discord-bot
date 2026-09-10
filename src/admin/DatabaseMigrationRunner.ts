@@ -141,6 +141,33 @@ const migrations: Migration[] = [
                 DROP TABLE IF EXISTS spotify_tokens;
             `);
         }
+    },
+    {
+        version: 7,
+        id: "twitch-role-sync-status-v1",
+        apply: async (db) => {
+            await db.exec(`
+                CREATE TABLE IF NOT EXISTS twitch_role_sync_status (
+                    guild_id TEXT PRIMARY KEY,
+                    last_attempt_at INTEGER NOT NULL,
+                    last_successful_at INTEGER,
+                    last_error TEXT,
+                    follower_changes INTEGER NOT NULL DEFAULT 0,
+                    subscriber_changes INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS twitch_role_change_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guild_id TEXT NOT NULL,
+                    discord_user_id TEXT NOT NULL,
+                    twitch_user_id TEXT NOT NULL,
+                    role_type TEXT NOT NULL CHECK(role_type IN ('follower', 'subscriber')),
+                    action TEXT NOT NULL CHECK(action IN ('added', 'removed')),
+                    created_at INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS twitch_role_change_log_guild_created
+                    ON twitch_role_change_log(guild_id, created_at DESC);
+            `);
+        }
     }
 ];
 

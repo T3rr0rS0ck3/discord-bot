@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import type { AdminConfig, ChannelOption, DatabaseStatus, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState } from "../types";
+import type { AdminConfig, ChannelOption, DatabaseStatus, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState, TwitchRoleSyncStatus } from "../types";
 import { ActionBar } from "./admin/ActionBar";
 import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
 import { CommunityVotingSettingsSection } from "./admin/CommunityVotingSettingsSection";
@@ -59,6 +59,7 @@ type AdminPanelProps = {
     logs: LogEntry[];
     discordStatus: DiscordRuntimeStatus;
     databaseStatus: DatabaseStatus;
+    twitchSyncStatus: TwitchRoleSyncStatus;
     saveDisabled: boolean;
     restartDisabled: boolean;
     saveAndRestartDisabled: boolean;
@@ -70,6 +71,7 @@ type AdminPanelProps = {
     onSave: () => void;
     onRestart: () => void;
     onSaveAndRestart: () => void;
+    onSyncTwitchRoles: () => void;
     onDownloadBackup: () => void;
     onRestoreBackup: (file: File) => void;
     onLogout: () => void;
@@ -236,7 +238,9 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                         <TwitchSettingsSection
                                             config={props.config}
                                             busy={props.busy}
+                                            syncStatus={props.twitchSyncStatus}
                                             onUpdateConfig={props.onUpdateConfig}
+                                            onSync={props.onSyncTwitchRoles}
                                         />
                                     </CollapsibleRegion>
 

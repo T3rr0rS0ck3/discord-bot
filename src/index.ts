@@ -151,6 +151,11 @@ export class Startup {
             consumeTwitchMemberOAuthState: (state) => adminConfigStore.consumeTwitchMemberOAuthState(state),
             saveTwitchMemberLink: (link) => adminConfigStore.saveTwitchMemberLink(link),
             syncTwitchRoles: () => botRuntimeManager.syncTwitchRoles(),
+            getTwitchRoleSyncStatus: async () => {
+                const guildId = botRuntimeManager.getConfig().guildId;
+                if (!guildId) return { followerChanges: 0, subscriberChanges: 0, changes: [] };
+                return adminConfigStore.getTwitchRoleSyncStatus(guildId);
+            },
             getServerEmojis: async () => {
                 const guildId = botRuntimeManager.getConfig().guildId;
                 if (!guildId) {

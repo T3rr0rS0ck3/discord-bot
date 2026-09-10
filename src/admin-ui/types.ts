@@ -137,3 +137,31 @@ export type LogEntry = {
 export type LogsResponse = {
     logs: LogEntry[];
 };
+
+export type TwitchRoleChange = {
+    id?: number;
+    guildId: string;
+    discordUserId: string;
+    twitchUserId: string;
+    roleType: "follower" | "subscriber";
+    action: "added" | "removed";
+    createdAt: number;
+};
+
+export type TwitchRoleSyncResult = {
+    guildId: string;
+    attemptedAt: number;
+    successful: boolean;
+    error?: string;
+    followerChanges: number;
+    subscriberChanges: number;
+};
+
+export type TwitchRoleSyncStatus = {
+    lastAttemptAt?: number;
+    lastSuccessfulAt?: number;
+    lastError?: string;
+    followerChanges: number;
+    subscriberChanges: number;
+    changes: TwitchRoleChange[];
+};

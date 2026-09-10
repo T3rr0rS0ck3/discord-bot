@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import http, { IncomingMessage, Server, ServerResponse } from "node:http";
 import path from "node:path";
-import type { AdminConfig, DatabaseStatus } from "./AdminConfigStore";
+import type { AdminConfig, DatabaseStatus, TwitchRoleSyncResult, TwitchRoleSyncStatus } from "./AdminConfigStore";
 import type { DiscordRuntimeStatus } from "../types/Discord";
 
 type AdminWebServerOptions = {
@@ -19,7 +19,8 @@ type AdminWebServerOptions = {
     getDatabaseStatus: () => Promise<DatabaseStatus>;
     consumeTwitchMemberOAuthState: (state: string) => Promise<{ guildId: string; discordUserId: string } | undefined>;
     saveTwitchMemberLink: (link: import("./AdminConfigStore").TwitchMemberLink) => Promise<void>;
-    syncTwitchRoles: () => Promise<void>;
+    syncTwitchRoles: () => Promise<TwitchRoleSyncResult>;
+    getTwitchRoleSyncStatus: () => Promise<TwitchRoleSyncStatus>;
 };
 
 type ConfigBackup = {
@@ -311,6 +312,21 @@ export class AdminWebServer {
         if (req.method === "GET" && url.pathname === "/api/logs") {
             const logs = this.options.getLogs();
             this.sendJson(res, 200, { logs: logs.slice(-300) });
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/twitch/sync-status") {
+            this.sendJson(res, 200, await this.options.getTwitchRoleSyncStatus());
+            return;
+        }
+
+        if (req.method === "POST" && url.pathname === "/api/twitch/sync") {
+            const result = await this.options.syncTwitchRoles();
+            if (!result.successful) {
+                this.sendJson(res, 502, { error: result.error ?? "Twitch-Synchronisierung fehlgeschlagen.", result });
+                return;
+            }
+            this.sendJson(res, 200, { ok: true, result });
             return;
         }
 

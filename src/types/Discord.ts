@@ -44,6 +44,8 @@ export type TwitchRoleModuleOptions = {
     deleteMemberLink?: (guildId: string, discordUserId: string) => Promise<boolean>;
     getLinkPanel?: (guildId: string) => Promise<{ channelId: string; messageId: string } | undefined>;
     saveLinkPanel?: (guildId: string, channelId: string, messageId: string) => Promise<void>;
+    saveSyncResult?: (result: import("../admin/AdminConfigStore").TwitchRoleSyncResult) => Promise<void>;
+    addRoleChange?: (change: import("../admin/AdminConfigStore").TwitchRoleChange) => Promise<void>;
     onTokensUpdated?: (tokens: {
         accessToken: string;
         refreshToken?: string;

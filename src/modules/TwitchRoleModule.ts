@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, ChannelType, Client, Guild, GuildMember, TextChannel } from "discord.js";
 import type { TwitchRoleModuleOptions } from "../types/Discord";
+import type { TwitchRoleChange, TwitchRoleSyncResult } from "../admin/AdminConfigStore";
 import { TwitchRoleService, type TwitchOAuthTokenState } from "../services/TwitchRoleService";
 import { RoleService } from "../services/RoleService";
 import { IBotModule } from "./interfaces/IBotModule";
@@ -207,15 +208,26 @@ export class TwitchRoleModule implements IBotModule {
         }, 60 * 60 * 1000) as NodeJS.Timeout;
     }
 
-    private async syncRoles(): Promise<void> {
+    private async syncRoles(): Promise<TwitchRoleSyncResult | undefined> {
         if (!this.guildId || !this.client) {
-            return;
+            return undefined;
         }
+
+        const attemptedAt = Date.now();
 
         const guild = this.client.guilds.cache.get(this.guildId);
         if (!guild) {
+            const result: TwitchRoleSyncResult = {
+                guildId: this.guildId,
+                attemptedAt,
+                successful: false,
+                error: "Discord-Guild ist nicht verfügbar.",
+                followerChanges: 0,
+                subscriberChanges: 0
+            };
+            await this.options.saveSyncResult?.(result);
             console.log("[TwitchRole] Guild not found. Skipping sync.");
-            return;
+            return result;
         }
 
         try {
@@ -253,9 +265,11 @@ export class TwitchRoleModule implements IBotModule {
                         const hasRole = member.roles.cache.has(this.subscriberRoleId);
                         if (isSubscriber && !hasRole) {
                             await member.roles.add(this.subscriberRoleId);
+                            await this.recordRoleChange(link, "subscriber", "added");
                             updatedSubscribers++;
                         } else if (!isSubscriber && hasRole) {
                             await member.roles.remove(this.subscriberRoleId);
+                            await this.recordRoleChange(link, "subscriber", "removed");
                             updatedSubscribers++;
                         }
                     }
@@ -266,9 +280,11 @@ export class TwitchRoleModule implements IBotModule {
                         const hasRole = member.roles.cache.has(this.followerRoleId);
                         if (isFollower && !hasRole) {
                             await member.roles.add(this.followerRoleId);
+                            await this.recordRoleChange(link, "follower", "added");
                             updatedFollowers++;
                         } else if (!isFollower && hasRole) {
                             await member.roles.remove(this.followerRoleId);
+                            await this.recordRoleChange(link, "follower", "removed");
                             updatedFollowers++;
                         }
                     }
@@ -281,13 +297,48 @@ export class TwitchRoleModule implements IBotModule {
             console.log(
                 `[TwitchRole] Sync complete. Followers: ${updatedFollowers}, Subscribers: ${updatedSubscribers}, Errors: ${errors}`
             );
+            const result: TwitchRoleSyncResult = {
+                guildId: this.guildId,
+                attemptedAt,
+                successful: errors === 0,
+                error: errors > 0 ? `${errors} Discord-Mitglied(er) konnten nicht synchronisiert werden.` : undefined,
+                followerChanges: updatedFollowers,
+                subscriberChanges: updatedSubscribers
+            };
+            await this.options.saveSyncResult?.(result);
+            return result;
         } catch (err) {
             console.error("[TwitchRole] Sync failed:", err);
+            const result: TwitchRoleSyncResult = {
+                guildId: this.guildId,
+                attemptedAt,
+                successful: false,
+                error: err instanceof Error ? err.message : String(err),
+                followerChanges: 0,
+                subscriberChanges: 0
+            };
+            await this.options.saveSyncResult?.(result);
+            return result;
         }
     }
 
-    public async syncNow(): Promise<void> {
-        await this.syncRoles();
+    public async syncNow(): Promise<TwitchRoleSyncResult | undefined> {
+        return this.syncRoles();
+    }
+
+    private async recordRoleChange(
+        link: import("../admin/AdminConfigStore").TwitchMemberLink,
+        roleType: TwitchRoleChange["roleType"],
+        action: TwitchRoleChange["action"]
+    ): Promise<void> {
+        await this.options.addRoleChange?.({
+            guildId: link.guildId,
+            discordUserId: link.discordUserId,
+            twitchUserId: link.twitchUserId,
+            roleType,
+            action,
+            createdAt: Date.now()
+        });
     }
 
     private async ensureLinkPanel(): Promise<void> {

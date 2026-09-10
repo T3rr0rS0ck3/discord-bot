@@ -7,7 +7,9 @@ import type {
     RestoreBackupResponse,
     SaveResponse,
     DiscordRuntimeStatus,
-    DatabaseStatus
+    DatabaseStatus,
+    TwitchRoleSyncResult,
+    TwitchRoleSyncStatus
 } from "../types";
 
 async function request<T>(path: string, method = "GET", body?: unknown): Promise<T> {
@@ -70,6 +72,12 @@ export const adminApi = {
     },
     loadDatabaseStatus(): Promise<DatabaseStatus> {
         return request<DatabaseStatus>("/api/database-status");
+    },
+    loadTwitchSyncStatus(): Promise<TwitchRoleSyncStatus> {
+        return request<TwitchRoleSyncStatus>("/api/twitch/sync-status");
+    },
+    syncTwitchRoles(): Promise<{ ok: boolean; result: TwitchRoleSyncResult }> {
+        return request<{ ok: boolean; result: TwitchRoleSyncResult }>("/api/twitch/sync", "POST", {});
     },
     downloadConfigBackup(): Promise<{ blob: Blob; fileName: string }> {
         return download("/api/config/backup");

@@ -1,10 +1,12 @@
 import React from "react";
-import type { AdminConfig } from "../../types";
+import type { AdminConfig, TwitchRoleSyncStatus } from "../../types";
 
 type TwitchSettingsSectionProps = {
     config: AdminConfig;
     busy: boolean;
+    syncStatus: TwitchRoleSyncStatus;
     onUpdateConfig: <K extends keyof AdminConfig>(key: K, value: AdminConfig[K]) => void;
+    onSync: () => void;
 };
 
 export function TwitchSettingsSection(props: TwitchSettingsSectionProps): React.JSX.Element {
@@ -178,6 +180,39 @@ export function TwitchSettingsSection(props: TwitchSettingsSectionProps): React.
             <p className="muted">
                 Mitglieder verbinden ihr Twitch-Konto über die Buttons im konfigurierten Discord-Kanal. Der Bot synchronisiert ausschließlich diese in SQLite gespeicherten Verknüpfungen einmal pro Stunde und direkt nach einer neuen Verbindung.
             </p>
+
+            <div className="input-group">
+                <button type="button" className="button" disabled={props.busy} onClick={props.onSync}>
+                    Twitch-Rollen jetzt synchronisieren
+                </button>
+                <p className="input-hint">
+                    Letzter erfolgreicher Sync: {props.syncStatus.lastSuccessfulAt
+                        ? new Date(props.syncStatus.lastSuccessfulAt).toLocaleString("de-DE")
+                        : "Noch keiner"}
+                </p>
+                {props.syncStatus.lastError ? <p className="input-hint">Letzter Fehler: {props.syncStatus.lastError}</p> : null}
+                <p className="input-hint">
+                    Letzter Lauf: {props.syncStatus.followerChanges} Follower- und {props.syncStatus.subscriberChanges} Abonnentenrollen geändert.
+                </p>
+            </div>
+
+            <div className="input-group">
+                <label>Letzte Twitch-Rollenänderungen</label>
+                {props.syncStatus.changes.length === 0 ? (
+                    <p className="input-hint">Noch keine Rollenänderungen protokolliert.</p>
+                ) : (
+                    <div className="log-body" style={{ maxHeight: "240px" }}>
+                        {props.syncStatus.changes.map((change) => (
+                            <div className="log-line" key={change.id ?? `${change.discordUserId}-${change.createdAt}`}>
+                                <span className="log-time">{new Date(change.createdAt).toLocaleString("de-DE")}</span>{" "}
+                                <span>
+                                    Discord {change.discordUserId}: {change.roleType === "follower" ? "Follower" : "Abonnent"}-Rolle {change.action === "added" ? "hinzugefügt" : "entfernt"}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

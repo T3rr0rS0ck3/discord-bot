@@ -50,3 +50,29 @@ test('Twitch role sync uses only persisted member links and stable Twitch user I
     assert.deepEqual(linked.calls, [['remove', 'subscriber-role'], ['add', 'follower-role']]);
     assert.deepEqual(unlinked.calls, []);
 });
+
+test('Twitch API failures preserve existing roles and persist a failed sync result', async () => {
+    const linked = member('discord-linked', ['follower-role']);
+    const savedResults = [];
+    const members = new Collection([[linked.id, linked]]);
+    const module = new TwitchRoleModule({
+        guildId: 'guild',
+        followerRoleName: 'Follower',
+        getMemberLinks: async () => [{
+            guildId: 'guild', discordUserId: linked.id, twitchUserId: 'twitch-123',
+            twitchLogin: 'streamer', twitchDisplayName: 'Streamer', linkedAt: 1
+        }],
+        saveSyncResult: async result => savedResults.push(result)
+    });
+    module.client = { guilds: { cache: new Collection([['guild', { members: { cache: members, fetch: async () => members } }]]) } };
+    module.followerRoleId = 'follower-role';
+    module.twitchService.getFollowerUserIds = async () => { throw new Error('Twitch unavailable'); };
+
+    const result = await module.syncNow();
+
+    assert.equal(result.successful, false);
+    assert.match(result.error, /Twitch unavailable/);
+    assert.deepEqual(linked.calls, []);
+    assert.equal(savedResults.length, 1);
+    assert.equal(savedResults[0].successful, false);
+});

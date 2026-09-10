@@ -25,11 +25,11 @@ test('fresh SQLite deployment seeds all names once and preserves later changes',
         assert.equal(updated.length, 10000);
         assert.ok(updated.includes('mein-eigener-kanal'));
         assert.ok(!updated.includes(names[0]));
-        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 6);
+        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 7);
         assert.deepEqual(await store.getDatabaseStatus(), {
-            schemaVersion: 6,
-            latestMigration: 'remove-spotify-v1',
-            appliedMigrations: ['community-name-voting-candidates-v1', 'community-name-voting-v1', 'community-names-v1', 'community-state-v1', 'remove-spotify-v1', 'twitch-member-linking-v1']
+            schemaVersion: 7,
+            latestMigration: 'twitch-role-sync-status-v1',
+            appliedMigrations: ['community-name-voting-candidates-v1', 'community-name-voting-v1', 'community-names-v1', 'community-state-v1', 'remove-spotify-v1', 'twitch-member-linking-v1', 'twitch-role-sync-status-v1']
         });
     } finally { await store.db?.close(); }
 });
@@ -113,6 +113,25 @@ test('Twitch member links, OAuth states and panel location are persisted in SQLi
         assert.deepEqual(await store.getTwitchLinkPanel('guild'), { channelId: 'channel', messageId: 'message' });
         assert.equal(await store.deleteTwitchMemberLink('guild', 'discord-user'), true);
         assert.deepEqual(await store.getTwitchMemberLinks('guild'), []);
+    } finally { await store.db?.close(); }
+});
+
+test('Twitch sync status and role changes are persisted in SQLite', async () => {
+    const store = new AdminConfigStore(':memory:');
+    try {
+        await store.initialize({ welcomeRoles: [] });
+        await store.addTwitchRoleChange({ guildId: 'guild', discordUserId: 'discord', twitchUserId: 'twitch', roleType: 'follower', action: 'added', createdAt: 1000 });
+        await store.saveTwitchRoleSyncResult({ guildId: 'guild', attemptedAt: 1100, successful: true, followerChanges: 1, subscriberChanges: 0 });
+        await store.saveTwitchRoleSyncResult({ guildId: 'guild', attemptedAt: 1200, successful: false, error: 'API unavailable', followerChanges: 0, subscriberChanges: 0 });
+
+        assert.deepEqual(await store.getTwitchRoleSyncStatus('guild'), {
+            lastAttemptAt: 1200,
+            lastSuccessfulAt: 1100,
+            lastError: 'API unavailable',
+            followerChanges: 0,
+            subscriberChanges: 0,
+            changes: [{ id: 1, guildId: 'guild', discordUserId: 'discord', twitchUserId: 'twitch', roleType: 'follower', action: 'added', createdAt: 1000 }]
+        });
     } finally { await store.db?.close(); }
 });
 

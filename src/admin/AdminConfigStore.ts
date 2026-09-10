@@ -79,6 +79,34 @@ export type TwitchMemberLink = {
     linkedAt: number;
 };
 
+export type TwitchRoleSyncResult = {
+    guildId: string;
+    attemptedAt: number;
+    successful: boolean;
+    error?: string;
+    followerChanges: number;
+    subscriberChanges: number;
+};
+
+export type TwitchRoleChange = {
+    id?: number;
+    guildId: string;
+    discordUserId: string;
+    twitchUserId: string;
+    roleType: "follower" | "subscriber";
+    action: "added" | "removed";
+    createdAt: number;
+};
+
+export type TwitchRoleSyncStatus = {
+    lastAttemptAt?: number;
+    lastSuccessfulAt?: number;
+    lastError?: string;
+    followerChanges: number;
+    subscriberChanges: number;
+    changes: TwitchRoleChange[];
+};
+
 export class AdminConfigStore {
     private readonly filePath: string;
     private db?: Database;
@@ -249,6 +277,93 @@ export class AdminConfigStore {
             channelId,
             messageId
         );
+    }
+
+    public async saveTwitchRoleSyncResult(result: TwitchRoleSyncResult): Promise<void> {
+        await this.ensureDb();
+        await this.db!.run(
+            `INSERT INTO twitch_role_sync_status
+                (guild_id, last_attempt_at, last_successful_at, last_error, follower_changes, subscriber_changes)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(guild_id) DO UPDATE SET
+                last_attempt_at = excluded.last_attempt_at,
+                last_successful_at = CASE WHEN excluded.last_error IS NULL THEN excluded.last_successful_at ELSE twitch_role_sync_status.last_successful_at END,
+                last_error = excluded.last_error,
+                follower_changes = excluded.follower_changes,
+                subscriber_changes = excluded.subscriber_changes`,
+            result.guildId,
+            result.attemptedAt,
+            result.successful ? result.attemptedAt : null,
+            result.successful ? null : result.error ?? "Unbekannter Twitch-Sync-Fehler",
+            result.followerChanges,
+            result.subscriberChanges
+        );
+    }
+
+    public async addTwitchRoleChange(change: TwitchRoleChange): Promise<void> {
+        await this.ensureDb();
+        await this.db!.run(
+            `INSERT INTO twitch_role_change_log
+                (guild_id, discord_user_id, twitch_user_id, role_type, action, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            change.guildId,
+            change.discordUserId,
+            change.twitchUserId,
+            change.roleType,
+            change.action,
+            change.createdAt
+        );
+        await this.db!.run(
+            `DELETE FROM twitch_role_change_log
+             WHERE guild_id = ? AND id NOT IN (
+                SELECT id FROM twitch_role_change_log WHERE guild_id = ? ORDER BY created_at DESC, id DESC LIMIT 200
+             )`,
+            change.guildId,
+            change.guildId
+        );
+    }
+
+    public async getTwitchRoleSyncStatus(guildId: string): Promise<TwitchRoleSyncStatus> {
+        await this.ensureDb();
+        const status = await this.db!.get<{
+            last_attempt_at: number;
+            last_successful_at?: number;
+            last_error?: string;
+            follower_changes: number;
+            subscriber_changes: number;
+        }>(
+            `SELECT last_attempt_at, last_successful_at, last_error, follower_changes, subscriber_changes
+             FROM twitch_role_sync_status WHERE guild_id = ?`,
+            guildId
+        );
+        const rows = await this.db!.all<Array<{
+            id: number;
+            discord_user_id: string;
+            twitch_user_id: string;
+            role_type: "follower" | "subscriber";
+            action: "added" | "removed";
+            created_at: number;
+        }>>(
+            `SELECT id, discord_user_id, twitch_user_id, role_type, action, created_at
+             FROM twitch_role_change_log WHERE guild_id = ? ORDER BY created_at DESC, id DESC LIMIT 50`,
+            guildId
+        );
+        return {
+            lastAttemptAt: status?.last_attempt_at,
+            lastSuccessfulAt: status?.last_successful_at,
+            lastError: status?.last_error,
+            followerChanges: status?.follower_changes ?? 0,
+            subscriberChanges: status?.subscriber_changes ?? 0,
+            changes: rows.map(row => ({
+                id: row.id,
+                guildId,
+                discordUserId: row.discord_user_id,
+                twitchUserId: row.twitch_user_id,
+                roleType: row.role_type,
+                action: row.action,
+                createdAt: row.created_at
+            }))
+        };
     }
 
     public async addCommunityNameSuggestion(guildId: string, name: string, userId: string, now = Date.now()): Promise<void> {

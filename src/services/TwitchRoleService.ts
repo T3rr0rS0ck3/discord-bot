@@ -228,24 +228,23 @@ export class TwitchRoleService {
 
     private async getFollowers(): Promise<TwitchFollower[]> {
         if (!this.isConfigured()) {
-            return [];
+            throw new Error("Twitch follower synchronization is not configured.");
         }
 
         if (!this.broadcasterId && this.broadcasterName) {
             try {
                 this.broadcasterId = await this.getBroadcasterIdByName(this.broadcasterName);
                 if (!this.broadcasterId) {
-                    console.warn(`[TwitchRole] Broadcaster "${this.broadcasterName}" not found on Twitch.`);
-                    return [];
+                    throw new Error(`Twitch broadcaster "${this.broadcasterName}" was not found.`);
                 }
             } catch (error) {
                 console.error("[TwitchRole] Failed to resolve broadcaster ID:", error);
-                return [];
+                throw error;
             }
         }
 
         if (!this.broadcasterId) {
-            return [];
+            throw new Error("Twitch broadcaster ID is unavailable.");
         }
 
         const followers: TwitchFollower[] = [];
@@ -261,7 +260,7 @@ export class TwitchRoleService {
 
                 const response = await this.fetchWithAuth(url);
                 if (!response) {
-                    return followers;
+                    throw new Error("Twitch follower authorization is unavailable.");
                 }
 
                 if (!response.ok) {
@@ -295,24 +294,23 @@ export class TwitchRoleService {
 
     private async getSubscribers(): Promise<TwitchSubscriber[]> {
         if (!this.isConfigured()) {
-            return [];
+            throw new Error("Twitch subscriber synchronization is not configured.");
         }
 
         if (!this.broadcasterId && this.broadcasterName) {
             try {
                 this.broadcasterId = await this.getBroadcasterIdByName(this.broadcasterName);
                 if (!this.broadcasterId) {
-                    console.warn(`[TwitchRole] Broadcaster "${this.broadcasterName}" not found on Twitch.`);
-                    return [];
+                    throw new Error(`Twitch broadcaster "${this.broadcasterName}" was not found.`);
                 }
             } catch (error) {
                 console.error("[TwitchRole] Failed to resolve broadcaster ID:", error);
-                return [];
+                throw error;
             }
         }
 
         if (!this.broadcasterId) {
-            return [];
+            throw new Error("Twitch broadcaster ID is unavailable.");
         }
 
         const subscribers: TwitchSubscriber[] = [];
@@ -328,7 +326,7 @@ export class TwitchRoleService {
 
                 const response = await this.fetchWithAuth(url);
                 if (!response) {
-                    return subscribers;
+                    throw new Error("Twitch subscriber authorization is unavailable.");
                 }
 
                 if (!response.ok) {

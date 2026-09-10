@@ -11,7 +11,8 @@ import type {
     RestartRelevantState,
     RoleConfig,
     StatusState,
-    ToastState
+    ToastState,
+    TwitchRoleSyncStatus
 } from "../types";
 import {
     normalizeConfig,
@@ -59,6 +60,11 @@ export function useAdminApp(initialAuth: AuthState) {
         schemaVersion: 0,
         latestMigration: null,
         appliedMigrations: []
+    });
+    const [twitchSyncStatus, setTwitchSyncStatus] = useState<TwitchRoleSyncStatus>({
+        followerChanges: 0,
+        subscriberChanges: 0,
+        changes: []
     });
 
     const changedRestartLabels = useMemo(() => {
@@ -207,13 +213,24 @@ export function useAdminApp(initialAuth: AuthState) {
             }
         };
 
+        const loadTwitchSyncStatus = async () => {
+            try {
+                const result = await adminApi.loadTwitchSyncStatus();
+                if (!cancelled) setTwitchSyncStatus(result);
+            } catch {
+                // Twitch can be disabled while the rest of the dashboard remains available.
+            }
+        };
+
         void loadLogs();
         void loadStatus();
         void loadDatabaseStatus();
+        void loadTwitchSyncStatus();
         const timer = setInterval(() => {
             void loadLogs();
             void loadStatus();
             void loadDatabaseStatus();
+            void loadTwitchSyncStatus();
         }, 2000);
 
         return () => {
@@ -410,6 +427,26 @@ export function useAdminApp(initialAuth: AuthState) {
         }
     }
 
+    async function syncTwitchRoles(): Promise<void> {
+        try {
+            setBusyText("Synchronisiere Twitch-Rollen...");
+            setBusy(true);
+            const response = await adminApi.syncTwitchRoles();
+            const latest = await adminApi.loadTwitchSyncStatus();
+            setTwitchSyncStatus(latest);
+            const changes = response.result.followerChanges + response.result.subscriberChanges;
+            setStatus({ text: `Twitch-Synchronisierung abgeschlossen: ${changes} Rollenänderungen.`, color: "#86efac" });
+            showToast(`Twitch-Synchronisierung abgeschlossen: ${changes} Rollenänderungen.`, "system");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setStatus({ text: message, color: "#fca5a5" });
+            showToast(message, "error");
+            try { setTwitchSyncStatus(await adminApi.loadTwitchSyncStatus()); } catch { }
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function downloadConfigBackup(): Promise<void> {
         try {
             setBusyText("Creating configuration backup...");
@@ -480,6 +517,7 @@ export function useAdminApp(initialAuth: AuthState) {
         logs,
         discordStatus,
         databaseStatus,
+        twitchSyncStatus,
         saveDisabled,
         restartDisabled,
         saveAndRestartDisabled,
@@ -495,6 +533,7 @@ export function useAdminApp(initialAuth: AuthState) {
         saveOnly,
         restartOnly,
         saveAndRestart,
+        syncTwitchRoles,
         downloadConfigBackup,
         restoreConfigBackup
     };

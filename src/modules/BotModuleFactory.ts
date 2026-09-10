@@ -53,6 +53,8 @@ export class BotModuleFactory {
                     deleteMemberLink: options.twitchRole.deleteMemberLink,
                     getLinkPanel: options.twitchRole.getLinkPanel,
                     saveLinkPanel: options.twitchRole.saveLinkPanel,
+                    saveSyncResult: options.twitchRole.saveSyncResult,
+                    addRoleChange: options.twitchRole.addRoleChange,
                     onTokensUpdated: options.twitchRole.onTokensUpdated
                 })
             );

@@ -85,9 +85,12 @@ export class BotRuntimeManager {
         await this.start();
     }
 
-    public async syncTwitchRoles(): Promise<void> {
+    public async syncTwitchRoles(): Promise<import("../admin/AdminConfigStore").TwitchRoleSyncResult> {
         const module = this.modules.find((item): item is TwitchRoleModule => item instanceof TwitchRoleModule);
-        if (module) await module.syncNow();
+        if (!module) throw new Error("Das Twitch-Modul ist nicht aktiv.");
+        const result = await module.syncNow();
+        if (!result) throw new Error("Der Twitch-Sync kann erst nach dem Discord-Start ausgeführt werden.");
+        return result;
     }
 
     public async stop(): Promise<void> {
@@ -196,6 +199,8 @@ export class BotRuntimeManager {
                 deleteMemberLink: (guildId, discordUserId) => this.configStore.deleteTwitchMemberLink(guildId, discordUserId),
                 getLinkPanel: (guildId) => this.configStore.getTwitchLinkPanel(guildId),
                 saveLinkPanel: (guildId, channelId, messageId) => this.configStore.saveTwitchLinkPanel(guildId, channelId, messageId),
+                saveSyncResult: (result) => this.configStore.saveTwitchRoleSyncResult(result),
+                addRoleChange: (change) => this.configStore.addTwitchRoleChange(change),
                 onTokensUpdated: async (tokens) => {
                     this.config = {
                         ...this.config,
