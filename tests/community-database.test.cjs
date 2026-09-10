@@ -25,7 +25,12 @@ test('fresh SQLite deployment seeds all names once and preserves later changes',
         assert.equal(updated.length, 10000);
         assert.ok(updated.includes('mein-eigener-kanal'));
         assert.ok(!updated.includes(names[0]));
-        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 1);
+        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 2);
+        assert.deepEqual(await store.getDatabaseStatus(), {
+            schemaVersion: 2,
+            latestMigration: 'community-state-v1',
+            appliedMigrations: ['community-names-v1', 'community-state-v1']
+        });
     } finally { await store.db?.close(); }
 });
 

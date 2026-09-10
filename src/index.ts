@@ -3,10 +3,8 @@ import path from "node:path";
 import util from "node:util";
 import { AdminConfigStore, type AdminConfig } from "./admin/AdminConfigStore";
 import { AdminWebServer } from "./admin/AdminWebServer";
-import { DiscordBot } from "./bot/DiscordBot";
-import { BotModuleFactory } from "./modules/BotModuleFactory";
-import { IBotModule } from "./modules/interfaces/IBotModule";
-import type { DiscordRuntimeStatus } from "./types/Discord";
+import { BotRuntimeManager } from "./bot/BotRuntimeManager";
+import { RuntimeStatusStore } from "./services/RuntimeStatusStore";
 
 type RuntimeLogEntry = {
     timestamp: number;
@@ -100,189 +98,30 @@ export class Startup {
         };
 
         const adminConfigStore = new AdminConfigStore(sqlitePath);
-        let runtimeAdminConfig: AdminConfig = await adminConfigStore.load(defaultConfig);
-        let modules: IBotModule[] = [];
-        let bot: DiscordBot | undefined;
-        let discordStatus: DiscordRuntimeStatus = {
-            state: "offline",
-            message: "Bot is offline.",
-            updatedAt: new Date().toISOString()
-        };
+        const runtimeAdminConfig = await adminConfigStore.load(defaultConfig);
+        const runtimeStatusStore = new RuntimeStatusStore();
+        const botRuntimeManager = new BotRuntimeManager(runtimeAdminConfig, adminConfigStore, runtimeStatusStore);
         let shuttingDown = false;
 
-        const applyRuntimeConfigToModules = async (): Promise<void> => {
-            const readyClient = bot?.getReadyClient();
-
-            for (const module of modules) {
-                if (!module.applyRuntimeConfig) {
-                    continue;
-                }
-
-                await module.applyRuntimeConfig(
-                    {
-                        communityCategoryName: runtimeAdminConfig.communityCategoryName,
-                        communityEmptyTimeoutSeconds: runtimeAdminConfig.communityEmptyTimeoutSeconds,
-                communityMaxChannels: runtimeAdminConfig.communityMaxChannels,
-                        welcomeChannelId: runtimeAdminConfig.welcomeChannelId,
-                        welcomeRoles: runtimeAdminConfig.welcomeRoles,
-                        twitchBroadcasterName: runtimeAdminConfig.twitchBroadcasterName,
-                        twitchClientId: runtimeAdminConfig.twitchClientId,
-                        twitchClientSecret: runtimeAdminConfig.twitchClientSecret,
-                        twitchRedirectUri: runtimeAdminConfig.twitchRedirectUri,
-                        twitchAccessToken: runtimeAdminConfig.twitchAccessToken,
-                        twitchRefreshToken: runtimeAdminConfig.twitchRefreshToken,
-                        twitchAccessTokenExpiresAt: runtimeAdminConfig.twitchAccessTokenExpiresAt,
-                        twitchFollowerRoleName: runtimeAdminConfig.twitchFollowerRoleName,
-                        twitchSubscriberRoleName: runtimeAdminConfig.twitchSubscriberRoleName
-                    },
-                    readyClient
-                );
-            }
-
-            if (readyClient) {
-                console.log("[AdminUI] Runtime configuration was applied directly to the bot.");
-            }
-        };
-
-        const persistRuntimeConfig = async (config: AdminConfig): Promise<void> => {
-            runtimeAdminConfig = config;
-            await adminConfigStore.save(config);
-            console.log(`[AdminUI] Configuration saved: ${sqlitePath}`);
-            await applyRuntimeConfigToModules();
-        };
-
-        const startOrRestartBot = async (): Promise<void> => {
-            if (!runtimeAdminConfig.discordToken) {
-                console.log("[Startup] Discord token is missing in SQLite configuration. Bot will not start.");
-                return;
-            }
-
-            if (bot) {
-                for (const module of modules) {
-                    if (module.shutdown) {
-                        await module.shutdown();
-                    }
-                }
-
-                await bot.stop();
-                bot = undefined;
-            }
-
-            modules = BotModuleFactory.create({
-                systemEnabled: runtimeAdminConfig.systemEnabled,
-                musicEnabled: runtimeAdminConfig.musicEnabled,
-                welcomeEnabled: runtimeAdminConfig.welcomeEnabled,
-                twitchEnabled: runtimeAdminConfig.twitchEnabled,
-                communityEnabled: runtimeAdminConfig.communityEnabled,
-                getCommunityChannelNames: () => adminConfigStore.getCommunityChannelNames(),
-                getCommunityState: (guildId) => adminConfigStore.getCommunityState(guildId),
-                saveCommunityState: (guildId, state) => adminConfigStore.saveCommunityState(guildId, state),
-                communityCategoryName: runtimeAdminConfig.communityCategoryName,
-                communityEmptyTimeoutSeconds: runtimeAdminConfig.communityEmptyTimeoutSeconds,
-                communityMaxChannels: runtimeAdminConfig.communityMaxChannels,
-                guildId: runtimeAdminConfig.guildId,
-                musicRoleName: runtimeAdminConfig.musicRoleName,
-                spotifyService: {
-                    clientId: runtimeAdminConfig.spotifyClientId,
-                    clientSecret: runtimeAdminConfig.spotifyClientSecret,
-                    redirectUri: runtimeAdminConfig.spotifyRedirectUri
-                },
-                musicPlayback: {
-                    defaultVolumePercent: runtimeAdminConfig.musicDefaultVolumePercent,
-                    debugSearch: runtimeAdminConfig.musicDebugSearch,
-                    youtubeSearchLimit: runtimeAdminConfig.musicYoutubeSearchLimit,
-                    audioDbApiKey: runtimeAdminConfig.audioDbApiKey,
-                    audioDbApiVersion: runtimeAdminConfig.audioDbApiVersion,
-                    allowedRoleNames: [runtimeAdminConfig.musicRoleName]
-                },
-                welcomeChannelId: runtimeAdminConfig.welcomeChannelId,
-                welcomeRoles: runtimeAdminConfig.welcomeRoles,
-                twitchRole: {
-                    guildId: runtimeAdminConfig.guildId,
-                    broadcasterName: runtimeAdminConfig.twitchBroadcasterName,
-                    clientId: runtimeAdminConfig.twitchClientId,
-                    clientSecret: runtimeAdminConfig.twitchClientSecret,
-                    accessToken: runtimeAdminConfig.twitchAccessToken,
-                    refreshToken: runtimeAdminConfig.twitchRefreshToken,
-                    accessTokenExpiresAt: runtimeAdminConfig.twitchAccessTokenExpiresAt,
-                    followerRoleName: runtimeAdminConfig.twitchFollowerRoleName,
-                    subscriberRoleName: runtimeAdminConfig.twitchSubscriberRoleName,
-                    onTokensUpdated: async (tokens) => {
-                        runtimeAdminConfig = {
-                            ...runtimeAdminConfig,
-                            twitchAccessToken: tokens.accessToken,
-                            twitchRefreshToken: tokens.refreshToken,
-                            twitchAccessTokenExpiresAt: tokens.accessTokenExpiresAt
-                        };
-                        await adminConfigStore.save(runtimeAdminConfig);
-                        await applyRuntimeConfigToModules();
-                    }
-                }
-            });
-
-            for (const module of modules) {
-                if (module.initialize) {
-                    await module.initialize();
-                }
-            }
-
-            const commands = modules.flatMap((module) => module.getCommands());
-
-            console.log(`[Modules] Active: ${modules.map((module) => module.name).join(", ")}`);
-
-            bot = new DiscordBot({
-                token: runtimeAdminConfig.discordToken,
-                guildId: runtimeAdminConfig.guildId,
-                commands: commands,
-                modules: modules,
-                onReady: async (client) => {
-                    for (const module of modules) {
-                        if (module.onReady) {
-                            await module.onReady(client);
-                        }
-                    }
-                },
-                onStatusChange: (status) => {
-                    discordStatus = status;
-                },
-                buttonHandler: async (customId, interaction) => {
-                    for (const module of modules) {
-                        if (!module.handleButtonInteraction) {
-                            continue;
-                        }
-
-                        const handled = await module.handleButtonInteraction(customId, interaction);
-                        if (handled) {
-                            return true;
-                        }
-                    }
-
-                    return false;
-                }
-            });
-
-            await bot.start();
-        };
-
         const adminWebServer = new AdminWebServer({
-            port: runtimeAdminConfig.adminUiPort,
+            port: botRuntimeManager.getConfig().adminUiPort,
             getAuthConfig: () => ({
-                username: runtimeAdminConfig.adminUiUsername,
-                token: runtimeAdminConfig.adminUiToken
+                username: botRuntimeManager.getConfig().adminUiUsername,
+                token: botRuntimeManager.getConfig().adminUiToken
             }),
-            getConfig: () => runtimeAdminConfig,
+            getConfig: () => botRuntimeManager.getConfig(),
             getLogs: () => runtimeLogBuffer.getAll(),
             restartBot: async () => {
-                await startOrRestartBot();
+                await botRuntimeManager.restart();
                 console.log("[AdminUI] Bot restarted.");
             },
             getWelcomeChannels: async () => {
-                const guildId = runtimeAdminConfig.guildId;
+                const guildId = botRuntimeManager.getConfig().guildId;
                 if (!guildId) {
                     return [];
                 }
 
-                const readyClient = bot?.getReadyClient();
+                const readyClient = botRuntimeManager.getReadyClient();
                 if (!readyClient) {
                     return [];
                 }
@@ -299,15 +138,15 @@ export class Startup {
                     .map((channel) => ({ id: channel.id, name: `#${channel.name}` }))
                     .sort((a, b) => a.name.localeCompare(b.name, "de"));
             },
-            getDiscordStatus: () => bot?.getStatus() ?? discordStatus,
+            getDiscordStatus: () => botRuntimeManager.getStatus(),
             getDatabaseStatus: () => adminConfigStore.getDatabaseStatus(),
             getServerEmojis: async () => {
-                const guildId = runtimeAdminConfig.guildId;
+                const guildId = botRuntimeManager.getConfig().guildId;
                 if (!guildId) {
                     return [];
                 }
 
-                const readyClient = bot?.getReadyClient();
+                const readyClient = botRuntimeManager.getReadyClient();
                 if (!readyClient) {
                     return [];
                 }
@@ -327,7 +166,8 @@ export class Startup {
                     .sort((a, b) => a.label.localeCompare(b.label, "de"));
             },
             saveConfig: async (config) => {
-                await persistRuntimeConfig(config);
+                await botRuntimeManager.saveConfig(config);
+                console.log(`[AdminUI] Configuration saved: ${sqlitePath}`);
             }
         });
         adminWebServer.start();
@@ -337,11 +177,7 @@ export class Startup {
             shuttingDown = true;
             console.log(`[Shutdown] Received ${signal}. Stopping services...`);
             try {
-                for (const module of modules) {
-                    await module.shutdown?.();
-                }
-                await bot?.stop();
-                bot = undefined;
+                await botRuntimeManager.stop();
                 await adminWebServer.stop();
                 await adminConfigStore.close();
                 console.log("[Shutdown] Services stopped cleanly.");
@@ -354,7 +190,7 @@ export class Startup {
         process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
         process.once("SIGINT", () => { void shutdown("SIGINT"); });
 
-        await startOrRestartBot();
+        await botRuntimeManager.start();
     }
 
     private static parseNumber(value: string | undefined): number | undefined {

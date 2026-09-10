@@ -37,6 +37,7 @@
 - [ ] Bestimmte Rollen oder Benutzer von Community-Kanaelen ausschliessen koennen
 - [ ] Community-Kanalnamen aus der UI exportieren koennen
 - [ ] Community-Kanalnamen aus der UI importieren koennen
+- [ ] Kanalnamen vorschläge inkl. Abstimmung für einennamne pro woche der zur lsite hinzugefügt wird
 
 ## Welcome und Twitch
 
@@ -45,6 +46,10 @@
 - [ ] Twitch-Synchronisierung manuell starten koennen
 - [ ] Zeitpunkt des letzten erfolgreichen Twitch-Syncs anzeigen
 - [ ] Protokollieren, welche Twitch-Rollen hinzugefuegt oder entfernt wurden
+
+## Features
+
+- [] Achivement system
 
 ## Tests und Qualitaet
 
