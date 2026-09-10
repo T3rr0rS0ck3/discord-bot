@@ -62,4 +62,9 @@ export class MusicBotModule implements IBotModule {
 
         return await this.playbackService.handleButtonInteraction(interaction);
     }
+
+    public async handleStringSelectInteraction(customId: string, interaction: import("discord.js").StringSelectMenuInteraction): Promise<boolean> {
+        if (!customId.startsWith("music:")) return false;
+        return this.playbackService.handleStringSelectInteraction(interaction);
+    }
 }

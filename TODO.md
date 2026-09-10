@@ -23,12 +23,12 @@
 
 - [ ] `/music remove` zum Entfernen einzelner Queue-Eintraege ergaenzen
 - [ ] `/music clear` zum Leeren der Queue ergaenzen
-- [ ] Loop fuer den aktuellen Track und fuer die gesamte Queue ergaenzen
-- [ ] Shuffle fuer die Queue ergaenzen
-- [ ] Lautstaerke-Slider im Musik-Player ergaenzen
-- [ ] Fortschrittsanzeige und Trackdauer im Musik-Player anzeigen
-- [ ] Mehrere TheAudioDB-Suchergebnisse zur Auswahl anzeigen
-- [ ] Bei fehlenden TheAudioDB-Treffern auf direkte YouTube-Suche zurueckfallen
+- [x] Loop fuer den aktuellen Track und fuer die gesamte Queue ergaenzen
+- [x] Shuffle fuer die Queue ergaenzen
+- [x] Lautstaerke-Steuerung mit Feintasten und Prozent-Auswahl im Musik-Player ergaenzen
+- [x] Fortschrittsanzeige und bekannte Trackdauer im Musik-Player anzeigen
+- [x] Mehrere TheAudioDB-Suchergebnisse zur Auswahl anzeigen
+- [x] Bei fehlenden TheAudioDB-Treffern auf direkte YouTube-Suche zurueckfallen
 
 ## Community
 
@@ -54,7 +54,7 @@
 ## Tests und Qualitaet
 
 - [ ] Tests fuer Pflichtfeldvalidierung ergaenzen
-- [ ] Tests fuer TheAudioDB v1 und v2 ergaenzen
+- [x] Tests fuer TheAudioDB v1 und v2 ergaenzen
 - [ ] Tests fuer ungueltige Discord-Tokens ergaenzen
 - [ ] Tests fuer Healthcheck und Shutdown ergaenzen
 - [ ] Admin-UI in Desktop- und Mobile-Ansicht pruefen

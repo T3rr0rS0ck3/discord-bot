@@ -21,12 +21,14 @@ import {
     EmbedBuilder,
     GuildMember,
     PermissionFlagsBits,
+    StringSelectMenuBuilder,
+    StringSelectMenuInteraction,
     type TextBasedChannel,
     type VoiceBasedChannel
 } from "discord.js";
 import ffmpegPath from "ffmpeg-static";
 import ytdlp from "yt-dlp-exec";
-import type { ResolvedSource, QueueTrack, GuildPlayerState } from "../types/Music";
+import type { ResolvedSource, QueueTrack, GuildPlayerState, MusicLoopMode } from "../types/Music";
 import { RoleService } from "./RoleService";
 import { TheAudioDbService } from "./TheAudioDbService";
 import { YouTubeTrackSearchService } from "./YouTubeTrackSearchService";
@@ -169,7 +171,9 @@ export class MusicPlaybackService {
             return false;
         }
 
-        return state.player.pause(true);
+        const paused = state.player.pause(true);
+        if (paused && !state.pausedAt) state.pausedAt = Date.now();
+        return paused;
     }
 
     public resume(guildId: string): boolean {
@@ -178,7 +182,12 @@ export class MusicPlaybackService {
             return false;
         }
 
-        return state.player.unpause();
+        const resumed = state.player.unpause();
+        if (resumed && state.pausedAt) {
+            state.pausedDurationMs += Date.now() - state.pausedAt;
+            state.pausedAt = undefined;
+        }
+        return resumed;
     }
 
     public setVolume(guildId: string, percent: number): number | null {
@@ -198,7 +207,41 @@ export class MusicPlaybackService {
         return clamped;
     }
 
-    public getQueueSnapshot(guildId: string): { current?: QueueTrack; queue: QueueTrack[]; paused: boolean; volumePercent: number } | null {
+    public clearQueue(guildId: string): number {
+        const state = this.guildStates.get(guildId);
+        if (!state) return 0;
+        const removed = state.queue.length;
+        state.queue = [];
+        return removed;
+    }
+
+    public removeFromQueue(guildId: string, trackId: string): boolean {
+        const state = this.guildStates.get(guildId);
+        if (!state) return false;
+        const index = state.queue.findIndex(track => track.id === trackId);
+        if (index < 0) return false;
+        state.queue.splice(index, 1);
+        return true;
+    }
+
+    public shuffleQueue(guildId: string): boolean {
+        const state = this.guildStates.get(guildId);
+        if (!state || state.queue.length < 2) return false;
+        for (let index = state.queue.length - 1; index > 0; index -= 1) {
+            const target = Math.floor(Math.random() * (index + 1));
+            [state.queue[index], state.queue[target]] = [state.queue[target], state.queue[index]];
+        }
+        return true;
+    }
+
+    public cycleLoopMode(guildId: string): MusicLoopMode | undefined {
+        const state = this.guildStates.get(guildId);
+        if (!state) return undefined;
+        state.loopMode = state.loopMode === "off" ? "track" : state.loopMode === "track" ? "queue" : "off";
+        return state.loopMode;
+    }
+
+    public getQueueSnapshot(guildId: string): { current?: QueueTrack; queue: QueueTrack[]; paused: boolean; volumePercent: number; loopMode: MusicLoopMode; elapsedSec: number } | null {
         const state = this.guildStates.get(guildId);
         if (!state) {
             return null;
@@ -208,13 +251,15 @@ export class MusicPlaybackService {
             current: state.current,
             queue: [...state.queue],
             paused: state.player.state.status === AudioPlayerStatus.Paused,
-            volumePercent: Math.round(state.volume * 100)
+            volumePercent: Math.round(state.volume * 100),
+            loopMode: state.loopMode,
+            elapsedSec: this.getElapsedSeconds(state)
         };
     }
 
     public buildPlayerUI(guildId: string): {
         embeds: EmbedBuilder[];
-        components: ActionRowBuilder<ButtonBuilder>[];
+        components: Array<ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>>;
     } {
         const snapshot = this.getQueueSnapshot(guildId);
 
@@ -230,7 +275,9 @@ export class MusicPlaybackService {
                 .addFields(
                     { name: "Status", value: snapshot.paused ? "Paused" : "Playing", inline: true },
                     { name: "Volume", value: `${snapshot.volumePercent}%`, inline: true },
-                    { name: "Queue", value: `${snapshot.queue.length} tracks`, inline: true }
+                    { name: "Queue", value: `${snapshot.queue.length} tracks`, inline: true },
+                    { name: "Loop", value: snapshot.loopMode === "off" ? "Off" : snapshot.loopMode === "track" ? "Track" : "Queue", inline: true },
+                    { name: "Progress", value: this.formatProgress(snapshot.elapsedSec, snapshot.current.durationSec), inline: true }
                 );
 
             if (snapshot.current.artworkUrl) {
@@ -257,9 +304,45 @@ export class MusicPlaybackService {
             new ButtonBuilder().setCustomId("music:vol-up-10").setLabel("+10").setStyle(ButtonStyle.Secondary)
         );
 
+        const queueControls = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder().setCustomId("music:loop").setLabel(`Loop: ${snapshot?.loopMode ?? "off"}`).setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music:shuffle").setLabel("Shuffle").setStyle(ButtonStyle.Secondary).setDisabled((snapshot?.queue.length ?? 0) < 2),
+            new ButtonBuilder().setCustomId("music:clear").setLabel("Clear queue").setStyle(ButtonStyle.Danger).setDisabled((snapshot?.queue.length ?? 0) === 0)
+        );
+
+        const components: Array<ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>> = [controls, volumeControls, queueControls];
+        if (snapshot && snapshot.queue.length > 0) {
+            components.push(
+                new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+                    new StringSelectMenuBuilder()
+                        .setCustomId("music:remove")
+                        .setPlaceholder("Remove a track from the queue")
+                        .addOptions(snapshot.queue.slice(0, 25).map((track, index) => ({
+                            label: `${index + 1}. ${track.sourceLabel}`.slice(0, 100),
+                            value: track.id,
+                            description: "Remove this queued track"
+                        })))
+                )
+            );
+        }
+        else {
+            components.push(
+                new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+                    new StringSelectMenuBuilder()
+                        .setCustomId("music:volume")
+                        .setPlaceholder(`Set volume (${snapshot?.volumePercent ?? Math.round(this.defaultVolume * 100)}%)`)
+                        .addOptions([0, 10, 25, 50, 75, 100].map(percent => ({
+                            label: `${percent}%`,
+                            value: String(percent),
+                            default: snapshot?.volumePercent === percent
+                        })))
+                )
+            );
+        }
+
         return {
             embeds: [embed],
-            components: [controls, volumeControls]
+            components
         };
     }
 
@@ -355,12 +438,46 @@ export class MusicPlaybackService {
                 this.setVolume(guildId, 0);
                 break;
             }
+            case "music:loop": {
+                this.cycleLoopMode(guildId);
+                break;
+            }
+            case "music:shuffle": {
+                this.shuffleQueue(guildId);
+                break;
+            }
+            case "music:clear": {
+                this.clearQueue(guildId);
+                break;
+            }
             default:
                 return false;
         }
 
         const ui = this.buildPlayerUI(guildId);
         await interaction.update(ui);
+        return true;
+    }
+
+    public async handleStringSelectInteraction(interaction: StringSelectMenuInteraction): Promise<boolean> {
+        if (!interaction.inCachedGuild() || !["music:remove", "music:volume"].includes(interaction.customId)) return false;
+        if (!(interaction.member instanceof GuildMember) || !this.hasAccess(interaction.member)) {
+            await interaction.reply({ content: "You do not have the required role for music controls.", ephemeral: true });
+            return true;
+        }
+
+        if (interaction.customId === "music:volume") {
+            this.setVolume(interaction.guildId, Number(interaction.values[0]));
+            await interaction.update(this.buildPlayerUI(interaction.guildId));
+            return true;
+        }
+
+        const removed = this.removeFromQueue(interaction.guildId, interaction.values[0]);
+        if (!removed) {
+            await interaction.reply({ content: "This track is no longer in the queue.", ephemeral: true });
+            return true;
+        }
+        await interaction.update(this.buildPlayerUI(interaction.guildId));
         return true;
     }
 
@@ -401,7 +518,9 @@ export class MusicPlaybackService {
             player,
             queue: [],
             history: [],
-            volume: this.defaultVolume
+            volume: this.defaultVolume,
+            loopMode: "off",
+            pausedDurationMs: 0
         };
 
         player.on("error", (error) => {
@@ -437,6 +556,9 @@ export class MusicPlaybackService {
 
         const resource = await this.createAudioResourceForTrack(state, track);
         state.current = track;
+        state.startedAt = Date.now();
+        state.pausedAt = undefined;
+        state.pausedDurationMs = 0;
         state.player.play(resource);
         await entersState(state.player, AudioPlayerStatus.Playing, 8_000);
 
@@ -449,9 +571,18 @@ export class MusicPlaybackService {
             return;
         }
 
-        if (state.current) {
-            state.history.push(state.current);
+        const finished = state.current;
+        if (finished) {
+            state.history.push(finished);
             state.current = undefined;
+            state.startedAt = undefined;
+            state.pausedAt = undefined;
+            state.pausedDurationMs = 0;
+            if (state.loopMode === "track") {
+                state.queue.unshift(finished);
+            } else if (state.loopMode === "queue") {
+                state.queue.push(finished);
+            }
         }
 
         this.killFfmpeg(state);
@@ -623,7 +754,8 @@ export class MusicPlaybackService {
                     streamKind: "youtube",
                     sourceUrl: fallback.url,
                     sourceLabel: `${metadata.title} - ${metadata.artists.join(", ")}`,
-                    artworkUrl: metadata.artworkUrl ?? fallback.thumbnailUrl
+                    artworkUrl: metadata.artworkUrl ?? fallback.thumbnailUrl,
+                    durationSec: metadata.durationSec || undefined
                 };
             }
         }
@@ -650,6 +782,25 @@ export class MusicPlaybackService {
         catch {
             return false;
         }
+    }
+
+    private getElapsedSeconds(state: GuildPlayerState): number {
+        if (!state.startedAt) return 0;
+        const end = state.pausedAt ?? Date.now();
+        return Math.max(0, Math.floor((end - state.startedAt - state.pausedDurationMs) / 1000));
+    }
+
+    private formatProgress(elapsedSec: number, durationSec?: number): string {
+        const elapsed = this.formatDuration(elapsedSec);
+        if (!durationSec) return elapsed;
+        const bounded = Math.min(elapsedSec, durationSec);
+        const filled = Math.round((bounded / durationSec) * 10);
+        return `${this.formatDuration(bounded)} / ${this.formatDuration(durationSec)}\n${"■".repeat(filled)}${"□".repeat(10 - filled)}`;
+    }
+
+    private formatDuration(seconds: number): string {
+        const minutes = Math.floor(seconds / 60);
+        return `${minutes}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
     }
 
     private isYouTubeUrl(value: string): boolean {

@@ -1,4 +1,4 @@
-import { ButtonInteraction, Client, MessageReaction, ModalSubmitInteraction, User } from "discord.js";
+import { ButtonInteraction, Client, MessageReaction, ModalSubmitInteraction, StringSelectMenuInteraction, User } from "discord.js";
 import { ICommand } from "../../commands/interfaces/ICommand";
 import type { WelcomeRoleOption } from "../../types/Discord";
 
@@ -33,6 +33,7 @@ export interface IBotModule {
     ): Promise<void> | void;
     handleButtonInteraction?(customId: string, interaction: ButtonInteraction): Promise<boolean>;
     handleModalSubmitInteraction?(customId: string, interaction: ModalSubmitInteraction): Promise<boolean>;
+    handleStringSelectInteraction?(customId: string, interaction: StringSelectMenuInteraction): Promise<boolean>;
     handleMessageReactionAdd?(reaction: MessageReaction, user: User): Promise<boolean>;
     handleMessageReactionRemove?(reaction: MessageReaction, user: User): Promise<boolean>;
 }

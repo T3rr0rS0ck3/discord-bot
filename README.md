@@ -76,9 +76,13 @@ Settings konfigurieren und werden in SQLite gespeichert. Ohne eigenen Key wird
 im Free-Modus der öffentliche Key `2` verwendet; im Premium-Modus ist der
 Premium-Key üblicherweise `123`. Alternativ können `AUDIODB_API_KEY` und
 `AUDIODB_API_VERSION` (`v1` oder `v2`) als Startwerte gesetzt werden.
-Mit `/music player` wird ein Player-Panel im Chat mit Buttons für Zurück, Pause/Play und Skip angezeigt.
-Mit den `/music`-Subcommands steuerst du die Wiedergabe (`volume` = 0 bis 100).
-Bei `/music play query` bekommst du beim Tippen TheAudioDB-Vorschläge und kannst den gefundenen Song direkt auswählen.
+Mit `/music player` wird ein Player-Panel im Chat angezeigt. Danach lassen sich Zurück, Pause/Play, Skip,
+Track-/Queue-Loop, Shuffle, Queue leeren und einzelne Queue-Einträge direkt im Panel steuern. Die Lautstärke
+kann über Feintasten sowie feste Prozentwerte gesetzt werden, da Discord keinen nativen Slider anbietet.
+Das Panel zeigt außerdem den aktuellen Fortschritt und die Trackdauer an, sofern TheAudioDB eine Dauer liefert.
+Mit den `/music`-Subcommands bleibt die Wiedergabe alternativ steuerbar (`volume` = 0 bis 100).
+Bei `/music play query` bekommst du beim Tippen bis zu 25 eindeutige TheAudioDB-Vorschläge. Gibt es keinen
+TheAudioDB-Treffer, sucht der Bot direkt mit der ursprünglichen Eingabe auf YouTube weiter.
 
 ## Build + Start
 

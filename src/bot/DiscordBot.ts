@@ -123,6 +123,20 @@ export class DiscordBot {
         });
 
         this.client.on("interactionCreate", async (interaction) => {
+            if (interaction.isStringSelectMenu()) {
+                try {
+                    for (const module of this.modules) {
+                        if (await module.handleStringSelectInteraction?.(interaction.customId, interaction)) return;
+                    }
+                    await interaction.reply({ content: "Diese Auswahl ist derzeit nicht aktiv.", ephemeral: true });
+                } catch (error) {
+                    console.error("String select handling error:", error);
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({ content: "Die Auswahl konnte nicht verarbeitet werden.", ephemeral: true });
+                    }
+                }
+                return;
+            }
             if (interaction.isModalSubmit()) {
                 try {
                     for (const module of this.modules) {

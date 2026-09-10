@@ -16,8 +16,14 @@ export class TheAudioDbService {
     }
 
     public async searchTrackMetadata(query: string): Promise<AudioDbTrackMetadata | null> {
+        return (await this.searchTrackMetadataResults(query, 1))[0] ?? null;
+    }
+
+    public async searchTrackMetadataResults(query: string, limit = 10): Promise<AudioDbTrackMetadata[]> {
         const trimmed = query.trim();
-        if (!trimmed) return null;
+        if (!trimmed) return [];
+        const cappedLimit = Math.max(1, Math.min(25, limit));
+        const results = new Map<string, AudioDbTrackMetadata>();
 
         for (const { artist, title } of this.buildQueryVariants(trimmed)) {
             const request = this.apiVersion === "v2"
@@ -47,12 +53,17 @@ export class TheAudioDbService {
             }
 
             const body = await response.json() as AudioDbTrackResponse;
-            const track = (this.apiVersion === "v2" ? body.search?.[0] : body.track?.[0]);
-            const metadata = track ? this.toMetadata(track, trimmed) : null;
-            if (metadata) return metadata;
+            const tracks = this.apiVersion === "v2" ? body.search : body.track;
+            for (const track of tracks ?? []) {
+                const metadata = this.toMetadata(track, trimmed);
+                if (!metadata) continue;
+                const key = `${metadata.artists.join(",").toLowerCase()}\0${metadata.title.toLowerCase()}`;
+                if (!results.has(key)) results.set(key, metadata);
+                if (results.size >= cappedLimit) return [...results.values()];
+            }
         }
 
-        return null;
+        return [...results.values()];
     }
 
     private createV1SearchRequest(artist: string, title: string): { url: URL; headers?: HeadersInit } {
@@ -68,13 +79,11 @@ export class TheAudioDbService {
     }
 
     public async searchTrackSuggestions(query: string, limit = 10): Promise<Array<{ label: string; value: string }>> {
-        const metadata = await this.searchTrackMetadata(query);
-        if (!metadata) return [];
-
-        return [{
+        const results = await this.searchTrackMetadataResults(query, limit);
+        return results.map(metadata => ({
             label: this.limitText(`${metadata.title} - ${metadata.artists.join(", ")}`, 100),
             value: `${metadata.artists[0]} - ${metadata.title}`.slice(0, 100)
-        }].slice(0, Math.max(1, Math.min(25, limit)));
+        }));
     }
 
     private toMetadata(track: AudioDbTrack, searchQuery: string): AudioDbTrackMetadata | null {

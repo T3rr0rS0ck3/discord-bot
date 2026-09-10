@@ -8,12 +8,15 @@ export type ResolvedSource = {
     sourceUrl: string;
     sourceLabel: string;
     artworkUrl?: string;
+    durationSec?: number;
 };
 
 export type QueueTrack = ResolvedSource & {
     id: string;
     requestedBy: string;
 };
+
+export type MusicLoopMode = "off" | "track" | "queue";
 
 export type GuildPlayerState = {
     connection: VoiceConnection;
@@ -23,6 +26,10 @@ export type GuildPlayerState = {
     current?: QueueTrack;
     ffmpegProcess?: ChildProcessByStdio<null, Readable, Readable>;
     volume: number;
+    loopMode: MusicLoopMode;
+    startedAt?: number;
+    pausedAt?: number;
+    pausedDurationMs: number;
     controllerChannelId?: string;
     controllerMessageId?: string;
     controllerChannel?: TextBasedChannel;
