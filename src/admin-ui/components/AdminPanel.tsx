@@ -59,8 +59,6 @@ type AdminPanelProps = {
     logs: LogEntry[];
     discordStatus: DiscordRuntimeStatus;
     databaseStatus: DatabaseStatus;
-    restartHintText: string;
-    hasPendingRestart: boolean;
     saveDisabled: boolean;
     restartDisabled: boolean;
     saveAndRestartDisabled: boolean;
@@ -158,7 +156,7 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                             {props.toast.map((toast) => (
                                 <div className={`admin-toast admin-toast-${toast.tone}`} role="status" key={toast.id}>
                                     <span className="admin-toast-icon" aria-hidden="true">
-                                        <i className={`fa-solid ${toast.tone === "error" ? "fa-circle-exclamation" : "fa-circle-info"}`}></i>
+                                        <i className={`fa-solid ${toast.tone === "restart" ? "fa-rotate" : toast.tone === "error" ? "fa-circle-exclamation" : "fa-circle-info"}`}></i>
                                     </span>
                                     <span>{toast.text}</span>
                                 </div>
@@ -272,17 +270,6 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                         onDownloadBackup={props.onDownloadBackup}
                                         onRestoreBackup={props.onRestoreBackup}
                                     />
-
-                                    <div
-                                        className="status"
-                                        style={{ display: props.hasPendingRestart ? "block" : "none", color: "#fbbf24" }}
-                                    >
-                                        {props.restartHintText}
-                                    </div>
-                                    <div className="muted">
-                                        Note: Welcome changes are applied live. Token/Guild/Admin/Port changes require a
-                                        restart.
-                                    </div>
 
                                     <CollapsibleRegion title="Runtime Logs" defaultOpen={true}>
                                         <div className="log-panel">

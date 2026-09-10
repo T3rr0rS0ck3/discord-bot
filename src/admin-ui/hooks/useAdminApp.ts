@@ -20,6 +20,8 @@ import {
     toRestartRelevantState
 } from "../utils/config";
 
+const pendingRestartStorageKey = "discord-bot-admin-pending-restart";
+
 export function useAdminApp(initialAuth: AuthState) {
     const [auth, setAuth] = useState<AuthState>(initialAuth);
     const [loginUsername, setLoginUsername] = useState("");
@@ -36,6 +38,14 @@ export function useAdminApp(initialAuth: AuthState) {
 
     const [initialSnapshot, setInitialSnapshot] = useState("");
     const [restartBaseline, setRestartBaseline] = useState<RestartRelevantState | null>(null);
+    const [persistedRestartLabels, setPersistedRestartLabels] = useState<string[]>(() => {
+        try {
+            const value = JSON.parse(localStorage.getItem(pendingRestartStorageKey) ?? "[]");
+            return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+        } catch {
+            return [];
+        }
+    });
 
     const [channels, setChannels] = useState<ChannelOption[]>([]);
     const [emojis, setEmojis] = useState<EmojiOption[]>([]);
@@ -75,10 +85,25 @@ export function useAdminApp(initialAuth: AuthState) {
         return serializeConfig(config) !== initialSnapshot;
     }, [config, initialSnapshot]);
 
-    const hasPendingRestart = changedRestartLabels.length > 0;
+    const pendingRestartLabels = [...new Set([...persistedRestartLabels, ...changedRestartLabels])];
+    const hasPendingRestart = pendingRestartLabels.length > 0;
     const restartHintText = hasPendingRestart
-        ? `Restart required for: ${changedRestartLabels.join(", ")}`
+        ? `Restart required for: ${pendingRestartLabels.join(", ")}`
         : "";
+    const visibleToasts = useMemo<ToastState[]>(() => {
+        if (!hasPendingRestart) {
+            return toasts;
+        }
+
+        return [
+            ...toasts,
+            {
+                id: -1,
+                text: restartHintText,
+                tone: "restart"
+            }
+        ];
+    }, [hasPendingRestart, restartHintText, toasts]);
 
     const saveDisabled = busy || !config || !hasUnsavedChanges;
     const restartDisabled = busy || !config;
@@ -92,6 +117,17 @@ export function useAdminApp(initialAuth: AuthState) {
             toastTimersRef.current.delete(id);
         }, 6000);
         toastTimersRef.current.set(id, timer);
+    }
+
+    function rememberPendingRestart(labels: string[]): void {
+        const uniqueLabels = [...new Set(labels)];
+        setPersistedRestartLabels(uniqueLabels);
+        localStorage.setItem(pendingRestartStorageKey, JSON.stringify(uniqueLabels));
+    }
+
+    function clearPendingRestart(): void {
+        setPersistedRestartLabels([]);
+        localStorage.removeItem(pendingRestartStorageKey);
     }
 
     async function loadConfigAndMetadata(showLoadedStatus: boolean): Promise<void> {
@@ -247,6 +283,7 @@ export function useAdminApp(initialAuth: AuthState) {
         if (restartAfterSave) {
             await adminApi.restart();
             setRestartBaseline(toRestartRelevantState(savedConfig));
+            clearPendingRestart();
             setStatus({ text: "Saved and bot restarted.", color: "#86efac" });
             showToast("Configuration saved and bot restarted.", "system");
             return;
@@ -265,10 +302,16 @@ export function useAdminApp(initialAuth: AuthState) {
             return false;
         })();
 
+        if (pendingAfterSave) {
+            const current = toRestartRelevantState(savedConfig);
+            const labels = (Object.keys(restartFieldLabels) as Array<keyof RestartRelevantState>)
+                .filter((key) => (restartBaseline?.[key] ?? "") !== (current[key] ?? ""))
+                .map((key) => restartFieldLabels[key]);
+            rememberPendingRestart(labels);
+        }
+
         setStatus({
-            text: pendingAfterSave
-                ? "Saved. Some changes still require a restart."
-                : "Saved. Changes applied live.",
+            text: "Configuration saved.",
             color: "#86efac"
         });
         showToast("Configuration saved.", "system");
@@ -341,6 +384,7 @@ export function useAdminApp(initialAuth: AuthState) {
             setBusy(true);
             await adminApi.restart();
             setRestartBaseline(toRestartRelevantState(config));
+            clearPendingRestart();
             setStatus({ text: "Bot restarted.", color: "#86efac" });
             showToast("Bot restarted.", "system");
         } catch (error) {
@@ -403,12 +447,13 @@ export function useAdminApp(initialAuth: AuthState) {
             setConfig(restored);
             setInitialSnapshot(serializeConfig(restored));
             setStatus({
-                text: result.restartRequired
-                    ? `Backup restored. Restart required for: ${result.restartFields.join(", ")}`
-                    : "Backup restored and applied.",
+                text: "Backup restored.",
                 color: "#86efac"
             });
-            showToast(result.restartRequired ? "Backup restored. Restart the bot to apply all changes." : "Backup restored.", "system");
+            if (result.restartRequired) {
+                rememberPendingRestart(result.restartFields);
+            }
+            showToast("Backup restored.", "system");
         } catch (error) {
             const message = error instanceof SyntaxError
                 ? "The selected file is not valid JSON."
@@ -427,7 +472,7 @@ export function useAdminApp(initialAuth: AuthState) {
         loginStatus,
         config,
         status,
-        toast: toasts,
+        toast: visibleToasts,
         busy,
         busyText,
         channels,
@@ -435,8 +480,6 @@ export function useAdminApp(initialAuth: AuthState) {
         logs,
         discordStatus,
         databaseStatus,
-        restartHintText,
-        hasPendingRestart,
         saveDisabled,
         restartDisabled,
         saveAndRestartDisabled,

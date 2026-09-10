@@ -37,6 +37,9 @@ export type AdminConfig = {
     spotifyClientSecret?: string;
     spotifyRedirectUri?: string;
     welcomeChannelId?: string;
+    welcomeTitle?: string;
+    welcomeReactionPrompt?: string;
+    welcomeReactionInstructions?: string;
     welcomeRoles: WelcomeRoleOption[];
     twitchBroadcasterName?: string;
     twitchClientId?: string;
@@ -428,6 +431,9 @@ export class AdminConfigStore {
         const spotifyClientSecret = this.normalizeString(input.spotifyClientSecret);
         const spotifyRedirectUri = this.normalizeString(input.spotifyRedirectUri);
         const welcomeChannelId = input.welcomeChannelId ? String(input.welcomeChannelId).trim() : undefined;
+        const welcomeTitle = String(input.welcomeTitle ?? "👋 Welcome!").trim().slice(0, 100) || "👋 Welcome!";
+        const welcomeReactionPrompt = String(input.welcomeReactionPrompt ?? "React with an emoji below to get the matching role:").trim().slice(0, 1000) || "React with an emoji below to get the matching role:";
+        const welcomeReactionInstructions = String(input.welcomeReactionInstructions ?? "Click a reaction to get the role. Click it again to remove the role.").trim().slice(0, 1000) || "Click a reaction to get the role. Click it again to remove the role.";
         const twitchBroadcasterName = this.normalizeString(input.twitchBroadcasterName);
         const twitchClientId = this.normalizeString(input.twitchClientId);
         const twitchClientSecret = this.normalizeString(input.twitchClientSecret);
@@ -467,6 +473,9 @@ export class AdminConfigStore {
             spotifyClientSecret,
             spotifyRedirectUri,
             welcomeChannelId: welcomeChannelId && welcomeChannelId.length > 0 ? welcomeChannelId : undefined,
+            welcomeTitle,
+            welcomeReactionPrompt,
+            welcomeReactionInstructions,
             welcomeRoles: roles,
             twitchBroadcasterName,
             twitchClientId,

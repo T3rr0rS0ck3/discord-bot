@@ -106,6 +106,9 @@ export class BotRuntimeManager {
                     communityVotingChannelName: this.config.communityVotingChannelName,
                     communityVotingDurationDays: this.config.communityVotingDurationDays,
                     welcomeChannelId: this.config.welcomeChannelId,
+                    welcomeTitle: this.config.welcomeTitle,
+                    welcomeReactionPrompt: this.config.welcomeReactionPrompt,
+                    welcomeReactionInstructions: this.config.welcomeReactionInstructions,
                     welcomeRoles: this.config.welcomeRoles,
                     twitchBroadcasterName: this.config.twitchBroadcasterName,
                     twitchClientId: this.config.twitchClientId,
@@ -166,6 +169,9 @@ export class BotRuntimeManager {
                 allowedRoleNames: [this.config.musicRoleName]
             },
             welcomeChannelId: this.config.welcomeChannelId,
+            welcomeTitle: this.config.welcomeTitle,
+            welcomeReactionPrompt: this.config.welcomeReactionPrompt,
+            welcomeReactionInstructions: this.config.welcomeReactionInstructions,
             welcomeRoles: this.config.welcomeRoles,
             twitchRole: {
                 guildId: this.config.guildId,

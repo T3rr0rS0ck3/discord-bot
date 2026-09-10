@@ -21,8 +21,8 @@
 
 ## Musik
 
-- [ ] `/music remove` zum Entfernen einzelner Queue-Eintraege ergaenzen
-- [ ] `/music clear` zum Leeren der Queue ergaenzen
+- [x] `/music remove` zum Entfernen einzelner Queue-Eintraege ergaenzen
+- [x] `/music clear` zum Leeren der Queue ergaenzen
 - [x] Loop fuer den aktuellen Track und fuer die gesamte Queue ergaenzen
 - [x] Shuffle fuer die Queue ergaenzen
 - [x] Lautstaerke-Steuerung mit Feintasten und Prozent-Auswahl im Musik-Player ergaenzen
@@ -41,8 +41,7 @@
 
 ## Welcome und Twitch
 
-- [ ] Testbutton fuer Welcome-Rollen ergaenzen
-- [ ] Vorschau der Welcome-Nachricht anzeigen
+- [x] Welcome-Texte bearbeiten und Vorschau der Welcome-Nachricht anzeigen
 - [ ] Twitch-Synchronisierung manuell starten koennen
 - [ ] Zeitpunkt des letzten erfolgreichen Twitch-Syncs anzeigen
 - [ ] Protokollieren, welche Twitch-Rollen hinzugefuegt oder entfernt wurden

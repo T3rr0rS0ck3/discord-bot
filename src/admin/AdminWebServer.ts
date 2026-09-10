@@ -380,6 +380,9 @@ export class AdminWebServer {
             spotifyClientSecret: this.normalizeString(input.spotifyClientSecret),
             spotifyRedirectUri: this.normalizeString(input.spotifyRedirectUri),
             welcomeChannelId: this.normalizeString(input.welcomeChannelId),
+            welcomeTitle: String(input.welcomeTitle ?? "👋 Welcome!").trim().slice(0, 100) || "👋 Welcome!",
+            welcomeReactionPrompt: String(input.welcomeReactionPrompt ?? "React with an emoji below to get the matching role:").trim().slice(0, 1000) || "React with an emoji below to get the matching role:",
+            welcomeReactionInstructions: String(input.welcomeReactionInstructions ?? "Click a reaction to get the role. Click it again to remove the role.").trim().slice(0, 1000) || "Click a reaction to get the role. Click it again to remove the role.",
             welcomeRoles: roles,
             twitchBroadcasterName: this.normalizeString(input.twitchBroadcasterName),
             twitchClientId: this.normalizeString(input.twitchClientId),
@@ -435,6 +438,9 @@ export class AdminWebServer {
 
         if (input.welcomeEnabled === true) {
             required(input.welcomeChannelId, "Welcome Channel");
+            required(input.welcomeTitle, "Welcome Title");
+            required(input.welcomeReactionPrompt, "Welcome Reaction Prompt");
+            required(input.welcomeReactionInstructions, "Welcome Reaction Instructions");
             if (!Array.isArray(input.welcomeRoles) || input.welcomeRoles.length === 0) {
                 errors.push("At least one Welcome Role is required.");
             } else {
@@ -1247,7 +1253,7 @@ export class AdminWebServer {
         .discord-status-token-invalid, .discord-status-guild-unreachable, .discord-status-error { color:#842029; background:#f8d7da; border-color:#f1aeb5; }
         .discord-status-offline { color:#41464b; background:#e2e3e5; border-color:#c4c8cb; }
         .database-status { color:#6c757d; font-size:12px; margin:8px 0 14px; }
-        input, select {
+        input, select, textarea {
             width:100%;
             padding:11px 12px;
             border-radius:11px;
@@ -1257,7 +1263,15 @@ export class AdminWebServer {
             outline:none;
             transition:border-color .2s, box-shadow .2s;
         }
-        input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(176,92,255,.22); }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(176,92,255,.22); }
+        textarea { min-height:82px; resize:vertical; font:inherit; }
+        .welcome-copy-fields { margin-top:14px; }
+        .welcome-preview { margin-top:16px; padding:14px; border:1px solid #344166; border-left:4px solid #5865f2; border-radius:8px; background:#111827; color:#f2f3f5; overflow-wrap:anywhere; }
+        .welcome-preview-label { margin-bottom:10px; color:#aeb7d4; font-size:11px; font-weight:700; text-transform:uppercase; }
+        .welcome-preview h3 { margin:0 0 12px; font-size:20px; letter-spacing:0; }
+        .welcome-preview p { margin:0 0 12px; white-space:pre-wrap; }
+        .welcome-preview-roles { display:grid; gap:6px; margin-bottom:12px; }
+        .welcome-preview-instructions { color:#c4c9d4; margin-bottom:0 !important; }
         .emoji-dropdown { position:relative; width:100%; }
         .emoji-trigger {
             width:100%;
@@ -1553,6 +1567,14 @@ export class AdminWebServer {
         }
         .admin-toast-system { background:#cfe2ff; border-color:#9ec5fe; color:#084298; }
         .admin-toast-error { background:#f8d7da; border-color:#f1aeb5; color:#842029; }
+        .admin-toast.admin-toast-restart {
+            background-color:#fff3cd !important;
+            background-image:none !important;
+            border-color:#ffda6a;
+            color:#664d03;
+            opacity:1;
+            backdrop-filter:none;
+        }
         .admin-toast-icon { font-size:22px; flex:0 0 auto; }
         @keyframes toast-in {
             from { opacity:0; transform:translateY(8px); }

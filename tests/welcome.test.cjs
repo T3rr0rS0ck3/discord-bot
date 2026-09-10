@@ -8,16 +8,16 @@ const { WelcomeModule } = require('../src/modules/WelcomeModule.ts');
 const { RoleService } = require('../src/services/RoleService.ts');
 RoleService.ensureRoles = async () => [];
 
-async function fixture() {
+async function fixture(options = {}) {
     const calls = [], payloads = [];
-    const message = { id: 'message', author: { id: 'bot' }, content: '# Welcome!', edit: async p => payloads.push(p), pin: async () => {}, react: async emoji => calls.push(['react', emoji]), reactions: { removeAll: async () => calls.push('remove-reactions') } };
+    const message = { id: 'message', author: { id: 'bot' }, content: '# Welcome!', pinned: true, edit: async p => payloads.push(p), pin: async () => {}, react: async emoji => calls.push(['react', emoji]), reactions: { removeAll: async () => calls.push('remove-reactions') } };
     const channel = { isTextBased: () => true, isDMBased: () => false, messages: { fetch: async () => new Collection([['message', message]]) }, permissionOverwrites: { edit: async () => {} } };
     const roles = new Collection([['gaming', { id: 'gaming', name: 'Gaming', editable: true, managed: false }], ['admin', { id: 'admin', name: 'Admin', editable: true, managed: false }]]);
     const memberRoleCache = new Collection();
     const member = { user: { tag: 'tester' }, roles: { cache: memberRoleCache, add: async role => { calls.push(['add', role.id]); memberRoleCache.set(role.id, role); }, remove: async role => { calls.push(['remove', role.id]); memberRoleCache.delete(role.id); } } };
     const guild = { roles: { cache: roles, fetch: async () => {}, everyone: {} }, channels: { fetch: async () => channel }, members: { fetch: async () => member } };
     const client = { user: { id: 'bot' }, guilds: { fetch: async () => guild } };
-    const module = new WelcomeModule({ guildId: 'guild', welcomeChannelId: 'channel', roles: [{ name: 'Gaming', emoji: '🎮', description: 'Gaming' }] });
+    const module = new WelcomeModule({ guildId: 'guild', welcomeChannelId: 'channel', roles: [{ name: 'Gaming', emoji: '🎮', description: 'Gaming' }], ...options });
     await module.onReady(client);
     const reaction = { message: { channelId: 'channel', guild }, emoji: { id: null, name: '🎮', toString: () => '🎮' } };
     const user = { id: 'user' };
@@ -32,6 +32,17 @@ test('existing welcome message is refreshed and matching reactions add and remov
     assert.equal(await f.module.handleMessageReactionAdd(f.reaction, f.user), true);
     assert.equal(await f.module.handleMessageReactionRemove(f.reaction, f.user), true);
     assert.deepEqual(f.calls.filter(call => Array.isArray(call) && ['add', 'remove'].includes(call[0])), [['add', 'gaming'], ['remove', 'gaming']]);
+});
+
+test('custom title and reaction copy are rendered in the existing pinned welcome message', async () => {
+    const f = await fixture({
+        welcomeTitle: 'Choose your roles',
+        welcomeReactionPrompt: 'Pick one or more communities:',
+        welcomeReactionInstructions: 'React to join. Remove your reaction to leave.'
+    });
+    assert.match(f.payloads[0].content, /^# Choose your roles/);
+    assert.match(f.payloads[0].content, /Pick one or more communities:/);
+    assert.match(f.payloads[0].content, /React to join\. Remove your reaction to leave\./);
 });
 
 test('unknown emojis and reactions outside the welcome channel are ignored', async () => {

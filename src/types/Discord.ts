@@ -85,6 +85,9 @@ export type BotModuleFactoryOptions = {
     spotifyService: SpotifyServiceOptions;
     musicPlayback: MusicPlaybackOptions;
     welcomeChannelId?: string;
+    welcomeTitle?: string;
+    welcomeReactionPrompt?: string;
+    welcomeReactionInstructions?: string;
     welcomeRoles?: WelcomeRoleOption[];
     twitchRole?: TwitchRoleModuleOptions;
 };
@@ -105,6 +108,9 @@ export type WelcomeRoleOption = {
 export type WelcomeModuleOptions = {
     guildId?: string;
     welcomeChannelId?: string;
+    welcomeTitle?: string;
+    welcomeReactionPrompt?: string;
+    welcomeReactionInstructions?: string;
     roles: WelcomeRoleOption[];
 };
 

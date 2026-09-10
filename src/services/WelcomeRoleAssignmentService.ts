@@ -9,8 +9,18 @@ export type WelcomeRoleConfig = {
 
 export class WelcomeRoleAssignmentService {
     private readonly roles: Map<string, WelcomeRoleConfig> = new Map();
+    private readonly title: string;
+    private readonly reactionPrompt: string;
+    private readonly reactionInstructions: string;
 
-    public constructor(roles: WelcomeRoleConfig[]) {
+    public constructor(roles: WelcomeRoleConfig[], options: {
+        title?: string;
+        reactionPrompt?: string;
+        reactionInstructions?: string;
+    } = {}) {
+        this.title = options.title?.trim() || "👋 Welcome!";
+        this.reactionPrompt = options.reactionPrompt?.trim() || "React with an emoji below to get the matching role:";
+        this.reactionInstructions = options.reactionInstructions?.trim() || "Click a reaction to get the role. Click it again to remove the role.";
         for (const role of roles) {
             this.roles.set(role.emoji, role);
         }
@@ -22,11 +32,11 @@ export class WelcomeRoleAssignmentService {
             .join("\n");
 
         return (
-            "# 👋 Welcome!\n\n" +
-            "React with an emoji below to get the matching role:\n\n" +
+            `# ${this.title}\n\n` +
+            `${this.reactionPrompt}\n\n` +
             roleList +
             "\n\n" +
-            "Click a reaction to get the role. Click it again to remove the role."
+            this.reactionInstructions
         );
     }
 

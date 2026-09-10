@@ -23,6 +23,9 @@ export class BotModuleFactory {
                 new WelcomeModule({
                     guildId: options.guildId,
                     welcomeChannelId: options.welcomeChannelId,
+                    welcomeTitle: options.welcomeTitle,
+                    welcomeReactionPrompt: options.welcomeReactionPrompt,
+                    welcomeReactionInstructions: options.welcomeReactionInstructions,
                     roles: options.welcomeRoles
                 })
             );

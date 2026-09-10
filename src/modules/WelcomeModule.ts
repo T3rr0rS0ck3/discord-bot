@@ -19,7 +19,11 @@ export class WelcomeModule implements IBotModule {
                 name: r.name,
                 emoji: r.emoji,
                 description: r.description
-            }))
+            })), {
+                title: options.welcomeTitle,
+                reactionPrompt: options.welcomeReactionPrompt,
+                reactionInstructions: options.welcomeReactionInstructions
+            }
         );
     }
 
@@ -40,18 +44,28 @@ export class WelcomeModule implements IBotModule {
     }
 
     public async applyRuntimeConfig(
-        config: { welcomeChannelId?: string; welcomeRoles?: WelcomeRoleOption[] },
+        config: {
+            welcomeChannelId?: string;
+            welcomeTitle?: string;
+            welcomeReactionPrompt?: string;
+            welcomeReactionInstructions?: string;
+            welcomeRoles?: WelcomeRoleOption[];
+        },
         client?: Client
     ): Promise<void> {
         this.welcomeChannelId = config.welcomeChannelId;
 
-        if (config.welcomeRoles) {
+        if (config.welcomeRoles || config.welcomeTitle || config.welcomeReactionPrompt || config.welcomeReactionInstructions) {
             this.assignmentService = new WelcomeRoleAssignmentService(
-                config.welcomeRoles.map((role) => ({
+                (config.welcomeRoles ?? this.assignmentService.getRoleConfigs()).map((role) => ({
                     name: role.name,
                     emoji: role.emoji,
                     description: role.description
-                }))
+                })), {
+                    title: config.welcomeTitle,
+                    reactionPrompt: config.welcomeReactionPrompt,
+                    reactionInstructions: config.welcomeReactionInstructions
+                }
             );
         }
 
@@ -90,7 +104,7 @@ export class WelcomeModule implements IBotModule {
             // Fetch the last 100 messages to detect an existing welcome message.
             const messages = await textChannel.messages.fetch({ limit: 100 });
             const existingWelcome = messages.find(
-                (m) => m.author.id === client.user?.id && m.content.includes("Welcome")
+                (m) => m.author.id === client.user?.id && (m.pinned || m.content.includes("Welcome"))
             );
 
             const message = existingWelcome ?? await textChannel.send({

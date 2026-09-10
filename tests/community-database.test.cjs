@@ -51,6 +51,24 @@ test('module switches survive SQLite reload with backwards compatible defaults',
     } finally { await store.db?.close(); }
 });
 
+test('custom welcome copy survives SQLite reload', async () => {
+    const store = new AdminConfigStore(':memory:');
+    try {
+        const loaded = await store.load({ welcomeRoles: [] });
+        await store.save({
+            ...loaded,
+            welcomeTitle: 'Choose your roles',
+            welcomeReactionPrompt: 'Pick one or more communities:',
+            welcomeReactionInstructions: 'React to join. Remove your reaction to leave.'
+        });
+        const reloaded = await store.load({ welcomeRoles: [] });
+        assert.equal(reloaded.welcomeTitle, 'Choose your roles');
+        assert.equal(reloaded.welcomeReactionPrompt, 'Pick one or more communities:');
+        assert.equal(reloaded.welcomeReactionInstructions, 'React to join. Remove your reaction to leave.');
+        assert.equal(JSON.parse((await store.db.get("SELECT value FROM settings WHERE key = 'welcomeTitle'")).value), 'Choose your roles');
+    } finally { await store.db?.close(); }
+});
+
 test('name voting selects four suggestions, keeps one vote per user and removes all candidates', async () => {
     const store = new AdminConfigStore(':memory:');
     try {

@@ -18,6 +18,9 @@ export interface IBotModule {
             communityVotingDurationDays?: number;
 
             welcomeChannelId?: string;
+            welcomeTitle?: string;
+            welcomeReactionPrompt?: string;
+            welcomeReactionInstructions?: string;
             welcomeRoles?: WelcomeRoleOption[];
             twitchBroadcasterName?: string;
             twitchClientId?: string;

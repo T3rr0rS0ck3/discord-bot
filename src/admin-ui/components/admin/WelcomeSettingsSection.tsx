@@ -218,6 +218,26 @@ export function WelcomeSettingsSection(props: WelcomeSettingsSectionProps): Reac
                 </button>
             </div>
 
+            <div className="grid2 welcome-copy-fields">
+                <div>
+                    <label htmlFor="welcomeTitle">Welcome Title <span className="required-mark">*</span></label>
+                    <input id="welcomeTitle" maxLength={100} required disabled={props.busy}
+                        value={props.config.welcomeTitle ?? ""}
+                        onChange={(event) => props.onUpdateConfig("welcomeTitle", event.target.value)} />
+                </div>
+                <div>
+                    <label htmlFor="welcomeReactionPrompt">Reaction Message <span className="required-mark">*</span></label>
+                    <textarea id="welcomeReactionPrompt" maxLength={1000} required disabled={props.busy}
+                        value={props.config.welcomeReactionPrompt ?? ""}
+                        onChange={(event) => props.onUpdateConfig("welcomeReactionPrompt", event.target.value)} />
+                </div>
+            </div>
+
+            <label htmlFor="welcomeReactionInstructions">Reaction Instructions <span className="required-mark">*</span></label>
+            <textarea id="welcomeReactionInstructions" maxLength={1000} required disabled={props.busy}
+                value={props.config.welcomeReactionInstructions ?? ""}
+                onChange={(event) => props.onUpdateConfig("welcomeReactionInstructions", event.target.value)} />
+
             <div
                 style={{
                     display: "flex",
@@ -291,6 +311,23 @@ export function WelcomeSettingsSection(props: WelcomeSettingsSectionProps): Reac
                         </div>
                     );
                 })}
+            </div>
+
+            <div className="welcome-preview" aria-label="Welcome message preview">
+                <div className="welcome-preview-label">Preview</div>
+                <h3>{props.config.welcomeTitle || "Welcome title"}</h3>
+                <p>{props.config.welcomeReactionPrompt || "Reaction message"}</p>
+                <div className="welcome-preview-roles">
+                    {props.config.welcomeRoles.map((role, index) => (
+                        <div key={`preview-role-${index}`}>
+                            <span>{role.emoji || "?"}</span> <strong>{role.name || "Role name"}</strong>
+                            {` - ${role.description || "Role description"}`}
+                        </div>
+                    ))}
+                </div>
+                <p className="welcome-preview-instructions">
+                    {props.config.welcomeReactionInstructions || "Reaction instructions"}
+                </p>
             </div>
         </>
     );

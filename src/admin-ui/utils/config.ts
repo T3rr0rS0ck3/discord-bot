@@ -56,6 +56,9 @@ export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
         spotifyClientSecret: input.spotifyClientSecret ? String(input.spotifyClientSecret) : "",
         spotifyRedirectUri: input.spotifyRedirectUri ? String(input.spotifyRedirectUri) : "",
         welcomeChannelId: input.welcomeChannelId ? String(input.welcomeChannelId) : "",
+        welcomeTitle: String(input.welcomeTitle ?? "👋 Welcome!"),
+        welcomeReactionPrompt: String(input.welcomeReactionPrompt ?? "React with an emoji below to get the matching role:"),
+        welcomeReactionInstructions: String(input.welcomeReactionInstructions ?? "Click a reaction to get the role. Click it again to remove the role."),
         welcomeRoles: Array.isArray(input.welcomeRoles)
             ? input.welcomeRoles.map((role) => ({
                   emoji: String(role?.emoji ?? ""),

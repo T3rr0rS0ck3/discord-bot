@@ -34,6 +34,9 @@ export type AdminConfig = {
     spotifyClientSecret?: string;
     spotifyRedirectUri?: string;
     welcomeChannelId?: string;
+    welcomeTitle?: string;
+    welcomeReactionPrompt?: string;
+    welcomeReactionInstructions?: string;
     welcomeRoles: RoleConfig[];
     twitchBroadcasterName?: string;
     twitchClientId?: string;
@@ -59,7 +62,7 @@ export type StatusState = {
 export type ToastState = {
     id: number;
     text: string;
-    tone: "system" | "error";
+    tone: "system" | "error" | "restart";
 };
 
 export type DiscordRuntimeStatus = {
