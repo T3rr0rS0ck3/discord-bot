@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import type { AdminConfig, ChannelOption, DatabaseStatus, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState } from "../types";
 import { ActionBar } from "./admin/ActionBar";
 import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
+import { CommunityVotingSettingsSection } from "./admin/CommunityVotingSettingsSection";
 import { CoreSettingsSection } from "./admin/CoreSettingsSection";
 import { MusicSettingsSection } from "./admin/MusicSettingsSection";
 import { TwitchSettingsSection } from "./admin/TwitchSettingsSection";
@@ -189,6 +190,16 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                             busy={props.busy}
                                             onUpdateConfig={props.onUpdateConfig}
                                         />
+                                    </CollapsibleRegion>
+
+                                    <CollapsibleRegion
+                                        title="Kanalnamen-Abstimmung"
+                                        defaultOpen={true}
+                                        enabled={props.config.communityVotingEnabled === true}
+                                        enabledLabel="Abstimmung"
+                                        onToggle={enabled => props.onUpdateConfig("communityVotingEnabled", enabled)}
+                                    >
+                                        <CommunityVotingSettingsSection config={props.config} busy={props.busy} onUpdateConfig={props.onUpdateConfig} />
                                     </CollapsibleRegion>
 
                                     <CollapsibleRegion

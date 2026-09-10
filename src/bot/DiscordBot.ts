@@ -123,6 +123,20 @@ export class DiscordBot {
         });
 
         this.client.on("interactionCreate", async (interaction) => {
+            if (interaction.isModalSubmit()) {
+                try {
+                    for (const module of this.modules) {
+                        if (await module.handleModalSubmitInteraction?.(interaction.customId, interaction)) return;
+                    }
+                    await interaction.reply({ content: "Dieses Formular ist derzeit nicht aktiv.", ephemeral: true });
+                } catch (error) {
+                    console.error("Modal submit handling error:", error);
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({ content: "Das Formular konnte nicht verarbeitet werden.", ephemeral: true });
+                    }
+                }
+                return;
+            }
             if (interaction.isRoleSelectMenu()) {
                 try {
                     for (const module of this.modules) {

@@ -197,6 +197,19 @@ Ausgeschaltete Module registrieren keine Befehle und starten keine Verarbeitung.
 - Die IDs der vom Bot erzeugten Kanäle werden in der Tabelle `community_state` in `data/bot-config.sqlite` gespeichert. Beim ersten Start nach dem Update wird ein vorhandener `data/community-<guild-id>.json`-Status automatisch einmalig in SQLite übernommen. Die SQLite-Datei zusammen mit den übrigen Laufzeitdaten behalten. Nach einem Neustart beginnt für noch vorhandene leere Kanäle der Timeout erneut. Andere Kanäle werden nicht gelöscht.
 - Funktionstests ohne Discord-Verbindung: `node tests/community.test.cjs`.
 
+### Kanalnamen-Abstimmung
+
+Das eigenständige Modul **Kanalnamen-Abstimmung** kann unabhängig von den temporären Community-Sprachkanälen in der Admin-UI aktiviert werden. Dort lassen sich der Name des Discord-Textkanals und die Abstimmungsdauer von 1 bis 30 Tagen konfigurieren.
+
+- Der Bot erstellt im konfigurierten Textkanal eine dauerhaft aktualisierte Abstimmungsnachricht.
+- Über **Namen vorschlagen** öffnet sich direkt in Discord ein Formular. Ein Slash-Command ist nicht erforderlich.
+- Vorschläge werden in `community_name_suggestions` gespeichert. Bereits vorhandene echte Kanalnamen und doppelte Vorschläge werden abgewiesen.
+- Sobald mindestens vier Vorschläge verfügbar sind, wählt SQLite zufällig genau vier Kandidaten für die nächste Abstimmung aus.
+- Jeder Nutzer hat eine aktive Stimme und kann sie durch Klick auf einen anderen Kandidaten ändern.
+- Nach Ablauf werden alle vier ausgewählten Kandidaten aus dem Vorschlagspool entfernt. Nicht ausgewählte Vorschläge bleiben für spätere Runden erhalten.
+- Der Kandidat mit den meisten Stimmen wird in die bestehende Tabelle `community_channel_names` übernommen. Bei Gleichstand gewinnt der früher eingereichte Kandidat.
+- Runden, Kandidaten, Stimmen und Discord-Nachrichtenreferenzen werden vollständig in SQLite gespeichert und über versionierte Migrationen angelegt.
+
 - `GUILD_ID` sorgt dafür, dass `/ping` sofort auf deinem Server verfügbar ist.
 - Ohne `GUILD_ID` wird der Command global registriert (kann bis zu 1h dauern).
 - Für `/join` braucht der Bot Voice-Rechte auf dem Channel (`Connect`, optional `Speak`).

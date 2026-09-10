@@ -293,8 +293,11 @@ export class AdminWebServer {
             welcomeEnabled: input.welcomeEnabled === true,
             twitchEnabled: input.twitchEnabled === true,
             communityEnabled: input.communityEnabled === true,
+            communityVotingEnabled: input.communityVotingEnabled === true,
             communityMaxChannels: Math.floor(this.normalizeNumber(input.communityMaxChannels, 1, 50) ?? 50),
             communityCategoryName: String(input.communityCategoryName ?? "Community").trim().slice(0, 100) || "Community",
+            communityVotingChannelName: String(input.communityVotingChannelName ?? "kanalnamen-abstimmung").trim().slice(0, 100) || "kanalnamen-abstimmung",
+            communityVotingDurationDays: Math.floor(this.normalizeNumber(input.communityVotingDurationDays, 1, 30) ?? 7),
             communityEmptyTimeoutSeconds: Math.floor(this.normalizeNumber(input.communityEmptyTimeoutSeconds, 1, 86400) ?? 60),
             discordToken: String(input.discordToken ?? "").trim(),
             guildId: this.normalizeString(input.guildId),
@@ -353,6 +356,11 @@ export class AdminWebServer {
             required(input.communityCategoryName, "Community Category Name");
             integerInRange(input.communityMaxChannels, 1, 50, "Community Channel Limit");
             integerInRange(input.communityEmptyTimeoutSeconds, 1, 86400, "Community Empty Timeout");
+        }
+
+        if (input.communityVotingEnabled === true) {
+            required(input.communityVotingChannelName, "Community Voting Channel Name");
+            integerInRange(input.communityVotingDurationDays, 1, 30, "Community Voting Duration");
         }
 
         if (input.welcomeEnabled === true) {
@@ -584,6 +592,7 @@ export class AdminWebServer {
         { key: "welcomeEnabled", label: "Modul Welcome" },
         { key: "twitchEnabled", label: "Modul Twitch" },
         { key: "communityEnabled", label: "Modul Community" },
+        { key: "communityVotingEnabled", label: "Modul Kanalnamen-Abstimmung" },
         { key: "discordToken", label: "Discord Token" },
         { key: "guildId", label: "Guild ID" },
                 { key: "musicRoleName", label: "Music Role" },

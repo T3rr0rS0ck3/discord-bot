@@ -25,11 +25,11 @@ test('fresh SQLite deployment seeds all names once and preserves later changes',
         assert.equal(updated.length, 10000);
         assert.ok(updated.includes('mein-eigener-kanal'));
         assert.ok(!updated.includes(names[0]));
-        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 2);
+        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 4);
         assert.deepEqual(await store.getDatabaseStatus(), {
-            schemaVersion: 2,
-            latestMigration: 'community-state-v1',
-            appliedMigrations: ['community-names-v1', 'community-state-v1']
+            schemaVersion: 4,
+            latestMigration: 'community-name-voting-candidates-v1',
+            appliedMigrations: ['community-name-voting-candidates-v1', 'community-name-voting-v1', 'community-names-v1', 'community-state-v1']
         });
     } finally { await store.db?.close(); }
 });
@@ -39,7 +39,7 @@ test('module switches survive SQLite reload with backwards compatible defaults',
     try {
         const defaults = { welcomeRoles: [] };
         const loaded = await store.load(defaults);
-        const keys = ['systemEnabled', 'musicEnabled', 'welcomeEnabled', 'twitchEnabled', 'communityEnabled'];
+        const keys = ['systemEnabled', 'musicEnabled', 'welcomeEnabled', 'twitchEnabled', 'communityEnabled', 'communityVotingEnabled'];
         for (const key of keys) assert.equal(loaded[key], false);
         await store.save({ ...loaded, ...Object.fromEntries(keys.map(key => [key, false])) });
         const disabled = await store.load(defaults);
@@ -48,6 +48,32 @@ test('module switches survive SQLite reload with backwards compatible defaults',
         const enabled = await store.load(defaults);
         assert.equal(enabled.musicEnabled, true);
         assert.equal(enabled.communityEnabled, false);
+    } finally { await store.db?.close(); }
+});
+
+test('name voting selects four suggestions, keeps one vote per user and removes all candidates', async () => {
+    const store = new AdminConfigStore(':memory:');
+    try {
+        await store.initialize({ welcomeRoles: [] });
+        for (const name of ['alpha', 'beta', 'gamma', 'delta', 'epsilon']) {
+            await store.addCommunityNameSuggestion('123', name, `user-${name}`, 100);
+        }
+
+        const round = await store.startCommunityNameVotingRound('123', 60_000, 1_000);
+        assert.equal(round.candidates.length, 4);
+        assert.equal(await store.getCommunityNameSuggestionCount('123'), 5);
+
+        await store.voteForCommunityName('123', round.candidates[0].id, 'voter', 2_000);
+        await store.voteForCommunityName('123', round.candidates[1].id, 'voter', 3_000);
+        const votedRound = await store.getCommunityNameVotingRound('123');
+        assert.equal(votedRound.candidates.reduce((sum, candidate) => sum + candidate.votes, 0), 1);
+        assert.equal(votedRound.candidates[1].votes, 1);
+
+        const winner = await store.finishCommunityNameVotingRound('123', 62_000);
+        assert.equal(winner, votedRound.candidates[1].name);
+        assert.equal(await store.getCommunityNameSuggestionCount('123'), 1);
+        assert.ok((await store.getCommunityChannelNames()).includes(winner));
+        assert.equal(await store.getCommunityNameVotingRound('123'), undefined);
     } finally { await store.db?.close(); }
 });
 

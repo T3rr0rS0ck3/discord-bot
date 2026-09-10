@@ -10,7 +10,10 @@ export type AdminConfig = {
     welcomeEnabled?: boolean;
     twitchEnabled?: boolean;
     communityEnabled?: boolean;
+    communityVotingEnabled?: boolean;
     communityCategoryName?: string;
+    communityVotingChannelName?: string;
+    communityVotingDurationDays?: number;
     communityEmptyTimeoutSeconds?: number;
     communityMaxChannels?: number;
 
@@ -86,6 +89,7 @@ export type RestartRelevantState = {
     welcomeEnabled: boolean;
     twitchEnabled: boolean;
     communityEnabled: boolean;
+    communityVotingEnabled: boolean;
     discordToken: string;
     guildId: string;
     musicRoleName: string;

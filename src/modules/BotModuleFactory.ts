@@ -6,11 +6,13 @@ import { TwitchRoleModule } from "./TwitchRoleModule";
 import { WelcomeModule } from "./WelcomeModule";
 
 import { CommunityModule } from "./CommunityModule";
+import { CommunityNameVotingModule } from "./CommunityNameVotingModule";
 
 export class BotModuleFactory {
     public static create(options: BotModuleFactoryOptions): IBotModule[] {
         const modules: IBotModule[] = [
             ...(options.communityEnabled === true ? [new CommunityModule(options)] : []),
+            ...(options.communityVotingEnabled === true ? [new CommunityNameVotingModule(options)] : []),
             ...(options.systemEnabled === true ? [new SystemModule()] : []),
             ...(options.musicEnabled === true ? [new MusicBotModule(options)] : [])
         ];

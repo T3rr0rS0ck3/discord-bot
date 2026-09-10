@@ -39,6 +39,64 @@ const migrations: Migration[] = [
                 );
             `);
         }
+    },
+    {
+        version: 3,
+        id: "community-name-voting-v1",
+        apply: async (db) => {
+            await db.exec(`
+                CREATE TABLE IF NOT EXISTS community_name_voting_rounds (
+                    guild_id TEXT PRIMARY KEY,
+                    channel_id TEXT,
+                    message_id TEXT,
+                    starts_at INTEGER NOT NULL,
+                    ends_at INTEGER NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS community_name_suggestions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guild_id TEXT NOT NULL,
+                    name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 100),
+                    suggested_by TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    UNIQUE(guild_id, name COLLATE NOCASE)
+                );
+                CREATE TABLE IF NOT EXISTS community_name_votes (
+                    guild_id TEXT NOT NULL,
+                    suggestion_id INTEGER NOT NULL,
+                    user_id TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    PRIMARY KEY(guild_id, suggestion_id, user_id),
+                    FOREIGN KEY(suggestion_id) REFERENCES community_name_suggestions(id) ON DELETE CASCADE
+                );
+            `);
+        }
+    },
+    {
+        version: 4,
+        id: "community-name-voting-candidates-v1",
+        apply: async (db) => {
+            await db.exec(`
+                CREATE TABLE IF NOT EXISTS community_name_voting_candidates (
+                    guild_id TEXT NOT NULL,
+                    suggestion_id INTEGER NOT NULL,
+                    position INTEGER NOT NULL CHECK(position BETWEEN 1 AND 4),
+                    PRIMARY KEY(guild_id, suggestion_id),
+                    UNIQUE(guild_id, position),
+                    FOREIGN KEY(suggestion_id) REFERENCES community_name_suggestions(id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS community_name_voting_messages (
+                    guild_id TEXT PRIMARY KEY,
+                    channel_id TEXT NOT NULL,
+                    message_id TEXT NOT NULL
+                );
+                DELETE FROM community_name_votes
+                WHERE rowid NOT IN (
+                    SELECT MAX(rowid) FROM community_name_votes GROUP BY guild_id, user_id
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS community_name_votes_one_per_user
+                    ON community_name_votes(guild_id, user_id);
+            `);
+        }
     }
 ];
 

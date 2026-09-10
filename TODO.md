@@ -37,7 +37,7 @@
 - [ ] Bestimmte Rollen oder Benutzer von Community-Kanaelen ausschliessen koennen
 - [ ] Community-Kanalnamen aus der UI exportieren koennen
 - [ ] Community-Kanalnamen aus der UI importieren koennen
-- [ ] Kanalnamen vorschläge inkl. Abstimmung für einennamne pro woche der zur lsite hinzugefügt wird
+- [x] Kanalnamenvorschlaege mit konfigurierbarer Abstimmungsdauer und zufaelliger Viererauswahl
 
 ## Welcome und Twitch
 

@@ -18,6 +18,7 @@ const create = options => Array.from(exportsObject.BotModuleFactory.create(optio
         systemEnabled: true,
         musicEnabled: true,
         communityEnabled: true,
+        communityVotingEnabled: true,
         welcomeEnabled: true,
         twitchEnabled: true,
         welcomeChannelId: '123',
@@ -25,9 +26,9 @@ const create = options => Array.from(exportsObject.BotModuleFactory.create(optio
         twitchRole: { followerRoleName: 'Follower' }
     };
 test('all module switches gate construction individually and together', () => {
-    const keys = ['systemEnabled', 'musicEnabled', 'welcomeEnabled', 'twitchEnabled', 'communityEnabled'];
-    assert.equal(create(configured).length, 5);
+    const keys = ['systemEnabled', 'musicEnabled', 'welcomeEnabled', 'twitchEnabled', 'communityEnabled', 'communityVotingEnabled'];
+    assert.equal(create(configured).length, 6);
     assert.equal(create({ ...configured, ...Object.fromEntries(keys.map(key => [key, false])) }).length, 0);
-    for (const key of keys) assert.equal(create({ ...configured, [key]: false }).length, 4);
+    for (const key of keys) assert.equal(create({ ...configured, [key]: false }).length, 5);
     assert.equal(create({}).length, 0); // Modules are opt-in by default.
 });

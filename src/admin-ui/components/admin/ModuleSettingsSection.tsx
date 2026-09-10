@@ -6,7 +6,8 @@ const modules = [
     ["musicEnabled", "Musik", "Wiedergabe, Player und TheAudioDB-Metadaten"],
     ["welcomeEnabled", "Welcome", "Willkommensnachricht und Role-Select-Rollenauswahl"],
     ["twitchEnabled", "Twitch", "Follower- und Abonnentenrollen synchronisieren"],
-    ["communityEnabled", "Community", "Temporäre Sprachkanäle erstellen und aufräumen"]
+    ["communityEnabled", "Community", "Temporäre Sprachkanäle erstellen und aufräumen"],
+    ["communityVotingEnabled", "Kanalnamen-Abstimmung", "Wöchentliche Vorschläge und Abstimmung in einem eigenen Discord-Kanal"]
 ] as const;
 
 export function ModuleSettingsSection(props: {
