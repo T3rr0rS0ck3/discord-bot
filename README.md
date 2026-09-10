@@ -184,8 +184,16 @@ In der Action Bar der Admin-Oberfläche stehen **Backup** und **Restore** zur Ve
 - **Restore** öffnet eine lokale JSON-Datei, verlangt eine Bestätigung und validiert sie vor dem Speichern mit denselben Regeln wie die normale Konfigurationsseite.
 - Ein unbekanntes oder nicht unterstütztes Backupformat wird abgewiesen.
 - Nach dem Restore zeigt die Oberfläche an, ob für einzelne Änderungen ein Bot-Neustart erforderlich ist.
-- Das Backup enthält auch Discord-, Twitch- und Admin-Zugangsdaten. Die Datei muss deshalb wie ein Passwort behandelt und sicher aufbewahrt werden.
+- Das Backup enthält Discord- und Twitch-Zugangsdaten, aber keinen Admin-Passwortwert oder Passwort-Hash. Die Datei muss trotzdem sicher aufbewahrt werden.
 - Laufzeitdaten wie aktuelle Community-Kanäle, Namensvorschläge, Abstimmungen und Stimmen sind nicht Teil des Konfigurations-Backups und verbleiben in SQLite.
+
+### Admin-Login-Sicherheit
+
+- Das Admin-Passwort wird mit `scrypt`, einem zufälligen Salt und zeitkonstantem Hashvergleich gespeichert und geprüft.
+- Vorhandene Klartextpasswörter aus älteren SQLite-Installationen werden beim ersten Start automatisch gehasht; der alte Klartexteintrag wird anschließend gelöscht.
+- Die Konfigurations-API und Backups liefern weder das Passwort noch den Hash aus. Ein leeres Passwortfeld in den Core Settings behält das aktuelle Passwort bei.
+- In den Core Settings sind die maximalen Fehlversuche von 1 bis 20 sowie die Sperrdauer von 1 bis 1440 Minuten konfigurierbar. Standard sind 5 Versuche und 15 Minuten.
+- Die Begrenzung gilt pro Client-IP. Während einer aktiven Sperre antwortet der Login-Endpunkt mit HTTP `429` und einem `Retry-After`-Header.
 
 ## Hinweis
 

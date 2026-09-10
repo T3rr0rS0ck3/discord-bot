@@ -12,8 +12,8 @@
 
 ## Prioritaet 2: Sicherheit und Konfiguration
 
-- [ ] Admin-Passwoerter gehasht statt im Klartext in SQLite speichern
-- [ ] Login-Versuche begrenzen und bei zu vielen Fehlversuchen temporaer sperren
+- [x] Admin-Passwoerter gehasht statt im Klartext in SQLite speichern
+- [x] Login-Versuche begrenzen und bei zu vielen Fehlversuchen temporaer sperren
 - [ ] Alle Sessions nach einer Admin-Passwortaenderung beenden
 - [x] Konfigurations-Backup aus der Admin-UI herunterladen koennen
 - [x] Konfigurations-Backup aus der Admin-UI wiederherstellen koennen
