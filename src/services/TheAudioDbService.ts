@@ -1,4 +1,5 @@
 import type { AudioDbTrack, AudioDbTrackMetadata, AudioDbTrackResponse } from "../types/AudioDb";
+import { ExternalHttpError, ExternalRequestExecutor } from "./ExternalRequestExecutor";
 
 type TheAudioDbServiceOptions = {
     apiKey?: string;
@@ -22,8 +23,28 @@ export class TheAudioDbService {
             const request = this.apiVersion === "v2"
                 ? this.createV2SearchRequest(`${artist} ${title}`)
                 : this.createV1SearchRequest(artist, title);
-            const response = await fetch(request.url, { headers: request.headers });
-            if (!response.ok) continue;
+            let response: Response;
+            try {
+                response = await ExternalRequestExecutor.execute(async (signal) => {
+                    const result = await fetch(request.url, { headers: request.headers, signal });
+                    if (!result.ok) {
+                        throw new ExternalHttpError(
+                            result.status,
+                            ExternalRequestExecutor.parseRetryAfter(result.headers.get("retry-after"))
+                        );
+                    }
+                    return result;
+                }, {
+                    serviceName: "TheAudioDB",
+                    timeoutMs: 8_000,
+                    maxAttempts: 3,
+                    baseDelayMs: 500,
+                    logger: (message) => console.warn(message)
+                });
+            } catch (error) {
+                console.warn(`[TheAudioDB] Search request failed: ${error instanceof Error ? error.message : String(error)}`);
+                continue;
+            }
 
             const body = await response.json() as AudioDbTrackResponse;
             const track = (this.apiVersion === "v2" ? body.search?.[0] : body.track?.[0]);

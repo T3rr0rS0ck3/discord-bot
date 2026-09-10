@@ -1,6 +1,7 @@
 import * as play from "play-dl";
 import type { AudioDbTrackMetadata } from "../types/AudioDb";
 import type { YouTubeCandidate, YouTubeSearchConfig, YouTubeResolvedResult, YouTubeScoreEntry, ParsedArtistTitle } from "../types/YouTube";
+import { ExternalRequestExecutor } from "./ExternalRequestExecutor";
 
 export class YouTubeTrackSearchService {
     private readonly searchLimit: number;
@@ -92,7 +93,10 @@ export class YouTubeTrackSearchService {
 
         for (const candidate of rankedForDebug.map((entry) => entry.candidate)) {
             try {
-                await play.video_basic_info(candidate.url);
+                await ExternalRequestExecutor.execute(
+                    () => play.video_basic_info(candidate.url),
+                    this.createRequestOptions("YouTube validation", 8_000, 2)
+                );
                 this.log(`Selected YouTube result: ${candidate.url} | title="${candidate.title}"`);
                 return {
                     url: candidate.url,
@@ -198,12 +202,15 @@ export class YouTubeTrackSearchService {
     }
 
     private async fetchYouTubeCandidates(searchQuery: string): Promise<YouTubeCandidate[]> {
-        const results = await play.search(searchQuery, {
-            source: {
-                youtube: "video"
-            },
-            limit: this.searchLimit
-        });
+        const results = await ExternalRequestExecutor.execute(
+            () => play.search(searchQuery, {
+                source: {
+                    youtube: "video"
+                },
+                limit: this.searchLimit
+            }),
+            this.createRequestOptions("YouTube search", 10_000, 3)
+        );
 
         this.log(`[${searchQuery}] Rohresultate: ${results.length}`);
 
@@ -253,6 +260,16 @@ export class YouTubeTrackSearchService {
 
         this.log(`[${searchQuery}] Filterstatistik: noUrl=${skippedNoUrl}, live=${skippedLive}, private=${skippedPrivate}, upcoming=${skippedUpcoming}, invalid=${skippedNormalize}, verbleibend=${candidates.length}`);
         return candidates;
+    }
+
+    private createRequestOptions(serviceName: string, timeoutMs: number, maxAttempts: number) {
+        return {
+            serviceName,
+            timeoutMs,
+            maxAttempts,
+            baseDelayMs: 750,
+            logger: (message: string) => this.log(message)
+        };
     }
 
     private stripSearchNoise(query: string): string {

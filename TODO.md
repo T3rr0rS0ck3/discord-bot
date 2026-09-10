@@ -7,7 +7,7 @@
 - [x] Statusanzeige in der Admin-UI einfuehren: online, Token ungueltig, Guild nicht erreichbar
 - [x] Graceful Shutdown bei Container- und Home-Assistant-Neustarts pruefen
 - [x] Automatische Datenbankmigrationen mit Versionsanzeige ergaenzen
-- [ ] Rate-Limit- und Timeout-Behandlung fuer TheAudioDB und YouTube verbessern
+- [x] Rate-Limit- und Timeout-Behandlung fuer TheAudioDB und YouTube verbessern
 - [ ] Multi Server support. Unterstüztung für mehrere verschieden DiscordServer mit nur einem bot
 
 ## Prioritaet 2: Sicherheit und Konfiguration
