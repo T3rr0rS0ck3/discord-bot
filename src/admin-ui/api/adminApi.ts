@@ -6,6 +6,7 @@ import type {
     LoginResponse,
     RestoreBackupResponse,
     SaveResponse,
+    CommunityRuntimeStatus,
     DiscordRuntimeStatus,
     DatabaseStatus,
     TwitchRoleSyncResult,
@@ -72,6 +73,12 @@ export const adminApi = {
     },
     loadDatabaseStatus(): Promise<DatabaseStatus> {
         return request<DatabaseStatus>("/api/database-status");
+    },
+    loadCommunityStatus(): Promise<CommunityRuntimeStatus> {
+        return request<CommunityRuntimeStatus>("/api/community/status");
+    },
+    cleanupCommunityChannels(): Promise<{ ok: boolean; deleted: number; skippedOccupied: number }> {
+        return request<{ ok: boolean; deleted: number; skippedOccupied: number }>("/api/community/cleanup", "POST", {});
     },
     loadTwitchSyncStatus(): Promise<TwitchRoleSyncStatus> {
         return request<TwitchRoleSyncStatus>("/api/twitch/sync-status");

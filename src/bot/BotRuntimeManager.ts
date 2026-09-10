@@ -1,10 +1,11 @@
-import type { Client } from "discord.js";
+import { ChannelType, type Client } from "discord.js";
 import type { AdminConfig } from "../admin/AdminConfigStore";
 import { AdminConfigStore } from "../admin/AdminConfigStore";
 import { BotModuleFactory } from "../modules/BotModuleFactory";
+import { CommunityModule } from "../modules/CommunityModule";
 import { TwitchRoleModule } from "../modules/TwitchRoleModule";
 import type { IBotModule } from "../modules/interfaces/IBotModule";
-import type { DiscordRuntimeStatus } from "../types/Discord";
+import type { CommunityRuntimeStatus, DiscordRuntimeStatus } from "../types/Discord";
 import { RuntimeStatusStore } from "../services/RuntimeStatusStore";
 import { DiscordBot } from "./DiscordBot";
 
@@ -31,6 +32,70 @@ export class BotRuntimeManager {
 
     public getStatus(): DiscordRuntimeStatus {
         return this.bot?.getStatus() ?? this.statusStore.get();
+    }
+
+    public async getCommunityStatus(): Promise<CommunityRuntimeStatus> {
+        const guildId = this.config.guildId;
+        if (!guildId) {
+            return { configured: false, connected: false, voiceChannels: [] };
+        }
+
+        const state = await this.configStore.getCommunityState(guildId);
+        const client = this.getReadyClient();
+        if (!client) {
+            return {
+                configured: Boolean(state),
+                connected: false,
+                guildId,
+                category: state?.categoryId ? { id: state.categoryId, exists: false } : undefined,
+                voiceChannels: []
+            };
+        }
+
+        const guild = client.guilds.cache.get(guildId) ?? await client.guilds.fetch(guildId).catch(() => null);
+        if (!guild) {
+            return { configured: Boolean(state), connected: false, guildId, voiceChannels: [] };
+        }
+        await guild.channels.fetch();
+
+        const category = state?.categoryId ? guild.channels.cache.get(state.categoryId) : undefined;
+        const voiceChannels = category
+            ? this.collectCommunityVoiceChannels(guild, category.id, state?.entryId)
+            : [];
+
+        return {
+            configured: Boolean(state),
+            connected: true,
+            guildId,
+            category: state?.categoryId ? { id: state.categoryId, name: category?.name, exists: Boolean(category) } : undefined,
+            voiceChannels
+        };
+    }
+
+    private collectCommunityVoiceChannels(
+        guild: import("discord.js").Guild,
+        categoryId: string,
+        entryChannelId?: string
+    ): CommunityRuntimeStatus["voiceChannels"] {
+        const result: CommunityRuntimeStatus["voiceChannels"] = [];
+        const channels = Array.from(guild.channels.cache.values());
+        for (const channel of channels) {
+            const isSupportedVoiceChannel = channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice;
+            if (!isSupportedVoiceChannel || channel.parentId !== categoryId) continue;
+            result.push({
+                id: channel.id,
+                name: channel.name,
+                memberCount: channel.members.size,
+                isEntryChannel: channel.id === entryChannelId
+            });
+        }
+        return result.sort((left, right) => left.name.localeCompare(right.name, "de"));
+    }
+
+    public async cleanupCommunityChannels(): Promise<{ deleted: number; skippedOccupied: number }> {
+        const module = this.modules.find((item): item is CommunityModule => item instanceof CommunityModule);
+        if (!module) throw new Error("Das Community-Modul ist nicht aktiv.");
+        return module.cleanupOrphanedChannels();
     }
 
     public async saveConfig(config: AdminConfig): Promise<void> {

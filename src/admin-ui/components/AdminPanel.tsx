@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import type { AdminConfig, ChannelOption, DatabaseStatus, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState, TwitchRoleSyncStatus } from "../types";
+import type { AdminConfig, ChannelOption, CommunityRuntimeStatus, DatabaseStatus, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState, TwitchRoleSyncStatus } from "../types";
 import { ActionBar } from "./admin/ActionBar";
 import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
 import { CommunityVotingSettingsSection } from "./admin/CommunityVotingSettingsSection";
@@ -59,6 +59,7 @@ type AdminPanelProps = {
     logs: LogEntry[];
     discordStatus: DiscordRuntimeStatus;
     databaseStatus: DatabaseStatus;
+    communityStatus: CommunityRuntimeStatus;
     twitchSyncStatus: TwitchRoleSyncStatus;
     saveDisabled: boolean;
     restartDisabled: boolean;
@@ -71,6 +72,7 @@ type AdminPanelProps = {
     onSave: () => void;
     onRestart: () => void;
     onSaveAndRestart: () => void;
+    onCleanupCommunityChannels: () => void;
     onSyncTwitchRoles: () => void;
     onDownloadBackup: () => void;
     onRestoreBackup: (file: File) => void;
@@ -211,7 +213,13 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                         enabledLabel="Community"
                                         onToggle={enabled => props.onUpdateConfig("communityEnabled", enabled)}
                                     >
-                                        <CommunitySettingsSection config={props.config} busy={props.busy} onUpdateConfig={props.onUpdateConfig} />
+                                        <CommunitySettingsSection
+                                            config={props.config}
+                                            busy={props.busy}
+                                            status={props.communityStatus}
+                                            onUpdateConfig={props.onUpdateConfig}
+                                            onCleanup={props.onCleanupCommunityChannels}
+                                        />
                                     </CollapsibleRegion>
 
                                     <CollapsibleRegion

@@ -1,10 +1,12 @@
 import React from "react";
-import type { AdminConfig } from "../../types";
+import type { AdminConfig, CommunityRuntimeStatus } from "../../types";
 
 export function CommunitySettingsSection(props: {
     config: AdminConfig;
     busy: boolean;
+    status: CommunityRuntimeStatus;
     onUpdateConfig: <K extends keyof AdminConfig>(key: K, value: AdminConfig[K]) => void;
+    onCleanup: () => void;
 }): React.JSX.Element {
     return <>
         <label htmlFor="communityCategoryName">Kategoriename <span className="required-mark">*</span></label>
@@ -21,5 +23,31 @@ export function CommunitySettingsSection(props: {
             required disabled={props.busy} value={props.config.communityEmptyTimeoutSeconds ?? 60}
             onChange={e => props.onUpdateConfig("communityEmptyTimeoutSeconds", Number(e.target.value))} />
         <p>Dem Kanal „➕ Sprachkanal erstellen“ beitreten, um einen eigenen Sprachkanal zu erhalten.</p>
+        <button type="button" className="del icon-btn" disabled={props.busy || !props.status.connected} onClick={props.onCleanup}>
+            <i className="fa-solid fa-broom" aria-hidden="true"></i>
+            Leere verwaltete Kanäle aufräumen
+        </button>
+        <div className="log-panel">
+            <div className="log-panel-head">
+                <span>{props.status.category?.name ?? "Community-Kategorie"}</span>
+                <span>{props.status.voiceChannels.length} Sprachkanäle</span>
+            </div>
+            <div className="log-body">
+                {!props.status.connected ? (
+                    <div className="log-line">Discord ist derzeit nicht verbunden.</div>
+                ) : !props.status.category?.exists ? (
+                    <div className="log-line">Die Community-Kategorie ist derzeit nicht verfügbar.</div>
+                ) : props.status.voiceChannels.length === 0 ? (
+                    <div className="log-line">Aktuell sind keine Sprachkanäle in dieser Kategorie vorhanden.</div>
+                ) : (
+                    props.status.voiceChannels.map(channel => (
+                        <div className="log-line" key={channel.id}>
+                            <span>{channel.isEntryChannel ? "Eingang" : "Sprachkanal"}: {channel.name}</span>{" "}
+                            <span className="log-time">{channel.memberCount} Nutzer</span>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
     </>;
 }

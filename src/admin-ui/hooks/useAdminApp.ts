@@ -4,6 +4,7 @@ import type {
     AdminConfig,
     AuthState,
     ChannelOption,
+    CommunityRuntimeStatus,
     DatabaseStatus,
     DiscordRuntimeStatus,
     EmojiOption,
@@ -60,6 +61,11 @@ export function useAdminApp(initialAuth: AuthState) {
         schemaVersion: 0,
         latestMigration: null,
         appliedMigrations: []
+    });
+    const [communityStatus, setCommunityStatus] = useState<CommunityRuntimeStatus>({
+        configured: false,
+        connected: false,
+        voiceChannels: []
     });
     const [twitchSyncStatus, setTwitchSyncStatus] = useState<TwitchRoleSyncStatus>({
         followerChanges: 0,
@@ -213,6 +219,15 @@ export function useAdminApp(initialAuth: AuthState) {
             }
         };
 
+        const loadCommunityStatus = async () => {
+            try {
+                const result = await adminApi.loadCommunityStatus();
+                if (!cancelled) setCommunityStatus(result);
+            } catch {
+                // Community can be disabled while the rest of the dashboard remains available.
+            }
+        };
+
         const loadTwitchSyncStatus = async () => {
             try {
                 const result = await adminApi.loadTwitchSyncStatus();
@@ -225,11 +240,13 @@ export function useAdminApp(initialAuth: AuthState) {
         void loadLogs();
         void loadStatus();
         void loadDatabaseStatus();
+        void loadCommunityStatus();
         void loadTwitchSyncStatus();
         const timer = setInterval(() => {
             void loadLogs();
             void loadStatus();
             void loadDatabaseStatus();
+            void loadCommunityStatus();
             void loadTwitchSyncStatus();
         }, 2000);
 
@@ -447,6 +464,25 @@ export function useAdminApp(initialAuth: AuthState) {
         }
     }
 
+    async function cleanupCommunityChannels(): Promise<void> {
+        if (!window.confirm("Alle leeren, vom Community-Modul verwalteten Sprachkanäle jetzt löschen?")) return;
+        try {
+            setBusyText("Räume Community-Kanäle auf...");
+            setBusy(true);
+            const result = await adminApi.cleanupCommunityChannels();
+            setCommunityStatus(await adminApi.loadCommunityStatus());
+            const message = `${result.deleted} leere Community-Kanäle gelöscht${result.skippedOccupied > 0 ? `, ${result.skippedOccupied} belegte übersprungen` : ""}.`;
+            setStatus({ text: message, color: "#86efac" });
+            showToast(message, "system");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setStatus({ text: message, color: "#fca5a5" });
+            showToast(message, "error");
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function downloadConfigBackup(): Promise<void> {
         try {
             setBusyText("Creating configuration backup...");
@@ -517,6 +553,7 @@ export function useAdminApp(initialAuth: AuthState) {
         logs,
         discordStatus,
         databaseStatus,
+        communityStatus,
         twitchSyncStatus,
         saveDisabled,
         restartDisabled,
@@ -533,6 +570,7 @@ export function useAdminApp(initialAuth: AuthState) {
         saveOnly,
         restartOnly,
         saveAndRestart,
+        cleanupCommunityChannels,
         syncTwitchRoles,
         downloadConfigBackup,
         restoreConfigBackup

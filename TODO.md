@@ -32,8 +32,8 @@
 
 ## Community
 
-- [ ] Status der Community-Kategorie und verwalteten Kanaele in der Admin-UI anzeigen
-- [ ] Verwaiste Community-Kanaele manuell ueber die UI aufraeumen koennen
+- [x] Status der Community-Kategorie und verwalteten Kanaele in der Admin-UI anzeigen
+- [x] Verwaiste Community-Kanaele manuell ueber die UI aufraeumen koennen
 - [ ] Bestimmte Rollen oder Benutzer von Community-Kanaelen ausschliessen koennen
 - [ ] Community-Kanalnamen aus der UI exportieren koennen
 - [ ] Community-Kanalnamen aus der UI importieren koennen

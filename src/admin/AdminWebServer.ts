@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import http, { IncomingMessage, Server, ServerResponse } from "node:http";
 import path from "node:path";
 import type { AdminConfig, DatabaseStatus, TwitchRoleSyncResult, TwitchRoleSyncStatus } from "./AdminConfigStore";
-import type { DiscordRuntimeStatus } from "../types/Discord";
+import type { CommunityRuntimeStatus, DiscordRuntimeStatus } from "../types/Discord";
 
 type AdminWebServerOptions = {
     port: number;
@@ -17,6 +17,8 @@ type AdminWebServerOptions = {
     getWelcomeChannels: () => Promise<Array<{ id: string; name: string }>>;
     getDiscordStatus: () => DiscordRuntimeStatus;
     getDatabaseStatus: () => Promise<DatabaseStatus>;
+    getCommunityStatus: () => Promise<CommunityRuntimeStatus>;
+    cleanupCommunityChannels: () => Promise<{ deleted: number; skippedOccupied: number }>;
     consumeTwitchMemberOAuthState: (state: string) => Promise<{ guildId: string; discordUserId: string } | undefined>;
     saveTwitchMemberLink: (link: import("./AdminConfigStore").TwitchMemberLink) => Promise<void>;
     syncTwitchRoles: () => Promise<TwitchRoleSyncResult>;
@@ -137,6 +139,24 @@ export class AdminWebServer {
                 return;
             }
             this.sendJson(res, 200, await this.options.getDatabaseStatus());
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/community/status") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+            this.sendJson(res, 200, await this.options.getCommunityStatus());
+            return;
+        }
+
+        if (req.method === "POST" && url.pathname === "/api/community/cleanup") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+            this.sendJson(res, 200, { ok: true, ...(await this.options.cleanupCommunityChannels()) });
             return;
         }
 

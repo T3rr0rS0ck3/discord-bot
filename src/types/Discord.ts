@@ -16,6 +16,14 @@ export type DiscordRuntimeStatus = {
     updatedAt: string;
 };
 
+export type CommunityRuntimeStatus = {
+    configured: boolean;
+    connected: boolean;
+    guildId?: string;
+    category?: { id: string; name?: string; exists: boolean };
+    voiceChannels: Array<{ id: string; name: string; memberCount: number; isEntryChannel: boolean }>;
+};
+
 export type MusicPlaybackOptions = {
     defaultVolumePercent?: number;
     debugSearch?: boolean;

@@ -83,6 +83,39 @@ export class CommunityModule implements IBotModule {
         });
     }
 
+    public async cleanupOrphanedChannels(): Promise<{ deleted: number; skippedOccupied: number }> {
+        let deleted = 0;
+        let skippedOccupied = 0;
+        await this.enqueue(async () => {
+            if (!this.guild) throw new Error("Das Community-Modul ist noch nicht mit Discord verbunden.");
+            await this.guild.channels.fetch();
+
+            for (const id of [...this.state.temporaryIds]) {
+                if (id === this.state.entryId) continue;
+                const channel = this.guild.channels.cache.get(id);
+                if (!channel) {
+                    this.state.temporaryIds = this.state.temporaryIds.filter(value => value !== id);
+                    continue;
+                }
+                if (channel.type !== ChannelType.GuildVoice || channel.parentId !== this.state.categoryId) continue;
+                if (channel.members.size > 0) {
+                    skippedOccupied++;
+                    continue;
+                }
+
+                const timer = this.timers.get(id);
+                if (timer) clearTimeout(timer);
+                this.timers.delete(id);
+                await channel.delete("Manual Community cleanup from admin UI");
+                this.state.temporaryIds = this.state.temporaryIds.filter(value => value !== id);
+                deleted++;
+            }
+
+            await this.persist();
+        });
+        return { deleted, skippedOccupied };
+    }
+
     private async setup(): Promise<void> {
         const guild = this.guild!;
         await guild.channels.fetch();

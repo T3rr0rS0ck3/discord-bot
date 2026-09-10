@@ -90,6 +90,28 @@ test('failed move cleans empty room, unrelated room is protected', async () => {
     await mod.shutdown();
 });
 
+test('manual cleanup deletes only empty managed temporary rooms', async () => {
+    const f = fixture(), mod = f.create(); await mod.onReady(f.client);
+    const category = [...f.cache.values()].find(c => c.type === 4);
+    const entry = [...f.cache.values()].find(c => c.type === 2);
+    const emptyManaged = { id: '701', type: 2, name: 'empty', parentId: category.id, members: new Map(), delete: async () => f.cache.delete('701') };
+    const occupiedManaged = { id: '702', type: 2, name: 'occupied', parentId: category.id, members: new Map([['user', {}]]), delete: async () => f.cache.delete('702') };
+    const unrelated = { id: '703', type: 2, name: 'unrelated', parentId: category.id, members: new Map(), delete: async () => f.cache.delete('703') };
+    f.cache.set('701', emptyManaged); f.cache.set('702', occupiedManaged); f.cache.set('703', unrelated);
+    mod.state.temporaryIds.push('701', '702');
+
+    const result = await mod.cleanupOrphanedChannels();
+
+    assert.equal(result.deleted, 1);
+    assert.equal(result.skippedOccupied, 1);
+    assert.equal(f.cache.has('701'), false);
+    assert.equal(f.cache.has('702'), true);
+    assert.equal(f.cache.has('703'), true);
+    assert.equal(f.cache.has(entry.id), true);
+    assert.deepEqual([...mod.state.temporaryIds], ['702']);
+    await mod.shutdown();
+});
+
 test('random imported names, cap, live lowering and freed capacity', async () => {
     const f = fixture(), mod = f.create(); await mod.onReady(f.client);
     await mod.applyRuntimeConfig({ communityCategoryName: 'Community', communityMaxChannels: 2 });

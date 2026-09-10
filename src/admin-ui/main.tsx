@@ -58,6 +58,7 @@ function App(): React.JSX.Element {
             logs={state.logs}
             discordStatus={state.discordStatus}
             databaseStatus={state.databaseStatus}
+            communityStatus={state.communityStatus}
             twitchSyncStatus={state.twitchSyncStatus}
             saveDisabled={state.saveDisabled}
             restartDisabled={state.restartDisabled}
@@ -70,6 +71,7 @@ function App(): React.JSX.Element {
             onSave={() => void state.saveOnly()}
             onRestart={() => void state.restartOnly()}
             onSaveAndRestart={() => void state.saveAndRestart()}
+            onCleanupCommunityChannels={() => void state.cleanupCommunityChannels()}
             onSyncTwitchRoles={() => void state.syncTwitchRoles()}
             onDownloadBackup={() => void state.downloadConfigBackup()}
             onRestoreBackup={file => void state.restoreConfigBackup(file)}

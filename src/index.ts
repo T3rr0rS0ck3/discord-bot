@@ -148,6 +148,8 @@ export class Startup {
             },
             getDiscordStatus: () => botRuntimeManager.getStatus(),
             getDatabaseStatus: () => adminConfigStore.getDatabaseStatus(),
+            getCommunityStatus: () => botRuntimeManager.getCommunityStatus(),
+            cleanupCommunityChannels: () => botRuntimeManager.cleanupCommunityChannels(),
             consumeTwitchMemberOAuthState: (state) => adminConfigStore.consumeTwitchMemberOAuthState(state),
             saveTwitchMemberLink: (link) => adminConfigStore.saveTwitchMemberLink(link),
             syncTwitchRoles: () => botRuntimeManager.syncTwitchRoles(),
