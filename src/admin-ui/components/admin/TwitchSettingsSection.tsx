@@ -140,10 +140,11 @@ export function TwitchSettingsSection(props: TwitchSettingsSectionProps): React.
             <div className="input-group">
                 <button
                     type="button"
-                    className="button"
+                    className="add icon-btn"
                     disabled={props.busy || !canStartOAuth}
                     onClick={() => window.open("/api/twitch/oauth/start", "_blank", "noopener,noreferrer")}
                 >
+                    <i className="fa-solid fa-link" aria-hidden="true"></i>
                     Broadcaster mit Twitch verbinden
                 </button>
                 <p className="input-hint">
@@ -182,7 +183,8 @@ export function TwitchSettingsSection(props: TwitchSettingsSectionProps): React.
             </p>
 
             <div className="input-group">
-                <button type="button" className="button" disabled={props.busy} onClick={props.onSync}>
+                <button type="button" className="add icon-btn" disabled={props.busy} onClick={props.onSync}>
+                    <i className="fa-solid fa-rotate" aria-hidden="true"></i>
                     Twitch-Rollen jetzt synchronisieren
                 </button>
                 <p className="input-hint">
