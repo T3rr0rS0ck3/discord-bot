@@ -245,7 +245,7 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                     </CollapsibleRegion>
 
                                     <CollapsibleRegion
-                                        title="Welcome Role Select"
+                                        title="Welcome Role Settings"
                                         defaultOpen={true}
                                         enabled={props.config.welcomeEnabled === true}
                                         enabledLabel="Welcome"
