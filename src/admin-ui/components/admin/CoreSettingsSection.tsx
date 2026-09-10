@@ -56,9 +56,8 @@ export function CoreSettingsSection(props: CoreSettingsSectionProps): React.JSX.
                     <div className="secret-field">
                         <input
                             type={showAdminPassword ? "text" : "password"}
-                            placeholder="Choose a secure admin password"
+                            placeholder="Leave empty to keep the current password"
                             value={config.adminUiToken}
-                            required
                             disabled={busy}
                             onChange={(event) => onUpdateConfig("adminUiToken", event.target.value)}
                         />
@@ -90,6 +89,35 @@ export function CoreSettingsSection(props: CoreSettingsSectionProps): React.JSX.
                     onUpdateConfig("adminUiPort", raw === "" ? Number.NaN : Number(raw));
                 }}
             />
+
+            <div className="grid2">
+                <div>
+                    <label>Login-Fehlversuche bis zur Sperre <span className="required-mark">*</span></label>
+                    <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        step={1}
+                        value={props.config.adminLoginMaxFailures ?? 5}
+                        required
+                        disabled={busy}
+                        onChange={(event) => onUpdateConfig("adminLoginMaxFailures", Number(event.target.value))}
+                    />
+                </div>
+                <div>
+                    <label>Sperrdauer (Minuten) <span className="required-mark">*</span></label>
+                    <input
+                        type="number"
+                        min={1}
+                        max={1440}
+                        step={1}
+                        value={props.config.adminLoginBlockMinutes ?? 15}
+                        required
+                        disabled={busy}
+                        onChange={(event) => onUpdateConfig("adminLoginBlockMinutes", Number(event.target.value))}
+                    />
+                </div>
+            </div>
         </>
     );
 }

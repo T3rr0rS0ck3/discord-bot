@@ -7,7 +7,8 @@ import type { DiscordRuntimeStatus } from "../types/Discord";
 
 type AdminWebServerOptions = {
     port: number;
-    getAuthConfig: () => { username: string; token: string };
+    getAuthConfig: () => { username: string };
+    verifyAdminPassword: (password: string) => Promise<boolean>;
     getConfig: () => AdminConfig;
     getLogs: () => Array<{ timestamp: number; level: string; message: string }>;
     saveConfig: (config: AdminConfig) => Promise<void>;
@@ -32,8 +33,10 @@ export class AdminWebServer {
     private unicodeEmojiLoadFailed = false;
     private readonly sessions = new Map<string, { username: string; expiresAt: number }>();
     private readonly twitchOAuthStates = new Map<string, { createdAt: number }>();
+    private readonly loginAttempts = new Map<string, { failures: number; firstFailureAt: number; blockedUntil: number }>();
     private readonly sessionTtlMs = 8 * 60 * 60 * 1000;
     private readonly twitchStateTtlMs = 10 * 60 * 1000;
+    private readonly loginAttemptWindowMs = 15 * 60 * 1000;
     private server?: Server;
 
     public constructor(options: AdminWebServerOptions) {
@@ -134,17 +137,33 @@ export class AdminWebServer {
         }
 
         if (req.method === "POST" && url.pathname === "/api/login") {
+            const clientKey = req.socket.remoteAddress ?? "unknown";
+            const retryAfterSeconds = this.getLoginRetryAfterSeconds(clientKey);
+            if (retryAfterSeconds > 0) {
+                res.setHeader("Retry-After", String(retryAfterSeconds));
+                this.sendJson(res, 429, { error: `Too many failed login attempts. Try again in ${retryAfterSeconds} seconds.` });
+                return;
+            }
+
             const body = await this.readBody(req);
             const parsed = JSON.parse(body) as { username?: string; token?: string };
             const username = String(parsed.username ?? "").trim();
             const token = String(parsed.token ?? "").trim();
             const auth = this.options.getAuthConfig();
 
-            if (username !== auth.username || token !== auth.token) {
+            const passwordMatches = await this.options.verifyAdminPassword(token);
+            if (username !== auth.username || !passwordMatches) {
+                const blockedForSeconds = this.recordLoginFailure(clientKey);
+                if (blockedForSeconds > 0) {
+                    res.setHeader("Retry-After", String(blockedForSeconds));
+                    this.sendJson(res, 429, { error: `Too many failed login attempts. Try again in ${blockedForSeconds} seconds.` });
+                    return;
+                }
                 this.sendJson(res, 401, { error: "Invalid credentials" });
                 return;
             }
 
+            this.loginAttempts.delete(clientKey);
             const sessionId = this.createSession(username);
             this.setSessionCookie(res, sessionId);
             this.sendJson(res, 200, { ok: true, username });
@@ -244,7 +263,7 @@ export class AdminWebServer {
         }
 
         if (req.method === "GET" && url.pathname === "/api/config") {
-            this.sendJson(res, 200, this.options.getConfig());
+            this.sendJson(res, 200, { ...this.options.getConfig(), adminUiToken: "" });
             return;
         }
 
@@ -253,7 +272,7 @@ export class AdminWebServer {
                 format: "discord-bot-config",
                 version: 1,
                 exportedAt: new Date().toISOString(),
-                config: this.options.getConfig()
+                config: { ...this.options.getConfig(), adminUiToken: "" }
             };
             const date = backup.exportedAt.slice(0, 10);
             this.sendDownloadJson(res, `discord-bot-config-${date}.json`, backup);
@@ -268,7 +287,7 @@ export class AdminWebServer {
                 return;
             }
 
-            const validationErrors = this.validateConfigInput(backup.config);
+            const validationErrors = this.validateConfigInput(backup.config, true);
             if (validationErrors.length > 0) {
                 this.sendJson(res, 400, { error: validationErrors.join(" ") });
                 return;
@@ -279,7 +298,7 @@ export class AdminWebServer {
             await this.options.saveConfig(next);
             this.sendJson(res, 200, {
                 ok: true,
-                config: next,
+                config: { ...next, adminUiToken: "" },
                 restartRequired: restartInfo.required,
                 restartFields: restartInfo.fields
             });
@@ -295,7 +314,7 @@ export class AdminWebServer {
         if (req.method === "POST" && url.pathname === "/api/config") {
             const body = await this.readBody(req);
             const parsed = JSON.parse(body) as Partial<AdminConfig>;
-            const validationErrors = this.validateConfigInput(parsed);
+            const validationErrors = this.validateConfigInput(parsed, true);
             if (validationErrors.length > 0) {
                 this.sendJson(res, 400, { error: validationErrors.join(" ") });
                 return;
@@ -307,7 +326,7 @@ export class AdminWebServer {
             ok: true,
             restartRequired: restartInfo.required,
             restartFields: restartInfo.fields,
-            config: next
+            config: { ...next, adminUiToken: "" }
           });
           return;
         }
@@ -347,8 +366,10 @@ export class AdminWebServer {
             discordToken: String(input.discordToken ?? "").trim(),
             guildId: this.normalizeString(input.guildId),
             adminUiUsername: String(input.adminUiUsername ?? "admin").trim() || "admin",
-            adminUiToken: String(input.adminUiToken ?? "admin").trim() || "admin",
+            adminUiToken: String(input.adminUiToken ?? "").trim(),
             adminUiPort: this.normalizeNumber(input.adminUiPort, 1, 65535) ?? 8787,
+            adminLoginMaxFailures: Math.floor(this.normalizeNumber(input.adminLoginMaxFailures, 1, 20) ?? 5),
+            adminLoginBlockMinutes: Math.floor(this.normalizeNumber(input.adminLoginBlockMinutes, 1, 1440) ?? 15),
             musicRoleName: String(input.musicRoleName ?? "Music Bot").trim() || "Music Bot",
             musicDefaultVolumePercent: this.normalizeNumber(input.musicDefaultVolumePercent, 0, 100) ?? 50,
             musicDebugSearch: input.musicDebugSearch === undefined ? true : Boolean(input.musicDebugSearch),
@@ -372,7 +393,7 @@ export class AdminWebServer {
         };
     }
 
-    private validateConfigInput(input: Partial<AdminConfig>): string[] {
+    private validateConfigInput(input: Partial<AdminConfig>, allowUnchangedAdminPassword = false): string[] {
         const errors: string[] = [];
         const required = (value: unknown, label: string): void => {
             if (String(value ?? "").trim().length === 0) errors.push(`${label} is required.`);
@@ -386,8 +407,12 @@ export class AdminWebServer {
 
         required(input.discordToken, "Discord Token");
         required(input.adminUiUsername, "Admin Username");
-        required(input.adminUiToken, "Admin Password");
+        if (!allowUnchangedAdminPassword || String(input.adminUiToken ?? "").trim()) {
+            required(input.adminUiToken, "Admin Password");
+        }
         integerInRange(input.adminUiPort, 1, 65535, "Admin UI Port");
+        integerInRange(input.adminLoginMaxFailures, 1, 20, "Admin Login Failure Limit");
+        integerInRange(input.adminLoginBlockMinutes, 1, 1440, "Admin Login Block Duration");
 
         if (input.musicEnabled === true) {
             required(input.musicRoleName, "Music Role Name");
@@ -950,6 +975,28 @@ export class AdminWebServer {
             expiresAt: Date.now() + this.sessionTtlMs
         });
         return sessionId;
+    }
+
+    private getLoginRetryAfterSeconds(clientKey: string, now = Date.now()): number {
+        const state = this.loginAttempts.get(clientKey);
+        if (!state) return 0;
+        if (state.blockedUntil > now) return Math.max(1, Math.ceil((state.blockedUntil - now) / 1000));
+        if (now - state.firstFailureAt >= this.loginAttemptWindowMs) this.loginAttempts.delete(clientKey);
+        return 0;
+    }
+
+    private recordLoginFailure(clientKey: string, now = Date.now()): number {
+        const current = this.loginAttempts.get(clientKey);
+        const state = !current || now - current.firstFailureAt >= this.loginAttemptWindowMs
+            ? { failures: 0, firstFailureAt: now, blockedUntil: 0 }
+            : current;
+        state.failures += 1;
+        const config = this.options.getConfig();
+        const maxFailures = Math.max(1, Math.min(20, Math.floor(config.adminLoginMaxFailures ?? 5)));
+        const blockMs = Math.max(1, Math.min(1440, Math.floor(config.adminLoginBlockMinutes ?? 15))) * 60 * 1000;
+        if (state.failures >= maxFailures) state.blockedUntil = now + blockMs;
+        this.loginAttempts.set(clientKey, state);
+        return state.blockedUntil > now ? Math.ceil((state.blockedUntil - now) / 1000) : 0;
     }
 
     private getAuthenticatedUsername(req: IncomingMessage): string | null {

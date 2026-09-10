@@ -2,6 +2,7 @@ import path from "node:path";
 import sqlite3 from "sqlite3";
 import { open, type Database } from "sqlite";
 import type { WelcomeRoleOption } from "../types/Discord";
+import { AdminPasswordService } from "../services/AdminPasswordService";
 import { DatabaseMigrationRunner, type DatabaseStatus } from "./DatabaseMigrationRunner";
 
 export type { DatabaseStatus } from "./DatabaseMigrationRunner";
@@ -24,6 +25,8 @@ export type AdminConfig = {
     adminUiUsername: string;
     adminUiToken: string;
     adminUiPort: number;
+    adminLoginMaxFailures?: number;
+    adminLoginBlockMinutes?: number;
     musicRoleName: string;
     musicDefaultVolumePercent?: number;
     musicDebugSearch: boolean;
@@ -92,7 +95,7 @@ export class AdminConfigStore {
             );
         `);
 
-        for (const [key, value] of Object.entries(defaults).filter(([key]) => key !== "welcomeRoles")) {
+        for (const [key, value] of Object.entries(defaults).filter(([key]) => key !== "welcomeRoles" && key !== "adminUiToken")) {
             await this.db!.run(
                 "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
                 key,
@@ -103,6 +106,7 @@ export class AdminConfigStore {
         await this.migrateRoles(defaults.welcomeRoles);
         this.migrationRunner = new DatabaseMigrationRunner(this.db!);
         await this.migrationRunner.run();
+        await this.initializeAdminPassword(defaults.adminUiToken);
     }
 
     public async load(defaults: AdminConfig): Promise<AdminConfig> {
@@ -121,6 +125,7 @@ export class AdminConfigStore {
         return this.normalize({
             ...defaults,
             ...loaded,
+            adminUiToken: "",
             welcomeRoles: roles.length > 0 ? roles : defaults.welcomeRoles
         });
     }
@@ -359,7 +364,7 @@ export class AdminConfigStore {
         await this.ensureDb();
         const normalized = this.normalize(config);
 
-        for (const [key, value] of Object.entries(normalized).filter(([key]) => key !== "welcomeRoles")) {
+        for (const [key, value] of Object.entries(normalized).filter(([key]) => key !== "welcomeRoles" && key !== "adminUiToken")) {
             await this.db!.run(
                 "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 key,
@@ -368,7 +373,34 @@ export class AdminConfigStore {
         }
 
         await this.db!.run("DELETE FROM settings WHERE key = ?", "welcomeRoles");
+        if (config.adminUiToken.trim()) {
+            await this.setAdminPassword(config.adminUiToken);
+        }
         await this.saveRoles(normalized.welcomeRoles);
+    }
+
+    public async verifyAdminPassword(password: string): Promise<boolean> {
+        await this.ensureDb();
+        const row = await this.db!.get<{ value: string }>(
+            "SELECT value FROM settings WHERE key = ?",
+            "adminUiPasswordHash"
+        );
+        if (!row) return false;
+        const hash = JSON.parse(row.value);
+        return typeof hash === "string" && AdminPasswordService.verify(password, hash);
+    }
+
+    public async setAdminPassword(password: string): Promise<void> {
+        const normalized = password.trim();
+        if (!normalized) throw new Error("Admin Password is required.");
+        await this.ensureDb();
+        const hash = await AdminPasswordService.hash(normalized);
+        await this.db!.run(
+            "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            "adminUiPasswordHash",
+            JSON.stringify(hash)
+        );
+        await this.db!.run("DELETE FROM settings WHERE key = ?", "adminUiToken");
     }
 
     public async close(): Promise<void> {
@@ -384,7 +416,7 @@ export class AdminConfigStore {
         const discordToken = String(input.discordToken ?? "").trim();
         const guildId = this.normalizeString(input.guildId);
         const adminUiUsername = String(input.adminUiUsername ?? "admin").trim() || "admin";
-        const adminUiToken = String(input.adminUiToken ?? "admin").trim() || "admin";
+        const adminUiToken = String(input.adminUiToken ?? "").trim();
         const adminUiPort = this.normalizeNumber(input.adminUiPort, 1, 65535) ?? 8787;
         const musicRoleName = String(input.musicRoleName ?? "Music Bot").trim() || "Music Bot";
         const musicDefaultVolumePercent = this.normalizeNumber(input.musicDefaultVolumePercent, 0, 100) ?? 50;
@@ -423,6 +455,8 @@ export class AdminConfigStore {
             adminUiUsername,
             adminUiToken,
             adminUiPort,
+            adminLoginMaxFailures: Math.floor(this.normalizeNumber(input.adminLoginMaxFailures, 1, 20) ?? 5),
+            adminLoginBlockMinutes: Math.floor(this.normalizeNumber(input.adminLoginBlockMinutes, 1, 1440) ?? 15),
             musicRoleName,
             musicDefaultVolumePercent,
             musicDebugSearch,
@@ -496,6 +530,29 @@ export class AdminConfigStore {
             filename: this.filePath,
             driver: sqlite3.Database
         });
+    }
+
+    private async initializeAdminPassword(defaultPassword?: string): Promise<void> {
+        const hashRow = await this.db!.get<{ value: string }>(
+            "SELECT value FROM settings WHERE key = ?",
+            "adminUiPasswordHash"
+        );
+        if (hashRow) return;
+
+        const legacyRow = await this.db!.get<{ value: string }>(
+            "SELECT value FROM settings WHERE key = ?",
+            "adminUiToken"
+        );
+        let legacyPassword = defaultPassword?.trim() || "admin";
+        if (legacyRow?.value) {
+            try {
+                const parsed = JSON.parse(legacyRow.value);
+                if (typeof parsed === "string" && parsed.trim()) legacyPassword = parsed.trim();
+            } catch {
+                legacyPassword = legacyRow.value.trim() || legacyPassword;
+            }
+        }
+        await this.setAdminPassword(legacyPassword);
     }
 
     private async migrateRoles(defaultRoles: WelcomeRoleOption[]): Promise<void> {

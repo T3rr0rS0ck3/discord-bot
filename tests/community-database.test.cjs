@@ -82,8 +82,17 @@ test('fresh SQLite deployment creates the default admin login without secrets', 
     try {
         const loaded = await store.load({ welcomeRoles: [] });
         assert.equal(loaded.adminUiUsername, 'admin');
-        assert.equal(loaded.adminUiToken, 'admin');
+        assert.equal(loaded.adminUiToken, '');
         assert.equal(loaded.discordToken, '');
+        assert.equal(await store.verifyAdminPassword('admin'), true);
+        assert.equal(await store.verifyAdminPassword('wrong'), false);
+        const hash = JSON.parse((await store.db.get("SELECT value FROM settings WHERE key = 'adminUiPasswordHash'")).value);
+        assert.match(hash, /^scrypt\$v1\$/);
+        assert.equal(await store.db.get("SELECT value FROM settings WHERE key = 'adminUiToken'"), undefined);
+
+        await store.save({ ...loaded, adminUiToken: 'new-secret' });
+        assert.equal(await store.verifyAdminPassword('admin'), false);
+        assert.equal(await store.verifyAdminPassword('new-secret'), true);
     } finally { await store.db?.close(); }
 });
 

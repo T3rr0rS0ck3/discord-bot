@@ -33,8 +33,8 @@ export class BotRuntimeManager {
     }
 
     public async saveConfig(config: AdminConfig): Promise<void> {
-        this.config = config;
         await this.configStore.save(config);
+        this.config = { ...config, adminUiToken: "" };
         await this.applyRuntimeConfig();
     }
 

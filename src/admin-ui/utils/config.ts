@@ -38,6 +38,8 @@ export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
         adminUiUsername: String(input.adminUiUsername ?? "admin"),
         adminUiToken: String(input.adminUiToken ?? ""),
         adminUiPort: Number(input.adminUiPort ?? 8787),
+        adminLoginMaxFailures: Number(input.adminLoginMaxFailures ?? 5),
+        adminLoginBlockMinutes: Number(input.adminLoginBlockMinutes ?? 15),
         musicRoleName: String(input.musicRoleName ?? "Music Bot"),
         musicDefaultVolumePercent:
             input.musicDefaultVolumePercent === undefined || input.musicDefaultVolumePercent === null

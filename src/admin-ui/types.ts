@@ -22,6 +22,8 @@ export type AdminConfig = {
     adminUiUsername: string;
     adminUiToken: string;
     adminUiPort: number;
+    adminLoginMaxFailures?: number;
+    adminLoginBlockMinutes?: number;
     musicRoleName: string;
     musicDefaultVolumePercent?: number;
     musicDebugSearch: boolean;

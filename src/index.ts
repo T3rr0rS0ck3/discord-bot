@@ -75,6 +75,8 @@ export class Startup {
             adminUiUsername: this.normalizeString(legacyEnvValues.ADMIN_UI_USERNAME) ?? "admin",
             adminUiToken: this.normalizeString(legacyEnvValues.ADMIN_UI_TOKEN) ?? "admin",
             adminUiPort: this.parseNumber(legacyEnvValues.ADMIN_UI_PORT) ?? 8787,
+            adminLoginMaxFailures: 5,
+            adminLoginBlockMinutes: 15,
             musicRoleName: this.normalizeString(legacyEnvValues.MUSIC_ROLE_NAME) ?? "Music Bot",
             musicDefaultVolumePercent: this.parseNumber(legacyEnvValues.MUSIC_DEFAULT_VOLUME_PERCENT) ?? 50,
             musicDebugSearch: (legacyEnvValues.MUSIC_DEBUG_SEARCH ?? "true").toLowerCase() !== "false",
@@ -109,9 +111,9 @@ export class Startup {
         const adminWebServer = new AdminWebServer({
             port: botRuntimeManager.getConfig().adminUiPort,
             getAuthConfig: () => ({
-                username: botRuntimeManager.getConfig().adminUiUsername,
-                token: botRuntimeManager.getConfig().adminUiToken
+                username: botRuntimeManager.getConfig().adminUiUsername
             }),
+            verifyAdminPassword: (password) => adminConfigStore.verifyAdminPassword(password),
             getConfig: () => botRuntimeManager.getConfig(),
             getLogs: () => runtimeLogBuffer.getAll(),
             restartBot: async () => {
