@@ -4,6 +4,7 @@ import type {
     EmojisResponse,
     LogsResponse,
     LoginResponse,
+    RestoreBackupResponse,
     SaveResponse,
     DiscordRuntimeStatus,
     DatabaseStatus
@@ -25,6 +26,18 @@ async function request<T>(path: string, method = "GET", body?: unknown): Promise
     }
 
     return response.json() as Promise<T>;
+}
+
+async function download(path: string): Promise<{ blob: Blob; fileName: string }> {
+    const response = await fetch(path, { credentials: "same-origin" });
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({} as { error?: string }));
+        throw new Error(error.error ?? `HTTP ${response.status}`);
+    }
+
+    const disposition = response.headers.get("content-disposition") ?? "";
+    const fileName = disposition.match(/filename="([^"]+)"/)?.[1] ?? "discord-bot-config.json";
+    return { blob: await response.blob(), fileName };
 }
 
 export const adminApi = {
@@ -57,5 +70,11 @@ export const adminApi = {
     },
     loadDatabaseStatus(): Promise<DatabaseStatus> {
         return request<DatabaseStatus>("/api/database-status");
+    },
+    downloadConfigBackup(): Promise<{ blob: Blob; fileName: string }> {
+        return download("/api/config/backup");
+    },
+    restoreConfigBackup(backup: unknown): Promise<RestoreBackupResponse> {
+        return request<RestoreBackupResponse>("/api/config/restore", "POST", backup);
     }
 };

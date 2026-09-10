@@ -15,8 +15,8 @@
 - [ ] Admin-Passwoerter gehasht statt im Klartext in SQLite speichern
 - [ ] Login-Versuche begrenzen und bei zu vielen Fehlversuchen temporaer sperren
 - [ ] Alle Sessions nach einer Admin-Passwortaenderung beenden
-- [ ] Konfigurations-Backup aus der Admin-UI herunterladen koennen
-- [ ] Konfigurations-Backup aus der Admin-UI wiederherstellen koennen
+- [x] Konfigurations-Backup aus der Admin-UI herunterladen koennen
+- [x] Konfigurations-Backup aus der Admin-UI wiederherstellen koennen
 - [ ] Testverbindung fuer Discord, TheAudioDB und Twitch anbieten
 
 ## Musik

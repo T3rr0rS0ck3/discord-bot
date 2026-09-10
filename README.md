@@ -176,6 +176,17 @@ Hinweis zur Laufzeit:
 - Welcome-Änderungen werden live angewendet.
 - Discord Token, Guild ID und Admin UI Port/Login gelten nach Neustart.
 
+### Konfigurations-Backup
+
+In der Action Bar der Admin-Oberfläche stehen **Backup** und **Restore** zur Verfügung.
+
+- **Backup** lädt die aktuelle Konfiguration als versionierte JSON-Datei herunter.
+- **Restore** öffnet eine lokale JSON-Datei, verlangt eine Bestätigung und validiert sie vor dem Speichern mit denselben Regeln wie die normale Konfigurationsseite.
+- Ein unbekanntes oder nicht unterstütztes Backupformat wird abgewiesen.
+- Nach dem Restore zeigt die Oberfläche an, ob für einzelne Änderungen ein Bot-Neustart erforderlich ist.
+- Das Backup enthält auch Discord-, Twitch- und Admin-Zugangsdaten. Die Datei muss deshalb wie ein Passwort behandelt und sicher aufbewahrt werden.
+- Laufzeitdaten wie aktuelle Community-Kanäle, Namensvorschläge, Abstimmungen und Stimmen sind nicht Teil des Konfigurations-Backups und verbleiben in SQLite.
+
 ## Hinweis
 
 ### Module ein- und ausschalten

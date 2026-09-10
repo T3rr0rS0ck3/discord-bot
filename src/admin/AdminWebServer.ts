@@ -18,6 +18,13 @@ type AdminWebServerOptions = {
     getDatabaseStatus: () => Promise<DatabaseStatus>;
 };
 
+type ConfigBackup = {
+    format: "discord-bot-config";
+    version: 1;
+    exportedAt: string;
+    config: AdminConfig;
+};
+
 export class AdminWebServer {
     private readonly options: AdminWebServerOptions;
     private readonly adminAppBundlePath: string;
@@ -238,6 +245,44 @@ export class AdminWebServer {
 
         if (req.method === "GET" && url.pathname === "/api/config") {
             this.sendJson(res, 200, this.options.getConfig());
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/config/backup") {
+            const backup: ConfigBackup = {
+                format: "discord-bot-config",
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                config: this.options.getConfig()
+            };
+            const date = backup.exportedAt.slice(0, 10);
+            this.sendDownloadJson(res, `discord-bot-config-${date}.json`, backup);
+            return;
+        }
+
+        if (req.method === "POST" && url.pathname === "/api/config/restore") {
+            const body = await this.readBody(req);
+            const backup = JSON.parse(body) as Partial<ConfigBackup>;
+            if (backup.format !== "discord-bot-config" || backup.version !== 1 || !backup.config || typeof backup.config !== "object") {
+                this.sendJson(res, 400, { error: "Invalid or unsupported configuration backup." });
+                return;
+            }
+
+            const validationErrors = this.validateConfigInput(backup.config);
+            if (validationErrors.length > 0) {
+                this.sendJson(res, 400, { error: validationErrors.join(" ") });
+                return;
+            }
+
+            const next = this.normalize(backup.config);
+            const restartInfo = this.getRestartRequirement(this.options.getConfig(), next);
+            await this.options.saveConfig(next);
+            this.sendJson(res, 200, {
+                ok: true,
+                config: next,
+                restartRequired: restartInfo.required,
+                restartFields: restartInfo.fields
+            });
             return;
         }
 
@@ -972,6 +1017,17 @@ export class AdminWebServer {
         const body = JSON.stringify(payload);
         res.writeHead(status, {
             "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": Buffer.byteLength(body)
+        });
+        res.end(body);
+    }
+
+    private sendDownloadJson(res: ServerResponse, fileName: string, payload: unknown): void {
+        const body = JSON.stringify(payload, null, 2);
+        res.writeHead(200, {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${fileName}"`,
+            "Cache-Control": "no-store",
             "Content-Length": Buffer.byteLength(body)
         });
         res.end(body);

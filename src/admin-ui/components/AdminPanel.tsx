@@ -72,6 +72,8 @@ type AdminPanelProps = {
     onSave: () => void;
     onRestart: () => void;
     onSaveAndRestart: () => void;
+    onDownloadBackup: () => void;
+    onRestoreBackup: (file: File) => void;
     onLogout: () => void;
     onPageChange: (page: "dashboard" | "sqlite") => void;
 };
@@ -267,6 +269,8 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                         onSave={props.onSave}
                                         onRestart={props.onRestart}
                                         onSaveAndRestart={props.onSaveAndRestart}
+                                        onDownloadBackup={props.onDownloadBackup}
+                                        onRestoreBackup={props.onRestoreBackup}
                                     />
 
                                     <div

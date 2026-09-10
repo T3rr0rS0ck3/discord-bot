@@ -366,6 +366,60 @@ export function useAdminApp(initialAuth: AuthState) {
         }
     }
 
+    async function downloadConfigBackup(): Promise<void> {
+        try {
+            setBusyText("Creating configuration backup...");
+            setBusy(true);
+            const result = await adminApi.downloadConfigBackup();
+            const url = URL.createObjectURL(result.blob);
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = result.fileName;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+            setStatus({ text: "Configuration backup downloaded.", color: "#86efac" });
+            showToast("Configuration backup downloaded.", "system");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setStatus({ text: message, color: "#fca5a5" });
+            showToast(message, "error");
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function restoreConfigBackup(file: File): Promise<void> {
+        try {
+            setBusyText("Restoring configuration backup...");
+            setBusy(true);
+            const raw = await file.text();
+            const backup = JSON.parse(raw) as unknown;
+            const result = await adminApi.restoreConfigBackup(backup);
+            if (!result.config) throw new Error("The restored backup did not return a configuration.");
+
+            const restored = normalizeConfig(result.config);
+            setConfig(restored);
+            setInitialSnapshot(serializeConfig(restored));
+            setStatus({
+                text: result.restartRequired
+                    ? `Backup restored. Restart required for: ${result.restartFields.join(", ")}`
+                    : "Backup restored and applied.",
+                color: "#86efac"
+            });
+            showToast(result.restartRequired ? "Backup restored. Restart the bot to apply all changes." : "Backup restored.", "system");
+        } catch (error) {
+            const message = error instanceof SyntaxError
+                ? "The selected file is not valid JSON."
+                : error instanceof Error ? error.message : String(error);
+            setStatus({ text: message, color: "#fca5a5" });
+            showToast(message, "error");
+        } finally {
+            setBusy(false);
+        }
+    }
+
     return {
         auth,
         loginUsername,
@@ -397,6 +451,8 @@ export function useAdminApp(initialAuth: AuthState) {
         removeRole,
         saveOnly,
         restartOnly,
-        saveAndRestart
+        saveAndRestart,
+        downloadConfigBackup,
+        restoreConfigBackup
     };
 }

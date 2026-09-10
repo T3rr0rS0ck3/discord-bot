@@ -71,6 +71,8 @@ function App(): React.JSX.Element {
             onSave={() => void state.saveOnly()}
             onRestart={() => void state.restartOnly()}
             onSaveAndRestart={() => void state.saveAndRestart()}
+            onDownloadBackup={() => void state.downloadConfigBackup()}
+            onRestoreBackup={file => void state.restoreConfigBackup(file)}
             onLogout={() => void state.logout()}
                 onPageChange={setPage}
         />

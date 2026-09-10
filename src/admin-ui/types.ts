@@ -107,6 +107,12 @@ export type SaveResponse = {
     config?: Partial<AdminConfig>;
 };
 
+export type RestoreBackupResponse = SaveResponse & {
+    ok: boolean;
+    restartRequired: boolean;
+    restartFields: string[];
+};
+
 export type LoginResponse = {
     ok: boolean;
     username?: string;
