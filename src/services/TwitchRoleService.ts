@@ -218,8 +218,17 @@ export class TwitchRoleService {
     }
 
     public async getFollowerNames(): Promise<Set<string>> {
+        const users = await this.getFollowers();
+        return new Set(users.map(user => user.user_login.toLowerCase()));
+    }
+
+    public async getFollowerUserIds(): Promise<Set<string>> {
+        return new Set((await this.getFollowers()).map(user => user.user_id));
+    }
+
+    private async getFollowers(): Promise<TwitchFollower[]> {
         if (!this.isConfigured()) {
-            return new Set<string>();
+            return [];
         }
 
         if (!this.broadcasterId && this.broadcasterName) {
@@ -227,19 +236,19 @@ export class TwitchRoleService {
                 this.broadcasterId = await this.getBroadcasterIdByName(this.broadcasterName);
                 if (!this.broadcasterId) {
                     console.warn(`[TwitchRole] Broadcaster "${this.broadcasterName}" not found on Twitch.`);
-                    return new Set<string>();
+                    return [];
                 }
             } catch (error) {
                 console.error("[TwitchRole] Failed to resolve broadcaster ID:", error);
-                return new Set<string>();
+                return [];
             }
         }
 
         if (!this.broadcasterId) {
-            return new Set<string>();
+            return [];
         }
 
-        const followers = new Set<string>();
+        const followers: TwitchFollower[] = [];
         let after: string | undefined;
 
         try {
@@ -260,9 +269,7 @@ export class TwitchRoleService {
                 }
 
                 const body = (await response.json()) as { data: TwitchFollower[]; pagination?: { cursor: string } };
-                for (const follower of body.data) {
-                    followers.add(follower.user_login.toLowerCase());
-                }
+                followers.push(...body.data);
 
                 if (!body.pagination?.cursor) {
                     break;
@@ -278,8 +285,17 @@ export class TwitchRoleService {
     }
 
     public async getSubscriberNames(): Promise<Set<string>> {
+        const users = await this.getSubscribers();
+        return new Set(users.map(user => user.user_login.toLowerCase()));
+    }
+
+    public async getSubscriberUserIds(): Promise<Set<string>> {
+        return new Set((await this.getSubscribers()).map(user => user.user_id));
+    }
+
+    private async getSubscribers(): Promise<TwitchSubscriber[]> {
         if (!this.isConfigured()) {
-            return new Set<string>();
+            return [];
         }
 
         if (!this.broadcasterId && this.broadcasterName) {
@@ -287,19 +303,19 @@ export class TwitchRoleService {
                 this.broadcasterId = await this.getBroadcasterIdByName(this.broadcasterName);
                 if (!this.broadcasterId) {
                     console.warn(`[TwitchRole] Broadcaster "${this.broadcasterName}" not found on Twitch.`);
-                    return new Set<string>();
+                    return [];
                 }
             } catch (error) {
                 console.error("[TwitchRole] Failed to resolve broadcaster ID:", error);
-                return new Set<string>();
+                return [];
             }
         }
 
         if (!this.broadcasterId) {
-            return new Set<string>();
+            return [];
         }
 
-        const subscribers = new Set<string>();
+        const subscribers: TwitchSubscriber[] = [];
         let after: string | undefined;
 
         try {
@@ -320,9 +336,7 @@ export class TwitchRoleService {
                 }
 
                 const body = (await response.json()) as { data: TwitchSubscriber[]; pagination?: { cursor: string } };
-                for (const subscriber of body.data) {
-                    subscribers.add(subscriber.user_login.toLowerCase());
-                }
+                subscribers.push(...body.data);
 
                 if (!body.pagination?.cursor) {
                     break;

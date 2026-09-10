@@ -31,6 +31,9 @@ export interface IBotModule {
             twitchAccessTokenExpiresAt?: number;
             twitchFollowerRoleName?: string;
             twitchSubscriberRoleName?: string;
+            twitchLinkChannelName?: string;
+            twitchLinkPanelTitle?: string;
+            twitchLinkPanelMessage?: string;
         },
         client?: Client
     ): Promise<void> | void;

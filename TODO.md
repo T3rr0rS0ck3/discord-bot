@@ -42,6 +42,7 @@
 ## Welcome und Twitch
 
 - [x] Welcome-Texte bearbeiten und Vorschau der Welcome-Nachricht anzeigen
+- [x] Twitch-Mitglieder per Discord-Kanal und OAuth-Button zuverlässig in SQLite verknüpfen
 - [ ] Twitch-Synchronisierung manuell starten koennen
 - [ ] Zeitpunkt des letzten erfolgreichen Twitch-Syncs anzeigen
 - [ ] Protokollieren, welche Twitch-Rollen hinzugefuegt oder entfernt wurden
@@ -49,6 +50,7 @@
 ## Features
 
 - [] Achivement system
+- [] Admin UI pfade undco funktionieren im home assistant inkl. cloudflare proxy über das ha plugin
 
 ## Tests und Qualitaet
 

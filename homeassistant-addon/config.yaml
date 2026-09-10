@@ -16,10 +16,8 @@ panel_icon: mdi:robot
 panel_title: Discord Bot
 ports:
   8787/tcp: 8787
-  3000/tcp: 3000
 ports_description:
   8787/tcp: Admin-Weboberflaeche (alternativ zu Ingress)
-  3000/tcp: Spotify OAuth Callback
 map:
   - type: data
     read_only: false

@@ -33,9 +33,6 @@ export type AdminConfig = {
     musicYoutubeSearchLimit?: number;
     audioDbApiKey?: string;
     audioDbApiVersion?: "v1" | "v2";
-    spotifyClientId?: string;
-    spotifyClientSecret?: string;
-    spotifyRedirectUri?: string;
     welcomeChannelId?: string;
     welcomeTitle?: string;
     welcomeReactionPrompt?: string;
@@ -50,6 +47,9 @@ export type AdminConfig = {
     twitchAccessTokenExpiresAt?: number;
     twitchFollowerRoleName?: string;
     twitchSubscriberRoleName?: string;
+    twitchLinkChannelName?: string;
+    twitchLinkPanelTitle?: string;
+    twitchLinkPanelMessage?: string;
 };
 
 export type CommunityState = {
@@ -68,6 +68,15 @@ export type CommunityNameVotingRound = {
     startsAt: number;
     endsAt: number;
     candidates: CommunityNameCandidate[];
+};
+
+export type TwitchMemberLink = {
+    guildId: string;
+    discordUserId: string;
+    twitchUserId: string;
+    twitchLogin: string;
+    twitchDisplayName: string;
+    linkedAt: number;
 };
 
 export class AdminConfigStore {
@@ -153,6 +162,93 @@ export class AdminConfigStore {
         await this.ensureDb();
         const rows = await this.db!.all<Array<{ name: string }>>("SELECT name FROM community_channel_names ORDER BY name");
         return rows.map(row => row.name);
+    }
+
+    public async createTwitchMemberOAuthState(state: string, guildId: string, discordUserId: string, expiresAt: number): Promise<void> {
+        await this.ensureDb();
+        await this.db!.run("DELETE FROM twitch_member_oauth_states WHERE expires_at <= ?", Date.now());
+        await this.db!.run(
+            "INSERT INTO twitch_member_oauth_states (state, guild_id, discord_user_id, expires_at) VALUES (?, ?, ?, ?)",
+            state,
+            guildId,
+            discordUserId,
+            expiresAt
+        );
+    }
+
+    public async consumeTwitchMemberOAuthState(state: string, now = Date.now()): Promise<{ guildId: string; discordUserId: string } | undefined> {
+        await this.ensureDb();
+        await this.db!.exec("BEGIN IMMEDIATE");
+        try {
+            const row = await this.db!.get<{ guild_id: string; discord_user_id: string; expires_at: number }>(
+                "SELECT guild_id, discord_user_id, expires_at FROM twitch_member_oauth_states WHERE state = ?",
+                state
+            );
+            await this.db!.run("DELETE FROM twitch_member_oauth_states WHERE state = ? OR expires_at <= ?", state, now);
+            await this.db!.exec("COMMIT");
+            return row && row.expires_at > now ? { guildId: row.guild_id, discordUserId: row.discord_user_id } : undefined;
+        } catch (error) {
+            await this.db!.exec("ROLLBACK");
+            throw error;
+        }
+    }
+
+    public async saveTwitchMemberLink(link: TwitchMemberLink): Promise<void> {
+        await this.ensureDb();
+        try {
+            await this.db!.run(
+                `INSERT INTO twitch_member_links (guild_id, discord_user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(guild_id, discord_user_id) DO UPDATE SET
+                    twitch_user_id = excluded.twitch_user_id,
+                    twitch_login = excluded.twitch_login,
+                    twitch_display_name = excluded.twitch_display_name,
+                    linked_at = excluded.linked_at`,
+                link.guildId,
+                link.discordUserId,
+                link.twitchUserId,
+                link.twitchLogin,
+                link.twitchDisplayName,
+                link.linkedAt
+            );
+        } catch (error) {
+            if (error instanceof Error && /UNIQUE constraint failed.*twitch_member_links/i.test(error.message)) {
+                throw new Error("Dieses Twitch-Konto ist bereits mit einem anderen Discord-Mitglied auf diesem Server verknüpft.");
+            }
+            throw error;
+        }
+    }
+
+    public async getTwitchMemberLinks(guildId: string): Promise<TwitchMemberLink[]> {
+        await this.ensureDb();
+        const rows = await this.db!.all<Array<{ discord_user_id: string; twitch_user_id: string; twitch_login: string; twitch_display_name: string; linked_at: number }>>(
+            "SELECT discord_user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at FROM twitch_member_links WHERE guild_id = ?",
+            guildId
+        );
+        return rows.map(row => ({ guildId, discordUserId: row.discord_user_id, twitchUserId: row.twitch_user_id, twitchLogin: row.twitch_login, twitchDisplayName: row.twitch_display_name, linkedAt: row.linked_at }));
+    }
+
+    public async deleteTwitchMemberLink(guildId: string, discordUserId: string): Promise<boolean> {
+        await this.ensureDb();
+        const result = await this.db!.run("DELETE FROM twitch_member_links WHERE guild_id = ? AND discord_user_id = ?", guildId, discordUserId);
+        return (result.changes ?? 0) > 0;
+    }
+
+    public async getTwitchLinkPanel(guildId: string): Promise<{ channelId: string; messageId: string } | undefined> {
+        await this.ensureDb();
+        const row = await this.db!.get<{ channel_id: string; message_id: string }>("SELECT channel_id, message_id FROM twitch_link_panels WHERE guild_id = ?", guildId);
+        return row ? { channelId: row.channel_id, messageId: row.message_id } : undefined;
+    }
+
+    public async saveTwitchLinkPanel(guildId: string, channelId: string, messageId: string): Promise<void> {
+        await this.ensureDb();
+        await this.db!.run(
+            `INSERT INTO twitch_link_panels (guild_id, channel_id, message_id) VALUES (?, ?, ?)
+             ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id, message_id = excluded.message_id`,
+            guildId,
+            channelId,
+            messageId
+        );
     }
 
     public async addCommunityNameSuggestion(guildId: string, name: string, userId: string, now = Date.now()): Promise<void> {
@@ -427,9 +523,6 @@ export class AdminConfigStore {
         const audioDbApiKey = this.normalizeString(input.audioDbApiKey) ?? "123";
         const audioDbApiVersion = input.audioDbApiVersion === "v2" ? "v2" : "v1";
         const musicDebugSearch = input.musicDebugSearch === undefined ? true : Boolean(input.musicDebugSearch);
-        const spotifyClientId = this.normalizeString(input.spotifyClientId);
-        const spotifyClientSecret = this.normalizeString(input.spotifyClientSecret);
-        const spotifyRedirectUri = this.normalizeString(input.spotifyRedirectUri);
         const welcomeChannelId = input.welcomeChannelId ? String(input.welcomeChannelId).trim() : undefined;
         const welcomeTitle = String(input.welcomeTitle ?? "👋 Welcome!").trim().slice(0, 100) || "👋 Welcome!";
         const welcomeReactionPrompt = String(input.welcomeReactionPrompt ?? "React with an emoji below to get the matching role:").trim().slice(0, 1000) || "React with an emoji below to get the matching role:";
@@ -443,6 +536,9 @@ export class AdminConfigStore {
         const twitchAccessTokenExpiresAt = this.normalizeNumber(input.twitchAccessTokenExpiresAt, 1, Number.MAX_SAFE_INTEGER);
         const twitchFollowerRoleName = this.normalizeString(input.twitchFollowerRoleName);
         const twitchSubscriberRoleName = this.normalizeString(input.twitchSubscriberRoleName);
+        const twitchLinkChannelName = String(input.twitchLinkChannelName ?? "twitch-verknuepfung").trim().toLowerCase().replace(/[^a-z0-9äöüß-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100) || "twitch-verknuepfung";
+        const twitchLinkPanelTitle = String(input.twitchLinkPanelTitle ?? "Twitch-Konto verbinden").trim().slice(0, 100) || "Twitch-Konto verbinden";
+        const twitchLinkPanelMessage = String(input.twitchLinkPanelMessage ?? "Verbinde dein Twitch-Konto, damit deine Follower- und Abonnentenrollen zuverlässig synchronisiert werden können.").trim().slice(0, 1000) || "Verbinde dein Twitch-Konto, damit deine Follower- und Abonnentenrollen zuverlässig synchronisiert werden können.";
 
         return {
             systemEnabled: input.systemEnabled === true,
@@ -469,9 +565,6 @@ export class AdminConfigStore {
             musicYoutubeSearchLimit,
             audioDbApiKey,
             audioDbApiVersion,
-            spotifyClientId,
-            spotifyClientSecret,
-            spotifyRedirectUri,
             welcomeChannelId: welcomeChannelId && welcomeChannelId.length > 0 ? welcomeChannelId : undefined,
             welcomeTitle,
             welcomeReactionPrompt,
@@ -485,7 +578,10 @@ export class AdminConfigStore {
             twitchRefreshToken,
             twitchAccessTokenExpiresAt,
             twitchFollowerRoleName,
-            twitchSubscriberRoleName
+            twitchSubscriberRoleName,
+            twitchLinkChannelName,
+            twitchLinkPanelTitle,
+            twitchLinkPanelMessage
         };
     }
 

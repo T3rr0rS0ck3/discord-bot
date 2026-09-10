@@ -17,6 +17,28 @@ export function TwitchSettingsSection(props: TwitchSettingsSectionProps): React.
     return (
         <div>
             <div className="input-group">
+                <label htmlFor="twitchLinkChannelName">Verknüpfungskanal <span className="required-mark">*</span></label>
+                <input id="twitchLinkChannelName" type="text" maxLength={100} required disabled={props.busy}
+                    placeholder="twitch-verknuepfung" value={props.config.twitchLinkChannelName ?? ""}
+                    onChange={(e) => props.onUpdateConfig("twitchLinkChannelName", e.target.value)} />
+                <p className="input-hint">Der Bot erstellt oder verwendet diesen Discord-Textkanal für die Twitch-Verknüpfung.</p>
+            </div>
+
+            <div className="input-group">
+                <label htmlFor="twitchLinkPanelTitle">Panel-Titel <span className="required-mark">*</span></label>
+                <input id="twitchLinkPanelTitle" type="text" maxLength={100} required disabled={props.busy}
+                    value={props.config.twitchLinkPanelTitle ?? ""}
+                    onChange={(e) => props.onUpdateConfig("twitchLinkPanelTitle", e.target.value)} />
+            </div>
+
+            <div className="input-group">
+                <label htmlFor="twitchLinkPanelMessage">Panel-Nachricht <span className="required-mark">*</span></label>
+                <textarea id="twitchLinkPanelMessage" maxLength={1000} required disabled={props.busy}
+                    value={props.config.twitchLinkPanelMessage ?? ""}
+                    onChange={(e) => props.onUpdateConfig("twitchLinkPanelMessage", e.target.value)} />
+            </div>
+
+            <div className="input-group">
                 <label htmlFor="twitchBroadcasterName">Broadcaster Name <span className="required-mark">*</span></label>
                 <input
                     id="twitchBroadcasterName"
@@ -120,7 +142,7 @@ export function TwitchSettingsSection(props: TwitchSettingsSectionProps): React.
                     disabled={props.busy || !canStartOAuth}
                     onClick={() => window.open("/api/twitch/oauth/start", "_blank", "noopener,noreferrer")}
                 >
-                    Connect Twitch via OAuth
+                    Broadcaster mit Twitch verbinden
                 </button>
                 <p className="input-hint">
                     Opens Twitch login in a new tab and stores the access token automatically after approval.
@@ -154,7 +176,7 @@ export function TwitchSettingsSection(props: TwitchSettingsSectionProps): React.
             </div>
 
             <p className="muted">
-                Note: Bot syncs Twitch follower/subscriber roles every hour based on Discord Connected Accounts.
+                Mitglieder verbinden ihr Twitch-Konto über die Buttons im konfigurierten Discord-Kanal. Der Bot synchronisiert ausschließlich diese in SQLite gespeicherten Verknüpfungen einmal pro Stunde und direkt nach einer neuen Verbindung.
             </p>
         </div>
     );

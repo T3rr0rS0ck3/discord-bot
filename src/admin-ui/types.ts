@@ -30,9 +30,6 @@ export type AdminConfig = {
     musicYoutubeSearchLimit?: number;
     audioDbApiKey?: string;
     audioDbApiVersion?: "v1" | "v2";
-    spotifyClientId?: string;
-    spotifyClientSecret?: string;
-    spotifyRedirectUri?: string;
     welcomeChannelId?: string;
     welcomeTitle?: string;
     welcomeReactionPrompt?: string;
@@ -47,6 +44,9 @@ export type AdminConfig = {
     twitchAccessTokenExpiresAt?: number;
     twitchFollowerRoleName?: string;
     twitchSubscriberRoleName?: string;
+    twitchLinkChannelName?: string;
+    twitchLinkPanelTitle?: string;
+    twitchLinkPanelMessage?: string;
 };
 
 export type AuthState = {
@@ -103,9 +103,6 @@ export type RestartRelevantState = {
     musicYoutubeSearchLimit: string;
     audioDbApiKey: string;
     audioDbApiVersion: "v1" | "v2";
-    spotifyClientId: string;
-    spotifyClientSecret: string;
-    spotifyRedirectUri: string;
 };
 
 export type SaveResponse = {

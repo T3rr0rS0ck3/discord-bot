@@ -44,6 +44,15 @@ export class BotModuleFactory {
                     accessTokenExpiresAt: options.twitchRole.accessTokenExpiresAt,
                     followerRoleName: options.twitchRole.followerRoleName,
                     subscriberRoleName: options.twitchRole.subscriberRoleName,
+                    redirectUri: options.twitchRole.redirectUri,
+                    linkChannelName: options.twitchRole.linkChannelName,
+                    linkPanelTitle: options.twitchRole.linkPanelTitle,
+                    linkPanelMessage: options.twitchRole.linkPanelMessage,
+                    createMemberOAuthState: options.twitchRole.createMemberOAuthState,
+                    getMemberLinks: options.twitchRole.getMemberLinks,
+                    deleteMemberLink: options.twitchRole.deleteMemberLink,
+                    getLinkPanel: options.twitchRole.getLinkPanel,
+                    saveLinkPanel: options.twitchRole.saveLinkPanel,
                     onTokensUpdated: options.twitchRole.onTokensUpdated
                 })
             );

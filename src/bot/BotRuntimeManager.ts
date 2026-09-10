@@ -2,6 +2,7 @@ import type { Client } from "discord.js";
 import type { AdminConfig } from "../admin/AdminConfigStore";
 import { AdminConfigStore } from "../admin/AdminConfigStore";
 import { BotModuleFactory } from "../modules/BotModuleFactory";
+import { TwitchRoleModule } from "../modules/TwitchRoleModule";
 import type { IBotModule } from "../modules/interfaces/IBotModule";
 import type { DiscordRuntimeStatus } from "../types/Discord";
 import { RuntimeStatusStore } from "../services/RuntimeStatusStore";
@@ -84,6 +85,11 @@ export class BotRuntimeManager {
         await this.start();
     }
 
+    public async syncTwitchRoles(): Promise<void> {
+        const module = this.modules.find((item): item is TwitchRoleModule => item instanceof TwitchRoleModule);
+        if (module) await module.syncNow();
+    }
+
     public async stop(): Promise<void> {
         for (const module of this.modules) {
             await module.shutdown?.();
@@ -119,6 +125,9 @@ export class BotRuntimeManager {
                     twitchAccessTokenExpiresAt: this.config.twitchAccessTokenExpiresAt,
                     twitchFollowerRoleName: this.config.twitchFollowerRoleName,
                     twitchSubscriberRoleName: this.config.twitchSubscriberRoleName
+                    ,twitchLinkChannelName: this.config.twitchLinkChannelName
+                    ,twitchLinkPanelTitle: this.config.twitchLinkPanelTitle
+                    ,twitchLinkPanelMessage: this.config.twitchLinkPanelMessage
                 },
                 readyClient
             );
@@ -155,11 +164,6 @@ export class BotRuntimeManager {
             saveCommunityNameVotingMessage: (guildId, channelId, messageId) => this.configStore.saveCommunityNameVotingMessage(guildId, channelId, messageId),
             guildId: this.config.guildId,
             musicRoleName: this.config.musicRoleName,
-            spotifyService: {
-                clientId: this.config.spotifyClientId,
-                clientSecret: this.config.spotifyClientSecret,
-                redirectUri: this.config.spotifyRedirectUri
-            },
             musicPlayback: {
                 defaultVolumePercent: this.config.musicDefaultVolumePercent,
                 debugSearch: this.config.musicDebugSearch,
@@ -178,11 +182,20 @@ export class BotRuntimeManager {
                 broadcasterName: this.config.twitchBroadcasterName,
                 clientId: this.config.twitchClientId,
                 clientSecret: this.config.twitchClientSecret,
+                redirectUri: this.config.twitchRedirectUri,
                 accessToken: this.config.twitchAccessToken,
                 refreshToken: this.config.twitchRefreshToken,
                 accessTokenExpiresAt: this.config.twitchAccessTokenExpiresAt,
                 followerRoleName: this.config.twitchFollowerRoleName,
                 subscriberRoleName: this.config.twitchSubscriberRoleName,
+                linkChannelName: this.config.twitchLinkChannelName,
+                linkPanelTitle: this.config.twitchLinkPanelTitle,
+                linkPanelMessage: this.config.twitchLinkPanelMessage,
+                createMemberOAuthState: (state, guildId, discordUserId, expiresAt) => this.configStore.createTwitchMemberOAuthState(state, guildId, discordUserId, expiresAt),
+                getMemberLinks: (guildId) => this.configStore.getTwitchMemberLinks(guildId),
+                deleteMemberLink: (guildId, discordUserId) => this.configStore.deleteTwitchMemberLink(guildId, discordUserId),
+                getLinkPanel: (guildId) => this.configStore.getTwitchLinkPanel(guildId),
+                saveLinkPanel: (guildId, channelId, messageId) => this.configStore.saveTwitchLinkPanel(guildId, channelId, messageId),
                 onTokensUpdated: async (tokens) => {
                     this.config = {
                         ...this.config,

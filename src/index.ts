@@ -83,9 +83,6 @@ export class Startup {
             musicYoutubeSearchLimit: this.parseNumber(legacyEnvValues.MUSIC_YOUTUBE_SEARCH_LIMIT) ?? 25,
             audioDbApiKey: this.normalizeString(legacyEnvValues.AUDIODB_API_KEY) ?? "123",
             audioDbApiVersion: legacyEnvValues.AUDIODB_API_VERSION === "v2" ? "v2" : "v1",
-            spotifyClientId: this.normalizeString(legacyEnvValues.SPOTIFY_CLIENT_ID),
-            spotifyClientSecret: this.normalizeString(legacyEnvValues.SPOTIFY_CLIENT_SECRET),
-            spotifyRedirectUri: this.normalizeString(legacyEnvValues.SPOTIFY_REDIRECT_URI),
             welcomeChannelId: this.normalizeString(legacyEnvValues.WELCOME_CHANNEL_ID),
             welcomeTitle: "👋 Welcome!",
             welcomeReactionPrompt: "React with an emoji below to get the matching role:",
@@ -99,6 +96,9 @@ export class Startup {
             twitchAccessTokenExpiresAt: this.parseNumber(legacyEnvValues.TWITCH_ACCESS_TOKEN_EXPIRES_AT),
             twitchFollowerRoleName: this.normalizeString(legacyEnvValues.TWITCH_FOLLOWER_ROLE_NAME),
             twitchSubscriberRoleName: this.normalizeString(legacyEnvValues.TWITCH_SUBSCRIBER_ROLE_NAME),
+            twitchLinkChannelName: "twitch-verknuepfung",
+            twitchLinkPanelTitle: "Twitch-Konto verbinden",
+            twitchLinkPanelMessage: "Verbinde dein Twitch-Konto, damit deine Follower- und Abonnentenrollen zuverlässig synchronisiert werden können.",
             welcomeRoles: this.parseWelcomeRoles(legacyEnvValues.WELCOME_ROLES) ?? [
                 { emoji: "🎮", name: "Gaming", description: "For gamers and gaming enthusiasts" },
                 { emoji: "🎵", name: "Music", description: "For music lovers" }
@@ -148,6 +148,9 @@ export class Startup {
             },
             getDiscordStatus: () => botRuntimeManager.getStatus(),
             getDatabaseStatus: () => adminConfigStore.getDatabaseStatus(),
+            consumeTwitchMemberOAuthState: (state) => adminConfigStore.consumeTwitchMemberOAuthState(state),
+            saveTwitchMemberLink: (link) => adminConfigStore.saveTwitchMemberLink(link),
+            syncTwitchRoles: () => botRuntimeManager.syncTwitchRoles(),
             getServerEmojis: async () => {
                 const guildId = botRuntimeManager.getConfig().guildId;
                 if (!guildId) {

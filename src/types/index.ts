@@ -21,19 +21,6 @@ export type {
     PlaybackControlOptions
 } from "./Music";
 
-// Spotify Types
-export type {
-    SpotifyTokenResponse,
-    SpotifyClientCredentialsTokenResponse,
-    SpotifyMeResponse,
-    SpotifyTrackResponse,
-    SpotifySearchTracksResponse,
-    SpotifyPlayableTrack,
-    SpotifyTrackMetadata,
-    PendingOAuthState,
-    SpotifyTokenRecord,
-    SpotifyTrackSuggestion
-} from "./Spotify";
 export type { AudioDbTrackMetadata, AudioDbTrack, AudioDbTrackResponse } from "./AudioDb";
 
 // Discord Bot Types

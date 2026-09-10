@@ -16,12 +16,6 @@ export type DiscordRuntimeStatus = {
     updatedAt: string;
 };
 
-export type SpotifyServiceOptions = {
-    clientId?: string;
-    clientSecret?: string;
-    redirectUri?: string;
-};
-
 export type MusicPlaybackOptions = {
     defaultVolumePercent?: number;
     debugSearch?: boolean;
@@ -36,11 +30,20 @@ export type TwitchRoleModuleOptions = {
     broadcasterName?: string;
     clientId?: string;
     clientSecret?: string;
+    redirectUri?: string;
     accessToken?: string;
     refreshToken?: string;
     accessTokenExpiresAt?: number;
     followerRoleName?: string;
     subscriberRoleName?: string;
+    linkChannelName?: string;
+    linkPanelTitle?: string;
+    linkPanelMessage?: string;
+    createMemberOAuthState?: (state: string, guildId: string, discordUserId: string, expiresAt: number) => Promise<void>;
+    getMemberLinks?: (guildId: string) => Promise<import("../admin/AdminConfigStore").TwitchMemberLink[]>;
+    deleteMemberLink?: (guildId: string, discordUserId: string) => Promise<boolean>;
+    getLinkPanel?: (guildId: string) => Promise<{ channelId: string; messageId: string } | undefined>;
+    saveLinkPanel?: (guildId: string, channelId: string, messageId: string) => Promise<void>;
     onTokensUpdated?: (tokens: {
         accessToken: string;
         refreshToken?: string;
@@ -82,20 +85,21 @@ export type BotModuleFactoryOptions = {
 
     guildId?: string;
     musicRoleName: string;
-    spotifyService: SpotifyServiceOptions;
     musicPlayback: MusicPlaybackOptions;
     welcomeChannelId?: string;
     welcomeTitle?: string;
     welcomeReactionPrompt?: string;
     welcomeReactionInstructions?: string;
     welcomeRoles?: WelcomeRoleOption[];
+    twitchLinkChannelName?: string;
+    twitchLinkPanelTitle?: string;
+    twitchLinkPanelMessage?: string;
     twitchRole?: TwitchRoleModuleOptions;
 };
 
 export type MusicBotModuleOptions = {
     guildId?: string;
     musicRoleName: string;
-    spotifyService: SpotifyServiceOptions;
     musicPlayback: MusicPlaybackOptions;
 };
 

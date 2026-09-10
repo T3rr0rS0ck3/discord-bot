@@ -97,6 +97,50 @@ const migrations: Migration[] = [
                     ON community_name_votes(guild_id, user_id);
             `);
         }
+    },
+    {
+        version: 5,
+        id: "twitch-member-linking-v1",
+        apply: async (db) => {
+            await db.exec(`
+                CREATE TABLE IF NOT EXISTS twitch_member_links (
+                    guild_id TEXT NOT NULL,
+                    discord_user_id TEXT NOT NULL,
+                    twitch_user_id TEXT NOT NULL,
+                    twitch_login TEXT NOT NULL,
+                    twitch_display_name TEXT NOT NULL,
+                    linked_at INTEGER NOT NULL,
+                    PRIMARY KEY(guild_id, discord_user_id),
+                    UNIQUE(guild_id, twitch_user_id)
+                );
+                CREATE TABLE IF NOT EXISTS twitch_member_oauth_states (
+                    state TEXT PRIMARY KEY,
+                    guild_id TEXT NOT NULL,
+                    discord_user_id TEXT NOT NULL,
+                    expires_at INTEGER NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS twitch_link_panels (
+                    guild_id TEXT PRIMARY KEY,
+                    channel_id TEXT NOT NULL,
+                    message_id TEXT NOT NULL
+                );
+            `);
+        }
+    },
+    {
+        version: 6,
+        id: "remove-spotify-v1",
+        apply: async (db) => {
+            await db.exec(`
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                DELETE FROM settings
+                WHERE key IN ('spotifyClientId', 'spotifyClientSecret', 'spotifyRedirectUri');
+                DROP TABLE IF EXISTS spotify_tokens;
+            `);
+        }
     }
 ];
 

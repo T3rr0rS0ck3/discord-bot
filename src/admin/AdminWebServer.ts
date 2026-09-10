@@ -17,6 +17,9 @@ type AdminWebServerOptions = {
     getWelcomeChannels: () => Promise<Array<{ id: string; name: string }>>;
     getDiscordStatus: () => DiscordRuntimeStatus;
     getDatabaseStatus: () => Promise<DatabaseStatus>;
+    consumeTwitchMemberOAuthState: (state: string) => Promise<{ guildId: string; discordUserId: string } | undefined>;
+    saveTwitchMemberLink: (link: import("./AdminConfigStore").TwitchMemberLink) => Promise<void>;
+    syncTwitchRoles: () => Promise<void>;
 };
 
 type ConfigBackup = {
@@ -376,9 +379,6 @@ export class AdminWebServer {
             musicYoutubeSearchLimit: this.normalizeNumber(input.musicYoutubeSearchLimit, 10, 100) ?? 25,
             audioDbApiKey: this.normalizeString(input.audioDbApiKey) ?? "123",
             audioDbApiVersion: input.audioDbApiVersion === "v2" ? "v2" : "v1",
-            spotifyClientId: this.normalizeString(input.spotifyClientId),
-            spotifyClientSecret: this.normalizeString(input.spotifyClientSecret),
-            spotifyRedirectUri: this.normalizeString(input.spotifyRedirectUri),
             welcomeChannelId: this.normalizeString(input.welcomeChannelId),
             welcomeTitle: String(input.welcomeTitle ?? "👋 Welcome!").trim().slice(0, 100) || "👋 Welcome!",
             welcomeReactionPrompt: String(input.welcomeReactionPrompt ?? "React with an emoji below to get the matching role:").trim().slice(0, 1000) || "React with an emoji below to get the matching role:",
@@ -392,7 +392,10 @@ export class AdminWebServer {
             twitchRefreshToken: this.normalizeString(input.twitchRefreshToken),
             twitchAccessTokenExpiresAt: this.normalizeNumber(input.twitchAccessTokenExpiresAt, 1, Number.MAX_SAFE_INTEGER),
             twitchFollowerRoleName: this.normalizeString(input.twitchFollowerRoleName),
-            twitchSubscriberRoleName: this.normalizeString(input.twitchSubscriberRoleName)
+            twitchSubscriberRoleName: this.normalizeString(input.twitchSubscriberRoleName),
+            twitchLinkChannelName: String(input.twitchLinkChannelName ?? "twitch-verknuepfung").trim().toLowerCase().replace(/[^a-z0-9äöüß-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100) || "twitch-verknuepfung",
+            twitchLinkPanelTitle: String(input.twitchLinkPanelTitle ?? "Twitch-Konto verbinden").trim().slice(0, 100) || "Twitch-Konto verbinden",
+            twitchLinkPanelMessage: String(input.twitchLinkPanelMessage ?? "Verbinde dein Twitch-Konto, damit deine Follower- und Abonnentenrollen zuverlässig synchronisiert werden können.").trim().slice(0, 1000) || "Verbinde dein Twitch-Konto, damit deine Follower- und Abonnentenrollen zuverlässig synchronisiert werden können."
         };
     }
 
@@ -457,6 +460,9 @@ export class AdminWebServer {
             required(input.twitchClientId, "Twitch Client ID");
             required(input.twitchClientSecret, "Twitch Client Secret");
             required(input.twitchRedirectUri, "Twitch Redirect URI");
+            required(input.twitchLinkChannelName, "Twitch Link Channel Name");
+            required(input.twitchLinkPanelTitle, "Twitch Link Panel Title");
+            required(input.twitchLinkPanelMessage, "Twitch Link Panel Message");
             if (!String(input.twitchFollowerRoleName ?? "").trim() && !String(input.twitchSubscriberRoleName ?? "").trim()) {
                 errors.push("At least one Twitch role name is required.");
             }
@@ -512,6 +518,37 @@ export class AdminWebServer {
         if (!code || !state) {
             res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
             res.end(this.renderSimpleHtml("Twitch OAuth Failed", this.escapeHtml("Missing OAuth code or state.")));
+            return;
+        }
+
+        const memberState = await this.options.consumeTwitchMemberOAuthState(state);
+        if (memberState) {
+            const config = this.options.getConfig();
+            const twitchConfig = this.getTwitchOAuthConfig(config);
+            if (!twitchConfig) {
+                res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
+                res.end(this.renderSimpleHtml("Twitch-Verknüpfung fehlgeschlagen", this.escapeHtml("Twitch OAuth ist nicht vollständig konfiguriert.")));
+                return;
+            }
+            try {
+                const tokenResult = await this.exchangeTwitchCodeForTokens(code, twitchConfig);
+                const profile = await this.fetchTwitchProfile(tokenResult.accessToken, twitchConfig.clientId);
+                await this.options.saveTwitchMemberLink({
+                    guildId: memberState.guildId,
+                    discordUserId: memberState.discordUserId,
+                    twitchUserId: profile.id,
+                    twitchLogin: profile.login,
+                    twitchDisplayName: profile.displayName ?? profile.login,
+                    linkedAt: Date.now()
+                });
+                await this.options.syncTwitchRoles();
+                res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+                res.end(this.renderSimpleHtml("Twitch-Konto verbunden", `Twitch-Konto <strong>${this.escapeHtml(profile.displayName ?? profile.login)}</strong> wurde zuverlässig mit deinem Discord-Mitglied verknüpft. Du kannst diesen Tab schließen.`));
+            } catch (oauthError) {
+                const message = oauthError instanceof Error ? oauthError.message : String(oauthError);
+                res.writeHead(500, { "Content-Type": "text/html; charset=utf-8" });
+                res.end(this.renderSimpleHtml("Twitch-Verknüpfung fehlgeschlagen", this.escapeHtml(message)));
+            }
             return;
         }
 
@@ -605,7 +642,7 @@ export class AdminWebServer {
     private async fetchTwitchProfile(
         accessToken: string,
         clientId: string
-    ): Promise<{ login: string; displayName?: string }> {
+    ): Promise<{ id: string; login: string; displayName?: string }> {
         const response = await fetch("https://api.twitch.tv/helix/users", {
             headers: {
                 "Client-ID": clientId,
@@ -617,13 +654,14 @@ export class AdminWebServer {
             throw new Error(`Twitch profile lookup failed with HTTP ${response.status}`);
         }
 
-        const payload = (await response.json()) as { data?: Array<{ login?: string; display_name?: string }> };
+        const payload = (await response.json()) as { data?: Array<{ id?: string; login?: string; display_name?: string }> };
         const user = payload.data?.[0];
-        if (!user?.login) {
+        if (!user?.id || !user.login) {
             throw new Error("Twitch profile lookup returned no user.");
         }
 
         return {
+            id: user.id,
             login: user.login,
             displayName: user.display_name
         };
@@ -674,10 +712,7 @@ export class AdminWebServer {
                 { key: "musicRoleName", label: "Music Role" },
         { key: "musicDefaultVolumePercent", label: "Music Default Volume" },
         { key: "musicDebugSearch", label: "Music Debug Search" },
-        { key: "musicYoutubeSearchLimit", label: "Music YouTube Search Limit" },
-        { key: "spotifyClientId", label: "Spotify Client ID" },
-        { key: "spotifyClientSecret", label: "Spotify Client Secret" },
-        { key: "spotifyRedirectUri", label: "Spotify Redirect URI" }
+                { key: "musicYoutubeSearchLimit", label: "Music YouTube Search Limit" }
       ];
 
       const changed = fields

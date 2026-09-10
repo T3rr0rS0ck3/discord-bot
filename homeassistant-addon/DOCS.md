@@ -16,6 +16,5 @@ Der Status der automatisch erstellten Community-Kanäle wird in der SQLite-Tabel
 `community_state` gespeichert. Vorhandene JSON-Statusdateien aus älteren
 Installationen werden beim ersten Start automatisch migriert.
 
-Der Spotify-OAuth-Callback ist bei Bedarf ueber Port `3000` erreichbar. Fuer
-direkte Zugriffe auf die Admin-Oberflaeche kann Port `8787` zusaetzlich in den
-App-Netzwerkeinstellungen freigegeben werden.
+Fuer direkte Zugriffe auf die Admin-Oberflaeche kann Port `8787` zusaetzlich in
+den App-Netzwerkeinstellungen freigegeben werden.

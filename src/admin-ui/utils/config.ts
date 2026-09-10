@@ -14,10 +14,7 @@ export const restartFieldLabels: Record<keyof RestartRelevantState, string> = {
     musicDebugSearch: "Music Debug Search",
     musicYoutubeSearchLimit: "Music YouTube Search Limit",
     audioDbApiKey: "TheAudioDB API Key",
-    audioDbApiVersion: "TheAudioDB API Version",
-    spotifyClientId: "Spotify Client ID",
-    spotifyClientSecret: "Spotify Client Secret",
-    spotifyRedirectUri: "Spotify Redirect URI"
+    audioDbApiVersion: "TheAudioDB API Version"
 };
 
 export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
@@ -52,9 +49,6 @@ export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
                 : Number(input.musicYoutubeSearchLimit),
             audioDbApiKey: input.audioDbApiKey ? String(input.audioDbApiKey) : "123",
             audioDbApiVersion: input.audioDbApiVersion === "v2" ? "v2" : "v1",
-        spotifyClientId: input.spotifyClientId ? String(input.spotifyClientId) : "",
-        spotifyClientSecret: input.spotifyClientSecret ? String(input.spotifyClientSecret) : "",
-        spotifyRedirectUri: input.spotifyRedirectUri ? String(input.spotifyRedirectUri) : "",
         welcomeChannelId: input.welcomeChannelId ? String(input.welcomeChannelId) : "",
         welcomeTitle: String(input.welcomeTitle ?? "👋 Welcome!"),
         welcomeReactionPrompt: String(input.welcomeReactionPrompt ?? "React with an emoji below to get the matching role:"),
@@ -77,7 +71,10 @@ export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
                 ? undefined
                 : Number(input.twitchAccessTokenExpiresAt),
         twitchFollowerRoleName: input.twitchFollowerRoleName ? String(input.twitchFollowerRoleName) : "",
-        twitchSubscriberRoleName: input.twitchSubscriberRoleName ? String(input.twitchSubscriberRoleName) : ""
+        twitchSubscriberRoleName: input.twitchSubscriberRoleName ? String(input.twitchSubscriberRoleName) : "",
+        twitchLinkChannelName: String(input.twitchLinkChannelName ?? "twitch-verknuepfung"),
+        twitchLinkPanelTitle: String(input.twitchLinkPanelTitle ?? "Twitch-Konto verbinden"),
+        twitchLinkPanelMessage: String(input.twitchLinkPanelMessage ?? "Verbinde dein Twitch-Konto, damit deine Follower- und Abonnentenrollen zuverlässig synchronisiert werden können.")
     };
 }
 
@@ -89,9 +86,6 @@ export function serializeConfig(cfg: AdminConfig): string {
         adminUiUsername: cfg.adminUiUsername.trim(),
         adminUiToken: cfg.adminUiToken.trim(),
         musicRoleName: cfg.musicRoleName.trim(),
-        spotifyClientId: cfg.spotifyClientId?.trim() || "",
-        spotifyClientSecret: cfg.spotifyClientSecret?.trim() || "",
-        spotifyRedirectUri: cfg.spotifyRedirectUri?.trim() || "",
         welcomeChannelId: cfg.welcomeChannelId?.trim() || "",
         welcomeRoles: cfg.welcomeRoles.map((role) => ({
             emoji: role.emoji.trim(),
@@ -120,7 +114,10 @@ export function serializeConfig(cfg: AdminConfig): string {
                 ? ""
                 : String(cfg.twitchAccessTokenExpiresAt),
         twitchFollowerRoleName: cfg.twitchFollowerRoleName?.trim() || "",
-        twitchSubscriberRoleName: cfg.twitchSubscriberRoleName?.trim() || ""
+        twitchSubscriberRoleName: cfg.twitchSubscriberRoleName?.trim() || "",
+        twitchLinkChannelName: cfg.twitchLinkChannelName?.trim() || "twitch-verknuepfung",
+        twitchLinkPanelTitle: cfg.twitchLinkPanelTitle?.trim() || "Twitch-Konto verbinden",
+        twitchLinkPanelMessage: cfg.twitchLinkPanelMessage?.trim() || "Verbinde dein Twitch-Konto, damit deine Follower- und Abonnentenrollen zuverlässig synchronisiert werden können."
     });
 }
 
@@ -145,9 +142,6 @@ export function toRestartRelevantState(cfg: AdminConfig): RestartRelevantState {
                 ? ""
                 : String(cfg.musicYoutubeSearchLimit),
             audioDbApiKey: (cfg.audioDbApiKey ?? "").trim(),
-            audioDbApiVersion: cfg.audioDbApiVersion === "v2" ? "v2" : "v1",
-        spotifyClientId: (cfg.spotifyClientId ?? "").trim(),
-        spotifyClientSecret: (cfg.spotifyClientSecret ?? "").trim(),
-        spotifyRedirectUri: (cfg.spotifyRedirectUri ?? "").trim()
+            audioDbApiVersion: cfg.audioDbApiVersion === "v2" ? "v2" : "v1"
     };
 }

@@ -25,12 +25,37 @@ test('fresh SQLite deployment seeds all names once and preserves later changes',
         assert.equal(updated.length, 10000);
         assert.ok(updated.includes('mein-eigener-kanal'));
         assert.ok(!updated.includes(names[0]));
-        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 4);
+        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 6);
         assert.deepEqual(await store.getDatabaseStatus(), {
-            schemaVersion: 4,
-            latestMigration: 'community-name-voting-candidates-v1',
-            appliedMigrations: ['community-name-voting-candidates-v1', 'community-name-voting-v1', 'community-names-v1', 'community-state-v1']
+            schemaVersion: 6,
+            latestMigration: 'remove-spotify-v1',
+            appliedMigrations: ['community-name-voting-candidates-v1', 'community-name-voting-v1', 'community-names-v1', 'community-state-v1', 'remove-spotify-v1', 'twitch-member-linking-v1']
         });
+    } finally { await store.db?.close(); }
+});
+
+test('SQLite migration removes legacy Spotify settings and tokens', async () => {
+    const store = new AdminConfigStore(':memory:');
+    try {
+        await store.ensureDb();
+        await store.db.exec(`
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE spotify_tokens (discord_user_id TEXT PRIMARY KEY, record TEXT NOT NULL, updated_at INTEGER NOT NULL);
+            INSERT INTO settings (key, value) VALUES
+                ('spotifyClientId', '"legacy-client"'),
+                ('spotifyClientSecret', '"legacy-secret"'),
+                ('spotifyRedirectUri', '"http://localhost:3000/callback"'),
+                ('discordToken', '"keep-me"');
+            INSERT INTO spotify_tokens (discord_user_id, record, updated_at) VALUES ('user', '{}', 1);
+        `);
+
+        await store.initialize({ welcomeRoles: [] });
+
+        assert.equal(await store.db.get("SELECT value FROM settings WHERE key = 'spotifyClientId'"), undefined);
+        assert.equal(await store.db.get("SELECT value FROM settings WHERE key = 'spotifyClientSecret'"), undefined);
+        assert.equal(await store.db.get("SELECT value FROM settings WHERE key = 'spotifyRedirectUri'"), undefined);
+        assert.equal(JSON.parse((await store.db.get("SELECT value FROM settings WHERE key = 'discordToken'")).value), 'keep-me');
+        assert.equal(await store.db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'spotify_tokens'"), undefined);
     } finally { await store.db?.close(); }
 });
 
@@ -66,6 +91,28 @@ test('custom welcome copy survives SQLite reload', async () => {
         assert.equal(reloaded.welcomeReactionPrompt, 'Pick one or more communities:');
         assert.equal(reloaded.welcomeReactionInstructions, 'React to join. Remove your reaction to leave.');
         assert.equal(JSON.parse((await store.db.get("SELECT value FROM settings WHERE key = 'welcomeTitle'")).value), 'Choose your roles');
+    } finally { await store.db?.close(); }
+});
+
+test('Twitch member links, OAuth states and panel location are persisted in SQLite', async () => {
+    const store = new AdminConfigStore(':memory:');
+    try {
+        await store.initialize({ welcomeRoles: [] });
+        await store.createTwitchMemberOAuthState('state', 'guild', 'discord-user', 2000);
+        assert.deepEqual(await store.consumeTwitchMemberOAuthState('state', 1000), { guildId: 'guild', discordUserId: 'discord-user' });
+        assert.equal(await store.consumeTwitchMemberOAuthState('state', 1000), undefined);
+
+        await store.saveTwitchMemberLink({ guildId: 'guild', discordUserId: 'discord-user', twitchUserId: 'twitch-user', twitchLogin: 'streamer', twitchDisplayName: 'Streamer', linkedAt: 1000 });
+        assert.deepEqual(await store.getTwitchMemberLinks('guild'), [{ guildId: 'guild', discordUserId: 'discord-user', twitchUserId: 'twitch-user', twitchLogin: 'streamer', twitchDisplayName: 'Streamer', linkedAt: 1000 }]);
+        await assert.rejects(
+            store.saveTwitchMemberLink({ guildId: 'guild', discordUserId: 'other-user', twitchUserId: 'twitch-user', twitchLogin: 'streamer', twitchDisplayName: 'Streamer', linkedAt: 1001 }),
+            /bereits mit einem anderen Discord-Mitglied/
+        );
+
+        await store.saveTwitchLinkPanel('guild', 'channel', 'message');
+        assert.deepEqual(await store.getTwitchLinkPanel('guild'), { channelId: 'channel', messageId: 'message' });
+        assert.equal(await store.deleteTwitchMemberLink('guild', 'discord-user'), true);
+        assert.deepEqual(await store.getTwitchMemberLinks('guild'), []);
     } finally { await store.db?.close(); }
 });
 
