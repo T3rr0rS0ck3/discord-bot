@@ -39,7 +39,7 @@
 - [x] Community-Kanalnamen aus der UI importieren koennen
 - [x] Liste der Community-Kanalnamen inklusive Bearbeiten, Loeschen und Hinzufuegen
 - [x] Kanalnamenvorschlaege mit konfigurierbarer Abstimmungsdauer und zufaelliger Viererauswahl
-- [ ] Kanalvorschlaege als echte umfrage
+- [x] Kanalvorschlaege als echte Umfrage
 
 ## Welcome und Twitch
 
