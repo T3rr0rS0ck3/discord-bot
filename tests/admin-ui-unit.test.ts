@@ -13,6 +13,7 @@ Object.defineProperty(globalThis, "document", {
 test("normalizeConfig handles defaults, Unicode values and numeric boundaries", () => {
     const defaults = normalizeConfig({});
     assert.equal(defaults.communityCategoryName, "Community");
+    assert.equal(defaults.communityVotingDurationHours, 168);
     assert.equal(defaults.communityMaxChannels, 50);
     assert.equal(defaults.musicDefaultVolumePercent, 50);
     assert.equal(defaults.musicYoutubeSearchLimit, 25);
@@ -47,6 +48,8 @@ test("normalizeConfig handles defaults, Unicode values and numeric boundaries", 
     assert.equal(configured.audioDbApiVersion, "v2");
     assert.deepEqual(configured.welcomeRoles, [{ emoji: "", name: "Jörg & Käthe", description: "" }]);
     assert.equal(configured.twitchAccessTokenExpiresAt, 12345);
+
+    assert.equal(normalizeConfig({ communityVotingDurationDays: 7 }).communityVotingDurationHours, 168);
 });
 
 test("serializeConfig trims text and preserves empty or malformed numeric input", () => {

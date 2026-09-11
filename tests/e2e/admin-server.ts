@@ -12,7 +12,7 @@ const config = {
     communityVotingEnabled: true,
     communityCategoryName: "Community",
     communityVotingChannelName: "kanalnamen-abstimmung",
-    communityVotingDurationDays: 7,
+    communityVotingDurationHours: 168,
     communityEmptyTimeoutSeconds: 60,
     communityMaxChannels: 50,
     discordToken: "e2e-discord-token",

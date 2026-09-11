@@ -62,7 +62,7 @@ test('admin normalization preserves typical Unicode and sanitizes channel names'
         communityMaxChannels: 12.9,
         communityEmptyTimeoutSeconds: 90.8,
         communityVotingChannelName: '  Vorschläge-ÄÖÜ  ',
-        communityVotingDurationDays: 4.9,
+        communityVotingDurationHours: 72.9,
         musicDefaultVolumePercent: 75.5,
         musicYoutubeSearchLimit: 30,
         audioDbApiKey: ' Schlüssel/123 ',
@@ -90,6 +90,7 @@ test('admin normalization preserves typical Unicode and sanitizes channel names'
     assert.equal(normalized.communityMaxChannels, 12);
     assert.equal(normalized.communityEmptyTimeoutSeconds, 90);
     assert.equal(normalized.communityVotingChannelName, 'Vorschläge-ÄÖÜ');
+    assert.equal(normalized.communityVotingDurationHours, 72);
     assert.equal(normalized.adminUiUsername, 'Jörg Admin');
     assert.equal(normalized.adminUiToken, 'päss<&>"\'');
     assert.equal(normalized.musicRoleName, 'Grüße & Spaß');
@@ -98,6 +99,9 @@ test('admin normalization preserves typical Unicode and sanitizes channel names'
     assert.deepEqual(normalized.welcomeRoles, [{ emoji: '🎮', name: 'Zocker*innen', description: 'Spaß & Freunde <3' }]);
     assert.equal(normalized.twitchLinkChannelName, 'twitch-grüße-spaß-co');
     assert.equal(normalized.twitchLinkPanelMessage, 'Konto mit <Discord> & Twitch verbinden.');
+
+    assert.equal(server.normalize({ ...validConfig(), communityVotingDurationDays: 7 }).communityVotingDurationHours, 168);
+    assert.equal(server.normalize({ ...validConfig(), communityVotingDurationHours: 768 }).communityVotingDurationHours, 768);
 });
 
 test('admin normalization applies defaults, limits and maximum lengths', () => {
@@ -147,7 +151,7 @@ test('admin validation covers numeric boundaries and conditional module requirem
         ...base,
         musicEnabled: true, musicRoleName: ' ', audioDbApiKey: '', audioDbApiVersion: 'v3',
         communityEnabled: true, communityCategoryName: '', communityMaxChannels: 51, communityEmptyTimeoutSeconds: 0,
-        communityVotingEnabled: true, communityVotingChannelName: '', communityVotingDurationDays: 31,
+        communityVotingEnabled: true, communityVotingChannelName: '', communityVotingDurationHours: 769,
         welcomeEnabled: true, welcomeChannelId: '', welcomeTitle: '', welcomeReactionPrompt: '', welcomeReactionInstructions: '', welcomeRoles: [],
         twitchEnabled: true, twitchBroadcasterName: '', twitchClientId: '', twitchClientSecret: '', twitchRedirectUri: '', twitchLinkChannelName: '', twitchLinkPanelTitle: '', twitchLinkPanelMessage: '', twitchFollowerRoleName: '', twitchSubscriberRoleName: ''
     };

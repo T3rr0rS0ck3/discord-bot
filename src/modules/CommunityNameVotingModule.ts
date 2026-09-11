@@ -19,7 +19,6 @@ import type { IBotModule } from "./interfaces/IBotModule";
 const SUGGEST_BUTTON_ID = "community-name-voting:suggest";
 const SUGGEST_MODAL_ID = "community-name-voting:suggest-modal";
 const SUGGEST_INPUT_ID = "channel-name";
-const VOTE_PREFIX = "community-name-voting:vote:";
 
 export class CommunityNameVotingModule implements IBotModule {
     public readonly name = "community-name-voting";
@@ -27,11 +26,11 @@ export class CommunityNameVotingModule implements IBotModule {
     private guild?: Guild;
     private timer?: NodeJS.Timeout;
     private channelName: string;
-    private durationDays: number;
+    private durationHours: number;
 
     public constructor(private readonly options: BotModuleFactoryOptions) {
         this.channelName = this.normalizeChannelName(options.communityVotingChannelName);
-        this.durationDays = this.normalizeDuration(options.communityVotingDurationDays);
+        this.durationHours = this.normalizeDuration(options.communityVotingDurationHours);
     }
 
     public getCommands() { return []; }
@@ -43,10 +42,10 @@ export class CommunityNameVotingModule implements IBotModule {
         await this.refresh();
     }
 
-    public async applyRuntimeConfig(config: { communityVotingChannelName?: string; communityVotingDurationDays?: number }): Promise<void> {
+    public async applyRuntimeConfig(config: { communityVotingChannelName?: string; communityVotingDurationHours?: number }): Promise<void> {
         const previousName = this.channelName;
         this.channelName = this.normalizeChannelName(config.communityVotingChannelName);
-        this.durationDays = this.normalizeDuration(config.communityVotingDurationDays);
+        this.durationHours = this.normalizeDuration(config.communityVotingDurationHours);
 
         if (!this.guild) return;
         const channel = await this.getOrCreateChannel();
@@ -77,21 +76,7 @@ export class CommunityNameVotingModule implements IBotModule {
             return true;
         }
 
-        if (!customId.startsWith(VOTE_PREFIX)) return false;
-        const suggestionId = Number(customId.slice(VOTE_PREFIX.length));
-        if (!Number.isSafeInteger(suggestionId) || !interaction.guildId || !this.options.voteForCommunityName) {
-            await interaction.reply({ content: "Diese Stimme konnte nicht verarbeitet werden.", ephemeral: true });
-            return true;
-        }
-
-        try {
-            await this.options.voteForCommunityName(interaction.guildId, suggestionId, interaction.user.id);
-            await interaction.reply({ content: "Deine Stimme wurde gespeichert. Du kannst sie durch Klick auf einen anderen Namen ändern.", ephemeral: true });
-            await this.refresh();
-        } catch (error) {
-            await interaction.reply({ content: error instanceof Error ? error.message : String(error), ephemeral: true });
-        }
-        return true;
+        return false;
     }
 
     public async handleModalSubmitInteraction(customId: string, interaction: ModalSubmitInteraction): Promise<boolean> {
@@ -123,27 +108,47 @@ export class CommunityNameVotingModule implements IBotModule {
         if (!this.guild || !this.options.guildId) return;
         if (this.timer) clearTimeout(this.timer);
 
-        const winner = await this.options.finishCommunityNameVotingRound?.(this.options.guildId);
-        if (winner) console.log(`[CommunityNameVoting] Gewinner hinzugefügt: ${winner}`);
-
+        const channel = await this.getOrCreateChannel();
         let round = await this.options.getCommunityNameVotingRound?.(this.options.guildId);
+        const savedMessage = await this.options.getCommunityNameVotingMessage?.(this.options.guildId);
+        let existingMessage = savedMessage?.channelId === channel.id
+            ? await channel.messages.fetch(savedMessage.messageId).catch(() => undefined)
+            : undefined;
+        let winner: string | undefined;
+
+        if (round && round.endsAt <= Date.now()) {
+            const winnerSuggestionId = this.getPollWinnerSuggestionId(round, existingMessage);
+            winner = await this.options.finishCommunityNameVotingRound?.(this.options.guildId, winnerSuggestionId);
+            if (winner) console.log(`[CommunityNameVoting] Gewinner hinzugefügt: ${winner}`);
+            if (existingMessage) {
+                await existingMessage.delete().catch(error => console.error("[CommunityNameVoting] Alte Umfrage konnte nicht gelöscht werden:", error));
+                existingMessage = undefined;
+            }
+            round = undefined;
+        }
+
         if (!round) {
             round = await this.options.startCommunityNameVotingRound?.(
                 this.options.guildId,
-                this.durationDays * 24 * 60 * 60 * 1000
+                this.durationHours * 60 * 60 * 1000
             );
         }
 
-        const channel = await this.getOrCreateChannel();
         const suggestionCount = await this.options.getCommunityNameSuggestionCount?.(this.options.guildId) ?? 0;
         const messagePayload = this.buildMessage(round, suggestionCount, winner);
-        const savedMessage = await this.options.getCommunityNameVotingMessage?.(this.options.guildId);
-        const existingMessage = savedMessage?.channelId === channel.id
-            ? await channel.messages.fetch(savedMessage.messageId).catch(() => undefined)
-            : undefined;
-        const message = existingMessage
-            ? await existingMessage.edit(messagePayload)
-            : await channel.send(messagePayload);
+        const canReusePoll = Boolean(round && existingMessage?.poll && !existingMessage.poll.resultsFinalized);
+        if (round && existingMessage && !canReusePoll) {
+            await existingMessage.delete().catch(error => console.error("[CommunityNameVoting] Alte Vorschlagsnachricht konnte nicht gelöscht werden:", error));
+            existingMessage = undefined;
+        }
+        const message = canReusePoll
+            ? existingMessage!
+            : existingMessage
+                ? await existingMessage.edit(messagePayload)
+                : await channel.send(messagePayload);
+        if (!message.pinned) {
+            await message.pin().catch(error => console.error("[CommunityNameVoting] Umfrage konnte nicht angepinnt werden:", error));
+        }
         await this.options.saveCommunityNameVotingMessage?.(this.options.guildId, channel.id, message.id);
 
         if (round) {
@@ -165,16 +170,24 @@ export class CommunityNameVotingModule implements IBotModule {
             };
         }
 
-        const voteButtons = round.candidates.map(candidate =>
-            new ButtonBuilder()
-                .setCustomId(`${VOTE_PREFIX}${candidate.id}`)
-                .setLabel(`${candidate.name} (${candidate.votes})`.slice(0, 80))
-                .setStyle(ButtonStyle.Secondary)
-        );
         return {
-            content: `# Kanalnamen-Abstimmung\nVier zufällig ausgewählte Vorschläge stehen zur Wahl. Ende: <t:${Math.floor(round.endsAt / 1000)}:R>\nNeue Vorschläge landen im Pool für eine kommende Runde.`,
-            components: [new ActionRowBuilder<ButtonBuilder>().addComponents(suggestButton, ...voteButtons)]
+            content: `${winner ? `**Gewinner der letzten Runde:** ${winner}\n\n` : ""}# Kanalnamen-Abstimmung\nVier zufällig ausgewählte Vorschläge stehen zur Wahl. Ende: <t:${Math.floor(round.endsAt / 1000)}:R>\nNeue Vorschläge landen im Pool für eine kommende Runde.`,
+            components: [new ActionRowBuilder<ButtonBuilder>().addComponents(suggestButton)],
+            poll: {
+                question: { text: "Wie soll der nächste Community-Sprachkanal heißen?" },
+                answers: round.candidates.map(candidate => ({ text: candidate.name.slice(0, 55) })),
+                duration: Math.max(1, Math.min(32 * 24, Math.ceil((round.endsAt - Date.now()) / 3_600_000))),
+                allowMultiselect: false
+            }
         };
+    }
+
+    private getPollWinnerSuggestionId(round: CommunityNameVotingRound, message: { poll?: { answers: Map<number, { voteCount: number }> } | null } | undefined): number | undefined {
+        if (!message?.poll) return undefined;
+        const answers = [...message.poll.answers.values()];
+        return round.candidates
+            .map((candidate, index) => ({ id: candidate.id, votes: answers[index]?.voteCount ?? 0 }))
+            .sort((left, right) => right.votes - left.votes || left.id - right.id)[0]?.id;
     }
 
     private async getOrCreateChannel(): Promise<TextChannel> {
@@ -196,6 +209,6 @@ export class CommunityNameVotingModule implements IBotModule {
     }
 
     private normalizeDuration(value: number | undefined): number {
-        return Number.isFinite(value) ? Math.max(1, Math.min(30, Math.floor(value!))) : 7;
+        return Number.isFinite(value) ? Math.max(1, Math.min(768, Math.floor(value!))) : 168;
     }
 }

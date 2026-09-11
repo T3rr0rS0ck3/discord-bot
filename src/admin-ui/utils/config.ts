@@ -28,7 +28,7 @@ export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
             communityMaxChannels: Number(input.communityMaxChannels ?? 50),
         communityCategoryName: String(input.communityCategoryName ?? "Community"),
         communityVotingChannelName: String(input.communityVotingChannelName ?? "kanalnamen-abstimmung"),
-        communityVotingDurationDays: Number(input.communityVotingDurationDays ?? 7),
+        communityVotingDurationHours: Number(input.communityVotingDurationHours ?? ((input.communityVotingDurationDays ?? 7) * 24)),
         communityEmptyTimeoutSeconds: Number(input.communityEmptyTimeoutSeconds ?? 60),
         discordToken: String(input.discordToken ?? ""),
         guildId: input.guildId ? String(input.guildId) : "",

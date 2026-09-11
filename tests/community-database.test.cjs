@@ -193,6 +193,17 @@ test('name voting selects four suggestions, keeps one vote per user and removes 
         assert.equal(await store.getCommunityNameSuggestionCount('123'), 1);
         assert.ok((await store.getCommunityChannelNames()).includes(winner));
         assert.equal(await store.getCommunityNameVotingRound('123'), undefined);
+
+        for (const name of ['Äpfel', 'Öl', 'Straße', 'Café']) {
+            await store.addCommunityNameSuggestion('native-poll', name, `user-${name}`, 200);
+        }
+        const nativePollRound = await store.startCommunityNameVotingRound('native-poll', 60_000, 2_000);
+        const discordWinner = nativePollRound.candidates.at(-1);
+        assert.equal(
+            await store.finishCommunityNameVotingRound('native-poll', 62_000, discordWinner.id),
+            discordWinner.name
+        );
+        assert.ok((await store.getCommunityChannelNames()).includes(discordWinner.name));
     } finally { await store.db?.close(); }
 });
 

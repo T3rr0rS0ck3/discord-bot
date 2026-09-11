@@ -83,13 +83,13 @@ export type BotModuleFactoryOptions = {
     communityEmptyTimeoutSeconds?: number;
     communityMaxChannels?: number;
     communityVotingChannelName?: string;
-    communityVotingDurationDays?: number;
+    communityVotingDurationHours?: number;
     addCommunityNameSuggestion?: (guildId: string, name: string, userId: string) => Promise<void>;
     getCommunityNameSuggestionCount?: (guildId: string) => Promise<number>;
     startCommunityNameVotingRound?: (guildId: string, durationMs: number) => Promise<import("../admin/AdminConfigStore").CommunityNameVotingRound | undefined>;
     getCommunityNameVotingRound?: (guildId: string) => Promise<import("../admin/AdminConfigStore").CommunityNameVotingRound | undefined>;
     voteForCommunityName?: (guildId: string, suggestionId: number, userId: string) => Promise<void>;
-    finishCommunityNameVotingRound?: (guildId: string) => Promise<string | undefined>;
+    finishCommunityNameVotingRound?: (guildId: string, winnerSuggestionId?: number) => Promise<string | undefined>;
     getCommunityNameVotingMessage?: (guildId: string) => Promise<{ channelId: string; messageId: string } | undefined>;
     saveCommunityNameVotingMessage?: (guildId: string, channelId: string, messageId: string) => Promise<void>;
 

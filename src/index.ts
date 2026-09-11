@@ -67,7 +67,7 @@ export class Startup {
             communityVotingEnabled: false,
             communityCategoryName: "Community",
             communityVotingChannelName: "kanalnamen-abstimmung",
-            communityVotingDurationDays: 7,
+            communityVotingDurationHours: 168,
             communityEmptyTimeoutSeconds: 60,
             communityMaxChannels: 50,
             discordToken: this.normalizeString(legacyEnvValues.DISCORD_TOKEN) ?? "",

@@ -15,7 +15,7 @@ export interface IBotModule {
     communityEmptyTimeoutSeconds?: number;
     communityMaxChannels?: number;
             communityVotingChannelName?: string;
-            communityVotingDurationDays?: number;
+            communityVotingDurationHours?: number;
 
             welcomeChannelId?: string;
             welcomeTitle?: string;

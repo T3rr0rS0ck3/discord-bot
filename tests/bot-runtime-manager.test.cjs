@@ -46,7 +46,7 @@ function config(overrides = {}) {
         discordToken: 'token', guildId: 'guild', adminUiToken: 'secret',
         systemEnabled: true, musicEnabled: true, welcomeEnabled: true, twitchEnabled: true, communityEnabled: true, communityVotingEnabled: true,
         communityCategoryName: 'Community ÄÖÜ', communityEmptyTimeoutSeconds: 60, communityMaxChannels: 10,
-        communityVotingChannelName: 'abstimmung', communityVotingDurationDays: 7,
+        communityVotingChannelName: 'abstimmung', communityVotingDurationHours: 168,
         musicRoleName: 'Musik', musicDefaultVolumePercent: 50, musicDebugSearch: false, musicYoutubeSearchLimit: 25,
         audioDbApiKey: '', audioDbApiVersion: 'v1', welcomeChannelId: 'welcome', welcomeTitle: 'Grüße',
         welcomeReactionPrompt: 'Wähle', welcomeReactionInstructions: 'Klicke', welcomeRoles: [],

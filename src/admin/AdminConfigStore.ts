@@ -16,6 +16,7 @@ export type AdminConfig = {
     communityVotingEnabled?: boolean;
     communityCategoryName?: string;
     communityVotingChannelName?: string;
+    communityVotingDurationHours?: number;
     communityVotingDurationDays?: number;
     communityEmptyTimeoutSeconds?: number;
     communityMaxChannels?: number;
@@ -564,12 +565,14 @@ export class AdminConfigStore {
         );
     }
 
-    public async finishCommunityNameVotingRound(guildId: string, now = Date.now()): Promise<string | undefined> {
+    public async finishCommunityNameVotingRound(guildId: string, now = Date.now(), winnerSuggestionId?: number): Promise<string | undefined> {
         await this.ensureDb();
         const round = await this.getCommunityNameVotingRound(guildId);
         if (!round || round.endsAt > now) return undefined;
 
-        const winner = [...round.candidates].sort((left, right) => right.votes - left.votes || left.id - right.id)[0];
+        const winner = winnerSuggestionId === undefined
+            ? [...round.candidates].sort((left, right) => right.votes - left.votes || left.id - right.id)[0]
+            : round.candidates.find(candidate => candidate.id === winnerSuggestionId);
         await this.db!.exec("BEGIN IMMEDIATE");
         try {
             if (winner) {
@@ -737,7 +740,11 @@ export class AdminConfigStore {
             communityMaxChannels: Math.floor(this.normalizeNumber(input.communityMaxChannels, 1, 50) ?? 50),
             communityCategoryName: String(input.communityCategoryName ?? "Community").trim().slice(0, 100) || "Community",
             communityVotingChannelName: String(input.communityVotingChannelName ?? "kanalnamen-abstimmung").trim().slice(0, 100) || "kanalnamen-abstimmung",
-            communityVotingDurationDays: Math.floor(this.normalizeNumber(input.communityVotingDurationDays, 1, 30) ?? 7),
+            communityVotingDurationHours: Math.floor(this.normalizeNumber(
+                input.communityVotingDurationHours ?? (input.communityVotingDurationDays === undefined ? undefined : input.communityVotingDurationDays * 24),
+                1,
+                768
+            ) ?? 168),
             communityEmptyTimeoutSeconds: Math.floor(this.normalizeNumber(input.communityEmptyTimeoutSeconds, 1, 86400) ?? 60),
             discordToken,
             guildId,

@@ -494,7 +494,11 @@ export class AdminWebServer {
             communityMaxChannels: Math.floor(this.normalizeNumber(input.communityMaxChannels, 1, 50) ?? 50),
             communityCategoryName: String(input.communityCategoryName ?? "Community").trim().slice(0, 100) || "Community",
             communityVotingChannelName: String(input.communityVotingChannelName ?? "kanalnamen-abstimmung").trim().slice(0, 100) || "kanalnamen-abstimmung",
-            communityVotingDurationDays: Math.floor(this.normalizeNumber(input.communityVotingDurationDays, 1, 30) ?? 7),
+            communityVotingDurationHours: Math.floor(this.normalizeNumber(
+                input.communityVotingDurationHours ?? (input.communityVotingDurationDays === undefined ? undefined : input.communityVotingDurationDays * 24),
+                1,
+                768
+            ) ?? 168),
             communityEmptyTimeoutSeconds: Math.floor(this.normalizeNumber(input.communityEmptyTimeoutSeconds, 1, 86400) ?? 60),
             discordToken: String(input.discordToken ?? "").trim(),
             guildId: this.normalizeString(input.guildId),
@@ -566,7 +570,7 @@ export class AdminWebServer {
 
         if (input.communityVotingEnabled === true) {
             required(input.communityVotingChannelName, "Community Voting Channel Name");
-            integerInRange(input.communityVotingDurationDays, 1, 30, "Community Voting Duration");
+            integerInRange(input.communityVotingDurationHours, 1, 768, "Community Voting Duration");
         }
 
         if (input.welcomeEnabled === true) {

@@ -13,6 +13,7 @@ export type AdminConfig = {
     communityVotingEnabled?: boolean;
     communityCategoryName?: string;
     communityVotingChannelName?: string;
+    communityVotingDurationHours?: number;
     communityVotingDurationDays?: number;
     communityEmptyTimeoutSeconds?: number;
     communityMaxChannels?: number;
