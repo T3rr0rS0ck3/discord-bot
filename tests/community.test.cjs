@@ -90,7 +90,50 @@ test('failed move cleans empty room, unrelated room is protected', async () => {
     await mod.shutdown();
 });
 
-test('manual cleanup deletes only empty managed temporary rooms', async () => {
+test('startup adopts existing category and entry channel when persisted IDs are missing', async () => {
+    const f = fixture();
+    const category = { id: 'existing-category', type: 4, name: 'Community', parentId: null, setName: async name => { category.name = name; }, delete: async () => f.cache.delete(category.id) };
+    const entry = { id: 'existing-entry', type: 2, name: '➕ Sprachkanal erstellen', parentId: null, members: new Map(), setParent: async id => { entry.parentId = id; }, delete: async () => f.cache.delete(entry.id) };
+    f.cache.set(category.id, category);
+    f.cache.set(entry.id, entry);
+
+    const mod = f.create();
+    await mod.onReady(f.client);
+
+    assert.equal([...f.cache.values()].filter(channel => channel.type === 4).length, 1);
+    assert.equal([...f.cache.values()].filter(channel => channel.type === 2 && channel.name === '➕ Sprachkanal erstellen').length, 1);
+    assert.equal(entry.parentId, category.id);
+    assert.equal(mod.state.categoryId, category.id);
+    assert.equal(mod.state.entryId, entry.id);
+    await mod.shutdown();
+});
+
+test('startup repairs empty duplicate category and entry from a faulty previous version', async () => {
+    const f = fixture();
+    const usedCategory = { id: 'old-category', type: 4, name: 'Community', parentId: null, delete: async () => f.cache.delete('old-category') };
+    const duplicateCategory = { id: 'new-category', type: 4, name: 'Community', parentId: null, delete: async () => f.cache.delete('new-category') };
+    const usedEntry = { id: 'old-entry', type: 2, name: '➕ Sprachkanal erstellen', parentId: usedCategory.id, members: new Map(), setParent: async id => { usedEntry.parentId = id; }, delete: async () => f.cache.delete('old-entry') };
+    const activeRoom = { id: 'active-room', type: 2, name: 'Gaming', parentId: usedCategory.id, members: new Map([['user', {}]]) };
+    const duplicateEntry = { id: 'new-entry', type: 2, name: '➕ Sprachkanal erstellen', parentId: duplicateCategory.id, members: new Map(), setParent: async id => { duplicateEntry.parentId = id; }, delete: async () => f.cache.delete('new-entry') };
+    f.cache.set(usedCategory.id, usedCategory);
+    f.cache.set(duplicateCategory.id, duplicateCategory);
+    f.cache.set(usedEntry.id, usedEntry);
+    f.cache.set(activeRoom.id, activeRoom);
+    f.cache.set(duplicateEntry.id, duplicateEntry);
+
+    const mod = f.create();
+    mod.state = { categoryId: duplicateCategory.id, entryId: duplicateEntry.id, temporaryIds: [] };
+    await mod.onReady(f.client);
+
+    assert.equal(mod.state.categoryId, usedCategory.id);
+    assert.equal(mod.state.entryId, usedEntry.id);
+    assert.equal(f.cache.has(duplicateEntry.id), false);
+    assert.equal(f.cache.has(duplicateCategory.id), false);
+    assert.equal(f.cache.has(activeRoom.id), true);
+    await mod.shutdown();
+});
+
+test('manual deletion deletes only the selected empty managed temporary room', async () => {
     const f = fixture(), mod = f.create(); await mod.onReady(f.client);
     const category = [...f.cache.values()].find(c => c.type === 4);
     const entry = [...f.cache.values()].find(c => c.type === 2);
@@ -100,15 +143,15 @@ test('manual cleanup deletes only empty managed temporary rooms', async () => {
     f.cache.set('701', emptyManaged); f.cache.set('702', occupiedManaged); f.cache.set('703', unrelated);
     mod.state.temporaryIds.push('701', '702');
 
-    const result = await mod.cleanupOrphanedChannels();
+    await mod.deleteManagedChannel('701');
 
-    assert.equal(result.deleted, 1);
-    assert.equal(result.skippedOccupied, 1);
     assert.equal(f.cache.has('701'), false);
     assert.equal(f.cache.has('702'), true);
     assert.equal(f.cache.has('703'), true);
     assert.equal(f.cache.has(entry.id), true);
     assert.deepEqual([...mod.state.temporaryIds], ['702']);
+    await assert.rejects(mod.deleteManagedChannel('702'), /Belegte Sprachkanäle/);
+    await assert.rejects(mod.deleteManagedChannel('703'), /nicht vom Community-Modul verwaltet/);
     await mod.shutdown();
 });
 

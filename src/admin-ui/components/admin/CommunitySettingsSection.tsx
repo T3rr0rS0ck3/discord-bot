@@ -6,7 +6,7 @@ export function CommunitySettingsSection(props: {
     busy: boolean;
     status: CommunityRuntimeStatus;
     onUpdateConfig: <K extends keyof AdminConfig>(key: K, value: AdminConfig[K]) => void;
-    onCleanup: () => void;
+    onDeleteChannel: (channelId: string, channelName: string) => void;
 }): React.JSX.Element {
     return <>
         <label htmlFor="communityCategoryName">Kategoriename <span className="required-mark">*</span></label>
@@ -23,10 +23,6 @@ export function CommunitySettingsSection(props: {
             required disabled={props.busy} value={props.config.communityEmptyTimeoutSeconds ?? 60}
             onChange={e => props.onUpdateConfig("communityEmptyTimeoutSeconds", Number(e.target.value))} />
         <p>Dem Kanal „➕ Sprachkanal erstellen“ beitreten, um einen eigenen Sprachkanal zu erhalten.</p>
-        <button type="button" className="del icon-btn" disabled={props.busy || !props.status.connected} onClick={props.onCleanup}>
-            <i className="fa-solid fa-broom" aria-hidden="true"></i>
-            Leere verwaltete Kanäle aufräumen
-        </button>
         <div className="log-panel">
             <div className="log-panel-head">
                 <span>{props.status.category?.name ?? "Community-Kategorie"}</span>
@@ -42,8 +38,20 @@ export function CommunitySettingsSection(props: {
                 ) : (
                     props.status.voiceChannels.map(channel => (
                         <div className="log-line" key={channel.id}>
-                            <span>{channel.isEntryChannel ? "Eingang" : "Sprachkanal"}: {channel.name}</span>{" "}
+                            <span>Sprachkanal: {channel.name}</span>{" "}
                             <span className="log-time">{channel.memberCount} Nutzer</span>
+                            {channel.isManaged ? (
+                                <button
+                                    type="button"
+                                    className="del icon-btn"
+                                    disabled={props.busy || channel.memberCount > 0}
+                                    onClick={() => props.onDeleteChannel(channel.id, channel.name)}
+                                    title={channel.memberCount > 0 ? "Belegte Sprachkanäle können nicht gelöscht werden" : `Sprachkanal ${channel.name} löschen`}
+                                    aria-label={`Sprachkanal ${channel.name} löschen`}
+                                >
+                                    <i className="fa-solid fa-trash" aria-hidden="true"></i>
+                                </button>
+                            ) : null}
                         </div>
                     ))
                 )}

@@ -184,11 +184,12 @@ export function useAdminApp(initialAuth: AuthState) {
     }, [auth.authenticated]);
 
     useEffect(() => {
-        if (!auth.authenticated) {
+        if (!auth.authenticated || busy) {
             return;
         }
 
         let cancelled = false;
+        let polling = false;
 
         const loadLogs = async () => {
             try {
@@ -237,24 +238,32 @@ export function useAdminApp(initialAuth: AuthState) {
             }
         };
 
-        void loadLogs();
-        void loadStatus();
-        void loadDatabaseStatus();
-        void loadCommunityStatus();
-        void loadTwitchSyncStatus();
+        const poll = async () => {
+            if (polling) return;
+            polling = true;
+            try {
+                await Promise.allSettled([
+                    loadLogs(),
+                    loadStatus(),
+                    loadDatabaseStatus(),
+                    loadCommunityStatus(),
+                    loadTwitchSyncStatus()
+                ]);
+            } finally {
+                polling = false;
+            }
+        };
+
+        void poll();
         const timer = setInterval(() => {
-            void loadLogs();
-            void loadStatus();
-            void loadDatabaseStatus();
-            void loadCommunityStatus();
-            void loadTwitchSyncStatus();
+            void poll();
         }, 2000);
 
         return () => {
             cancelled = true;
             clearInterval(timer);
         };
-    }, [auth.authenticated]);
+    }, [auth.authenticated, busy]);
 
     async function login(): Promise<void> {
         try {
@@ -464,14 +473,14 @@ export function useAdminApp(initialAuth: AuthState) {
         }
     }
 
-    async function cleanupCommunityChannels(): Promise<void> {
-        if (!window.confirm("Alle leeren, vom Community-Modul verwalteten Sprachkanäle jetzt löschen?")) return;
+    async function deleteCommunityChannel(channelId: string, channelName: string): Promise<void> {
+        if (!window.confirm(`Den leeren Community-Sprachkanal „${channelName}“ jetzt löschen?`)) return;
         try {
-            setBusyText("Räume Community-Kanäle auf...");
+            setBusyText("Lösche Community-Sprachkanal...");
             setBusy(true);
-            const result = await adminApi.cleanupCommunityChannels();
+            await adminApi.deleteCommunityChannel(channelId);
             setCommunityStatus(await adminApi.loadCommunityStatus());
-            const message = `${result.deleted} leere Community-Kanäle gelöscht${result.skippedOccupied > 0 ? `, ${result.skippedOccupied} belegte übersprungen` : ""}.`;
+            const message = `Community-Sprachkanal „${channelName}“ gelöscht.`;
             setStatus({ text: message, color: "#86efac" });
             showToast(message, "system");
         } catch (error) {
@@ -570,7 +579,7 @@ export function useAdminApp(initialAuth: AuthState) {
         saveOnly,
         restartOnly,
         saveAndRestart,
-        cleanupCommunityChannels,
+        deleteCommunityChannel,
         syncTwitchRoles,
         downloadConfigBackup,
         restoreConfigBackup

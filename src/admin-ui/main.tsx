@@ -71,7 +71,7 @@ function App(): React.JSX.Element {
             onSave={() => void state.saveOnly()}
             onRestart={() => void state.restartOnly()}
             onSaveAndRestart={() => void state.saveAndRestart()}
-            onCleanupCommunityChannels={() => void state.cleanupCommunityChannels()}
+            onDeleteCommunityChannel={(channelId, channelName) => void state.deleteCommunityChannel(channelId, channelName)}
             onSyncTwitchRoles={() => void state.syncTwitchRoles()}
             onDownloadBackup={() => void state.downloadConfigBackup()}
             onRestoreBackup={file => void state.restoreConfigBackup(file)}

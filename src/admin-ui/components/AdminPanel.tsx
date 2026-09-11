@@ -72,7 +72,7 @@ type AdminPanelProps = {
     onSave: () => void;
     onRestart: () => void;
     onSaveAndRestart: () => void;
-    onCleanupCommunityChannels: () => void;
+    onDeleteCommunityChannel: (channelId: string, channelName: string) => void;
     onSyncTwitchRoles: () => void;
     onDownloadBackup: () => void;
     onRestoreBackup: (file: File) => void;
@@ -218,7 +218,7 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                             busy={props.busy}
                                             status={props.communityStatus}
                                             onUpdateConfig={props.onUpdateConfig}
-                                            onCleanup={props.onCleanupCommunityChannels}
+                                            onDeleteChannel={props.onDeleteCommunityChannel}
                                         />
                                     </CollapsibleRegion>
 
@@ -293,7 +293,14 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                                     <div className="log-line">No log entries yet.</div>
                                                 ) : (
                                                     props.logs.map((entry, index) => {
-                                                        const time = new Date(entry.timestamp).toLocaleTimeString("de-DE", {
+                                                        const time = new Date(entry.timestamp).toLocaleString("de-DE", {
+                                                            year: "numeric",
+                                                            month: "2-digit",
+                                                            day: "2-digit",
+                                                            hour: "2-digit",
+                                                            minute: "2-digit",
+                                                            second: "2-digit",
+                                                            fractionalSecondDigits: 3,
                                                             hour12: false
                                                         });
 

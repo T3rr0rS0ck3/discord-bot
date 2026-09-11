@@ -18,7 +18,7 @@ type AdminWebServerOptions = {
     getDiscordStatus: () => DiscordRuntimeStatus;
     getDatabaseStatus: () => Promise<DatabaseStatus>;
     getCommunityStatus: () => Promise<CommunityRuntimeStatus>;
-    cleanupCommunityChannels: () => Promise<{ deleted: number; skippedOccupied: number }>;
+    deleteCommunityChannel: (channelId: string) => Promise<void>;
     consumeTwitchMemberOAuthState: (state: string) => Promise<{ guildId: string; discordUserId: string } | undefined>;
     saveTwitchMemberLink: (link: import("./AdminConfigStore").TwitchMemberLink) => Promise<void>;
     syncTwitchRoles: () => Promise<TwitchRoleSyncResult>;
@@ -151,12 +151,16 @@ export class AdminWebServer {
             return;
         }
 
-        if (req.method === "POST" && url.pathname === "/api/community/cleanup") {
+        if (req.method === "POST" && url.pathname === "/api/community/channel/delete") {
             if (!authenticatedUser) {
                 this.sendJson(res, 401, { error: "Unauthorized" });
                 return;
             }
-            this.sendJson(res, 200, { ok: true, ...(await this.options.cleanupCommunityChannels()) });
+            const body = JSON.parse(await this.readBody(req)) as { channelId?: string };
+            const channelId = String(body.channelId ?? "").trim();
+            if (!/^\d+$/.test(channelId)) throw new Error("Ungültige Sprachkanal-ID.");
+            await this.options.deleteCommunityChannel(channelId);
+            this.sendJson(res, 200, { ok: true });
             return;
         }
 

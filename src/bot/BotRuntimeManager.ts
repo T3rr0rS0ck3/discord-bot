@@ -56,11 +56,10 @@ export class BotRuntimeManager {
         if (!guild) {
             return { configured: Boolean(state), connected: false, guildId, voiceChannels: [] };
         }
-        await guild.channels.fetch();
 
         const category = state?.categoryId ? guild.channels.cache.get(state.categoryId) : undefined;
         const voiceChannels = category
-            ? this.collectCommunityVoiceChannels(guild, category.id, state?.entryId)
+            ? this.collectCommunityVoiceChannels(guild, category.id, state?.entryId, state?.temporaryIds ?? [])
             : [];
 
         return {
@@ -75,33 +74,37 @@ export class BotRuntimeManager {
     private collectCommunityVoiceChannels(
         guild: import("discord.js").Guild,
         categoryId: string,
-        entryChannelId?: string
+        entryChannelId: string | undefined,
+        temporaryIds: string[]
     ): CommunityRuntimeStatus["voiceChannels"] {
         const result: CommunityRuntimeStatus["voiceChannels"] = [];
+        const managedIds = new Set(temporaryIds);
         const channels = Array.from(guild.channels.cache.values());
         for (const channel of channels) {
             const isSupportedVoiceChannel = channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice;
-            if (!isSupportedVoiceChannel || channel.parentId !== categoryId) continue;
+            if (!isSupportedVoiceChannel || channel.parentId !== categoryId || channel.id === entryChannelId) continue;
             result.push({
                 id: channel.id,
                 name: channel.name,
                 memberCount: channel.members.size,
-                isEntryChannel: channel.id === entryChannelId
+                isManaged: managedIds.has(channel.id)
             });
         }
         return result.sort((left, right) => left.name.localeCompare(right.name, "de"));
     }
 
-    public async cleanupCommunityChannels(): Promise<{ deleted: number; skippedOccupied: number }> {
+    public async deleteCommunityChannel(channelId: string): Promise<void> {
         const module = this.modules.find((item): item is CommunityModule => item instanceof CommunityModule);
         if (!module) throw new Error("Das Community-Modul ist nicht aktiv.");
-        return module.cleanupOrphanedChannels();
+        await module.deleteManagedChannel(channelId);
     }
 
     public async saveConfig(config: AdminConfig): Promise<void> {
         await this.configStore.save(config);
         this.config = { ...config, adminUiToken: "" };
-        await this.applyRuntimeConfig();
+        void this.applyRuntimeConfig().catch(error => {
+            console.error("[AdminUI] Runtime configuration could not be applied:", error);
+        });
     }
 
     public async start(): Promise<void> {
@@ -160,12 +163,33 @@ export class BotRuntimeManager {
 
     public async stop(): Promise<void> {
         for (const module of this.modules) {
-            await module.shutdown?.();
+            if (!module.shutdown) continue;
+            try {
+                await this.withTimeout(Promise.resolve(module.shutdown()), 10_000, `Shutdown des Moduls ${module.name}`);
+            } catch (error) {
+                console.error(`[Modules] ${module.name} shutdown did not finish cleanly:`, error);
+            }
         }
 
         this.modules = [];
-        await this.bot?.stop();
+        if (this.bot) {
+            await this.withTimeout(this.bot.stop(), 10_000, "Discord shutdown");
+        }
         this.bot = undefined;
+    }
+
+    private async withTimeout<T>(operation: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+        let timer: NodeJS.Timeout | undefined;
+        try {
+            return await Promise.race([
+                operation,
+                new Promise<never>((_, reject) => {
+                    timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs / 1000} seconds.`)), timeoutMs);
+                })
+            ]);
+        } finally {
+            if (timer) clearTimeout(timer);
+        }
     }
 
     private async applyRuntimeConfig(): Promise<void> {

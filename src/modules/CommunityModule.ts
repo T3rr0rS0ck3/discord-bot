@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { ChannelType, Client, Guild, VoiceState } from "discord.js";
+import { ChannelType, Client, Guild, VoiceState, type CategoryChannel } from "discord.js";
 import type { IBotModule } from "./interfaces/IBotModule";
 import type { CommunityState } from "../admin/AdminConfigStore";
 
@@ -83,57 +83,103 @@ export class CommunityModule implements IBotModule {
         });
     }
 
-    public async cleanupOrphanedChannels(): Promise<{ deleted: number; skippedOccupied: number }> {
-        let deleted = 0;
-        let skippedOccupied = 0;
+    public async deleteManagedChannel(channelId: string): Promise<void> {
+        let failure: unknown;
         await this.enqueue(async () => {
-            if (!this.guild) throw new Error("Das Community-Modul ist noch nicht mit Discord verbunden.");
-            await this.guild.channels.fetch();
-
-            for (const id of [...this.state.temporaryIds]) {
-                if (id === this.state.entryId) continue;
-                const channel = this.guild.channels.cache.get(id);
+            try {
+                if (!this.guild) throw new Error("Das Community-Modul ist noch nicht mit Discord verbunden.");
+                if (!this.state.temporaryIds.includes(channelId) || channelId === this.state.entryId) {
+                    throw new Error("Dieser Sprachkanal wird nicht vom Community-Modul verwaltet.");
+                }
+                await this.guild.channels.fetch();
+                const channel = this.guild.channels.cache.get(channelId);
                 if (!channel) {
-                    this.state.temporaryIds = this.state.temporaryIds.filter(value => value !== id);
-                    continue;
+                    this.state.temporaryIds = this.state.temporaryIds.filter(value => value !== channelId);
+                    await this.persist();
+                    return;
                 }
-                if (channel.type !== ChannelType.GuildVoice || channel.parentId !== this.state.categoryId) continue;
-                if (channel.members.size > 0) {
-                    skippedOccupied++;
-                    continue;
+                if (channel.type !== ChannelType.GuildVoice || channel.parentId !== this.state.categoryId) {
+                    throw new Error("Der Sprachkanal gehört nicht zur verwalteten Community-Kategorie.");
                 }
+                if (channel.members.size > 0) throw new Error("Belegte Sprachkanäle können nicht gelöscht werden.");
 
-                const timer = this.timers.get(id);
+                const timer = this.timers.get(channelId);
                 if (timer) clearTimeout(timer);
-                this.timers.delete(id);
-                await channel.delete("Manual Community cleanup from admin UI");
-                this.state.temporaryIds = this.state.temporaryIds.filter(value => value !== id);
-                deleted++;
+                this.timers.delete(channelId);
+                await channel.delete("Manual Community channel deletion from admin UI");
+                this.state.temporaryIds = this.state.temporaryIds.filter(value => value !== channelId);
+                await this.persist();
+            } catch (error) {
+                failure = error;
             }
-
-            await this.persist();
         });
-        return { deleted, skippedOccupied };
+        if (failure) throw failure;
     }
 
     private async setup(): Promise<void> {
         const guild = this.guild!;
         await guild.channels.fetch();
         const name = this.config.communityCategoryName?.trim().slice(0, 100) || "Community";
-        let category = this.state.categoryId ? guild.channels.cache.get(this.state.categoryId) : undefined;
+        const matchingCategories = [...guild.channels.cache.values()].filter((channel): channel is CategoryChannel =>
+            channel.type === ChannelType.GuildCategory && channel.name === name
+        );
+        const storedCategory = this.state.categoryId ? guild.channels.cache.get(this.state.categoryId) : undefined;
+        let category = storedCategory?.type === ChannelType.GuildCategory ? storedCategory : undefined;
+        if (matchingCategories.length > 1) {
+            category = matchingCategories.sort((left, right) => {
+                const leftChildren = [...guild.channels.cache.values()].filter(channel => channel.parentId === left.id).length;
+                const rightChildren = [...guild.channels.cache.values()].filter(channel => channel.parentId === right.id).length;
+                return rightChildren - leftChildren;
+            })[0];
+        }
         if (category?.type !== ChannelType.GuildCategory) {
-            category = await guild.channels.create({ name, type: ChannelType.GuildCategory });
-            this.state.categoryId = category.id;
-            await this.persist();
+            category = matchingCategories[0];
+            if (!category) {
+                category = await guild.channels.create({ name, type: ChannelType.GuildCategory });
+            }
         } else if (category.name !== name) await category.setName(name);
-        const entry = this.state.entryId ? guild.channels.cache.get(this.state.entryId) : undefined;
+        this.state.categoryId = category.id;
+
+        const storedEntry = this.state.entryId ? guild.channels.cache.get(this.state.entryId) : undefined;
+        let entry = [...guild.channels.cache.values()].find(channel =>
+            channel.type === ChannelType.GuildVoice &&
+            channel.name === "➕ Sprachkanal erstellen" &&
+            channel.parentId === category.id
+        ) ?? storedEntry;
         if (entry?.type !== ChannelType.GuildVoice) {
-            const created = await guild.channels.create({
-                name: "➕ Sprachkanal erstellen", type: ChannelType.GuildVoice, parent: category.id
-            });
-            this.state.entryId = created.id;
-            await this.persist();
-        } else if (entry.parentId !== category.id) await entry.setParent(category.id);
+            entry = [...guild.channels.cache.values()].find(channel =>
+                channel.type === ChannelType.GuildVoice && channel.name === "➕ Sprachkanal erstellen"
+            );
+            if (!entry) {
+                entry = await guild.channels.create({
+                    name: "➕ Sprachkanal erstellen", type: ChannelType.GuildVoice, parent: category.id
+                });
+            }
+        }
+        if (entry.type !== ChannelType.GuildVoice) {
+            throw new Error("Community entry channel is not a voice channel.");
+        }
+        if (entry.parentId !== category.id) await entry.setParent(category.id);
+        this.state.entryId = entry.id;
+
+        const duplicateEntries = [...guild.channels.cache.values()].filter(channel =>
+            channel.type === ChannelType.GuildVoice &&
+            channel.id !== entry.id &&
+            channel.name === "➕ Sprachkanal erstellen" &&
+            channel.members.size === 0
+        );
+        for (const duplicate of duplicateEntries) {
+            await duplicate.delete("Remove duplicate Community entry channel from an earlier bot version");
+        }
+
+        const duplicateCategories = matchingCategories.filter(candidate => candidate.id !== category.id);
+        for (const duplicate of duplicateCategories) {
+            const hasChildren = [...guild.channels.cache.values()].some(channel => channel.parentId === duplicate.id);
+            if (!hasChildren) {
+                await duplicate.delete("Remove empty duplicate Community category from an earlier bot version");
+            }
+        }
+        await this.persist();
         console.log(`[Community] Ready: ${name}`);
     }
 

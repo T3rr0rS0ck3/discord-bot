@@ -13,15 +13,28 @@ import type {
     TwitchRoleSyncStatus
 } from "../types";
 
-async function request<T>(path: string, method = "GET", body?: unknown): Promise<T> {
-    const response = await fetch(path, {
-        method,
-        headers: {
-            "Content-Type": "application/json"
-        },
-        credentials: "same-origin",
-        body: body ? JSON.stringify(body) : undefined
-    });
+async function request<T>(path: string, method = "GET", body?: unknown, timeoutMs = 15_000): Promise<T> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let response: Response;
+    try {
+        response = await fetch(path, {
+            method,
+            headers: {
+                "Content-Type": "application/json"
+            },
+            credentials: "same-origin",
+            body: body ? JSON.stringify(body) : undefined,
+            signal: controller.signal
+        });
+    } catch (error) {
+        if (controller.signal.aborted) {
+            throw new Error(`Request timed out after ${timeoutMs / 1000} seconds.`);
+        }
+        throw error;
+    } finally {
+        clearTimeout(timer);
+    }
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({} as { error?: string }));
@@ -57,7 +70,7 @@ export const adminApi = {
         return request<SaveResponse>("/api/config", "POST", payload);
     },
     restart(): Promise<{ ok: boolean }> {
-        return request<{ ok: boolean }>("/api/restart", "POST", {});
+        return request<{ ok: boolean }>("/api/restart", "POST", {}, 45_000);
     },
     loadChannels(): Promise<ChannelsResponse> {
         return request<ChannelsResponse>("/api/channels");
@@ -77,8 +90,8 @@ export const adminApi = {
     loadCommunityStatus(): Promise<CommunityRuntimeStatus> {
         return request<CommunityRuntimeStatus>("/api/community/status");
     },
-    cleanupCommunityChannels(): Promise<{ ok: boolean; deleted: number; skippedOccupied: number }> {
-        return request<{ ok: boolean; deleted: number; skippedOccupied: number }>("/api/community/cleanup", "POST", {});
+    deleteCommunityChannel(channelId: string): Promise<{ ok: boolean }> {
+        return request<{ ok: boolean }>("/api/community/channel/delete", "POST", { channelId });
     },
     loadTwitchSyncStatus(): Promise<TwitchRoleSyncStatus> {
         return request<TwitchRoleSyncStatus>("/api/twitch/sync-status");
