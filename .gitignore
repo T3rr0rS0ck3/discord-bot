@@ -4,3 +4,6 @@ dist/
 data/*.sqlite
 data/community-*.json
 data/community-*.json.tmp
+e2e-results/
+test-results/
+coverage/

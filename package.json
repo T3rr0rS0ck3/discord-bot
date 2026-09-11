@@ -9,7 +9,15 @@
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "dev:admin": "esbuild src/admin-ui/main.tsx --bundle --platform=browser --target=es2020 --format=iife --outfile=dist/admin/app.js --watch",
         "build:admin": "esbuild src/admin-ui/main.tsx --bundle --platform=browser --target=es2020 --format=iife --outfile=dist/admin/app.js",
+        "build:admin:coverage": "esbuild src/admin-ui/main.tsx --bundle --platform=browser --target=es2020 --format=iife --sourcemap --outfile=dist/admin/app.js",
         "build": "npm run clean && npm run typecheck && npm run build:admin && esbuild src/index.ts --bundle --packages=external --platform=node --target=node22 --format=cjs --outfile=dist/index.js",
+        "e2e:server": "tsx tests/e2e/admin-server.ts",
+        "test:ui-unit": "c8 --clean --report-dir=coverage/ui-unit --reporter=json --include=src/admin-ui/**/*.ts --include=src/admin-ui/**/*.tsx node --import tsx --test tests/admin-ui-unit.test.ts",
+        "test:e2e": "node -e \"require('fs').rmSync('coverage/ui-raw',{recursive:true,force:true})\" && npm run build:admin:coverage && playwright test && node tests/e2e/create-ui-coverage-report.cjs",
+        "test:e2e:report": "playwright show-report e2e-results/report",
+        "coverage:node": "c8 --all --check-coverage --lines=80 --statements=80 --functions=80 --branches=80 --clean --report-dir=coverage/node --reporter=text-summary --reporter=html --reporter=lcov --reporter=json-summary --reporter=json --include=src/**/*.ts --exclude=src/admin-ui/** --exclude=src/types/** --exclude=src/**/interfaces/** node --test tests/*.test.cjs",
+        "coverage:ui": "npm run test:ui-unit && npm run test:e2e",
+        "coverage": "npm run coverage:node && npm run coverage:ui && node tests/e2e/create-coverage-index.cjs",
         "publish": "docker compose build",
         "start": "node dist/index.js",
         "dev": "concurrently \"npm:dev:admin\" \"tsx watch src/index.ts\"",
@@ -30,13 +38,19 @@
         "yt-dlp-exec": "^1.0.2"
     },
     "devDependencies": {
+        "@playwright/test": "^1.63.0",
         "@types/node": "^22.15.3",
         "@types/react": "^18.3.12",
         "@types/react-dom": "^18.3.1",
+        "c8": "^12.0.0",
         "concurrently": "^9.2.1",
         "esbuild": "^0.25.9",
+        "istanbul-lib-coverage": "^3.2.2",
+        "istanbul-lib-report": "^3.0.1",
+        "istanbul-reports": "^3.2.0",
         "tsx": "^4.20.5",
-        "typescript": "^5.8.3"
+        "typescript": "^5.8.3",
+        "v8-to-istanbul": "^9.3.0"
     },
     "engines": {
         "node": ">=22.12.0"

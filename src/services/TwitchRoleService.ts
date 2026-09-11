@@ -79,7 +79,7 @@ export class TwitchRoleService {
     }
 
     public isConfigured(): boolean {
-        return Boolean(this.broadcasterName && this.clientId && this.accessToken);
+        return Boolean(this.broadcasterName?.trim() && this.clientId?.trim() && this.accessToken?.trim());
     }
 
     private async getValidAccessToken(): Promise<string | null> {

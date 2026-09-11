@@ -118,7 +118,7 @@ export class YouTubeTrackSearchService {
             const parsed = new URL(value);
             const host = parsed.hostname.toLowerCase();
 
-            if (host.includes("youtu.be")) {
+            if (host === "youtu.be" || host === "www.youtu.be") {
                 const videoId = parsed.pathname.split("/").filter(Boolean)[0];
                 if (!videoId) {
                     return null;
@@ -127,7 +127,7 @@ export class YouTubeTrackSearchService {
                 return `https://www.youtube.com/watch?v=${videoId}`;
             }
 
-            if (host.includes("youtube.com")) {
+            if (host === "youtube.com" || host === "www.youtube.com" || host === "m.youtube.com") {
                 if (parsed.pathname === "/watch") {
                     const videoId = parsed.searchParams.get("v");
                     return videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
@@ -497,6 +497,7 @@ export class YouTubeTrackSearchService {
     private normalizeText(value: string): string {
         return value
             .toLowerCase()
+            .replace(/ß/g, "ss")
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
             .replace(/[^a-z0-9\s]/g, " ")

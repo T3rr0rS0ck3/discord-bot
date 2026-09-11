@@ -37,6 +37,7 @@
 - [ ] Bestimmte Rollen oder Benutzer von Community-Kanaelen ausschliessen koennen
 - [ ] Community-Kanalnamen aus der UI exportieren koennen
 - [ ] Community-Kanalnamen aus der UI importieren koennen
+- [ ] Liste der Community Kanal namen inkl beabreiten löschne und hinzufügen
 - [x] Kanalnamenvorschlaege mit konfigurierbarer Abstimmungsdauer und zufaelliger Viererauswahl
 
 ## Welcome und Twitch
@@ -49,13 +50,15 @@
 
 ## Features
 
-- [] Achivement system
-- [] Admin UI pfade undco funktionieren im home assistant inkl. cloudflare proxy über das ha plugin
+- [ ] Achivement system
+- [ ] Admin UI pfade undco funktionieren im home assistant inkl. cloudflare proxy über das ha plugin
 
 ## Tests und Qualitaet
 
+- [x] Mindestens 80 Prozent Coverage fuer Statements, Lines, Functions und Branches in Backend und Admin-UI erzwingen
 - [ ] Tests fuer Pflichtfeldvalidierung ergaenzen
 - [x] Tests fuer TheAudioDB v1 und v2 ergaenzen
 - [ ] Tests fuer ungueltige Discord-Tokens ergaenzen
 - [ ] Tests fuer Healthcheck und Shutdown ergaenzen
-- [ ] Admin-UI in Desktop- und Mobile-Ansicht pruefen
+- [x] Admin-UI in Desktop- und Mobile-Ansicht als Playwright-E2E pruefen und Ergebnisse zur manuellen Kontrolle ablegen
+- [x] Code-Coverage fuer Backend-Tests und Playwright-UI-Tests als HTML- und LCOV-Bericht bereitstellen

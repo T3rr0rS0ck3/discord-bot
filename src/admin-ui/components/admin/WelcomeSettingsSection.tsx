@@ -274,7 +274,7 @@ export function WelcomeSettingsSection(props: WelcomeSettingsSectionProps): Reac
                         : groupedEmojis;
 
                     return (
-                        <div className="row" key={`role-${index}`}>
+                        <div className="row welcome-role-row" key={`role-${index}`}>
                             <EmojiDropdown
                                 disabled={props.busy}
                                 selectedValue={selectedEmojiValue}

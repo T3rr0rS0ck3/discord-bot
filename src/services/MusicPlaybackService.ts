@@ -807,7 +807,7 @@ export class MusicPlaybackService {
         try {
             const parsed = new URL(value);
             const host = parsed.hostname.toLowerCase();
-            return host.includes("youtube.com") || host.includes("youtu.be");
+            return ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be"].includes(host);
         }
         catch {
             return false;

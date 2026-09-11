@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 const { EventEmitter } = require('node:events');
@@ -13,15 +14,24 @@ function fixture() {
         rename: async (a, b) => { files.set(b, files.get(a)); files.delete(a); }
     };
     const exports = {};
-    vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/modules/CommunityModule.ts', 'utf8'), {
-        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
-    }).outputText, {
+    const sourcePath = path.resolve('src/modules/CommunityModule.ts');
+    const output = ts.transpileModule(fs.readFileSync(sourcePath, 'utf8'), {
+        fileName: sourcePath,
+        compilerOptions: {
+            module: ts.ModuleKind.CommonJS,
+            target: ts.ScriptTarget.ES2022,
+            esModuleInterop: true,
+            inlineSourceMap: true,
+            inlineSources: true
+        }
+    }).outputText;
+    vm.runInNewContext(output, {
         exports,
         require: name => name === 'node:fs' ? { promises: disk } : name === 'discord.js' ? { ChannelType: { GuildCategory: 4, GuildVoice: 2 } } : require(name),
         console: { log() {}, error: (...args) => errors.push(args) },
         setTimeout: (fn, ms) => { const timer = { fn, ms }; timers.add(timer); return timer; },
         clearTimeout: timer => timers.delete(timer)
-    });
+    }, { filename: sourcePath });
     let nextId = 100;
     const cache = new Map();
     const guild = { id: '123', channels: { cache, fetch: async () => cache, create: async options => {

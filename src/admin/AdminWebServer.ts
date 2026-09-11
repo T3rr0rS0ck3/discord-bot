@@ -1410,6 +1410,7 @@ export class AdminWebServer {
         button:hover { transform: translateY(-1px); }
         button:disabled { opacity:0.45; cursor:not-allowed; filter:saturate(0.2); transform:none; }
     .row { display:grid; grid-template-columns: minmax(150px, 0.75fr) 1fr 1fr auto; gap:8px; margin-bottom:8px; }
+    .welcome-role-row > * { min-width:0; }
     .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
         .add { background: linear-gradient(135deg, #4f46e5, #7c3aed); color:white; }
         .save { background: linear-gradient(135deg, var(--accent), var(--accent2)); color:white; }
@@ -1671,6 +1672,10 @@ export class AdminWebServer {
         @media (max-width: 680px) {
             .admin-toast-stack { width:calc(100vw - 24px); }
             .admin-toast { min-height:64px; padding:16px 18px; font-size:14px; }
+            .welcome-role-row { grid-template-columns:1fr auto; }
+            .welcome-role-row .emoji-dropdown,
+            .welcome-role-row input { grid-column:1 / -1; }
+            .welcome-role-row .del { grid-column:2; justify-self:end; }
         }
         @keyframes spin { to { transform: rotate(360deg); } }
   </style>
