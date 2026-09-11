@@ -100,6 +100,10 @@ test("welcome roles support add, Unicode edit, emoji search and removal", async 
 
 test("community deletion handles cancel and confirmation while Twitch sync updates status", async ({ page }) => {
     await login(page);
+    const deleteButtons = page.getByRole("button", { name: /^Sprachkanal .* löschen$/ });
+    const firstDeleteBox = await deleteButtons.nth(0).boundingBox();
+    const secondDeleteBox = await deleteButtons.nth(1).boundingBox();
+    expect(firstDeleteBox?.x).toBeCloseTo(secondDeleteBox?.x ?? 0, 0);
     page.once("dialog", dialog => dialog.dismiss());
     await page.getByRole("button", { name: "Sprachkanal Gaming Lounge löschen" }).click();
     await expect(page.getByText("Gaming Lounge")).toBeVisible();

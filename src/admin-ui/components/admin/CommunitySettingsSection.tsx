@@ -37,13 +37,13 @@ export function CommunitySettingsSection(props: {
                     <div className="log-line">Aktuell sind keine Sprachkanäle in dieser Kategorie vorhanden.</div>
                 ) : (
                     props.status.voiceChannels.map(channel => (
-                        <div className="log-line" key={channel.id}>
-                            <span>Sprachkanal: {channel.name}</span>{" "}
-                            <span className="log-time">{channel.memberCount} Nutzer</span>
+                        <div className="log-line community-channel-row" key={channel.id}>
+                            <span className="community-channel-name">Sprachkanal: {channel.name}</span>
+                            <span className="log-time community-channel-members">{channel.memberCount} Nutzer</span>
                             {channel.isManaged ? (
                                 <button
                                     type="button"
-                                    className="del icon-btn"
+                                    className="del icon-btn icon-only community-channel-delete"
                                     disabled={props.busy || channel.memberCount > 0}
                                     onClick={() => props.onDeleteChannel(channel.id, channel.name)}
                                     title={channel.memberCount > 0 ? "Belegte Sprachkanäle können nicht gelöscht werden" : `Sprachkanal ${channel.name} löschen`}
@@ -51,7 +51,7 @@ export function CommunitySettingsSection(props: {
                                 >
                                     <i className="fa-solid fa-trash" aria-hidden="true"></i>
                                 </button>
-                            ) : null}
+                            ) : <span className="community-channel-action-placeholder" aria-hidden="true"></span>}
                         </div>
                     ))
                 )}

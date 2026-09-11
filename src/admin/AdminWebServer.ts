@@ -1467,6 +1467,17 @@ export class AdminWebServer {
         }
         .log-line { padding:2px 0; border-bottom:1px dashed rgba(120,136,184,.16); }
         .log-line:last-child { border-bottom:none; }
+        .community-channel-row {
+            display:grid;
+            grid-template-columns:minmax(0, 1fr) auto 38px;
+            align-items:center;
+            gap:10px;
+            min-height:42px;
+        }
+        .community-channel-name { min-width:0; overflow-wrap:anywhere; }
+        .community-channel-members { white-space:nowrap; text-align:right; }
+        .community-channel-delete { justify-self:end; }
+        .community-channel-action-placeholder { width:38px; }
         .log-level { display:inline-block; min-width:52px; font-weight:700; }
         .log-level.log, .log-level.info { color:#b7c3ea; }
         .log-level.warn { color:#f3d077; }

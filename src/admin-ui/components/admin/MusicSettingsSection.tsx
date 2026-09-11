@@ -119,7 +119,6 @@ export function MusicSettingsSection(props: MusicSettingsSectionProps): React.JS
                     </select>
                 </div>
             </div>
-            <p className="input-hint">v1 uses the key in the URL path. v2 requires a real premium key in the X-API-KEY header; key 123 is the public v1 test key.</p>
         </>
     );
 }
