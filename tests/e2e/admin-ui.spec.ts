@@ -37,7 +37,7 @@ async function login(page: import("@playwright/test").Page): Promise<void> {
 test("login and dashboard render without horizontal overflow", async ({ page }, testInfo) => {
     await login(page);
     await expect(page.getByText("Bot ist fuer den E2E-Test online.")).toBeVisible();
-    await expect(page.getByText("Gaming Lounge")).toBeVisible();
+    await expect(page.getByText("Sprachkanal: Gaming Lounge", { exact: true })).toBeVisible();
     const communityChannelList = page.locator(".log-panel").filter({ hasText: "Gaming Lounge" });
     await expect(communityChannelList).not.toContainText("➕ Sprachkanal erstellen");
 
@@ -90,7 +90,7 @@ test("welcome roles support add, Unicode edit, emoji search and removal", async 
     await descriptions.last().fill("Für Café, Musik 🎵 und <Tests>");
     await page.getByRole("button", { name: "Open emoji dropdown" }).last().click();
     await page.getByPlaceholder("Search emojis or names").fill("äpfel");
-    await page.getByRole("button", { name: /Äpfel/ }).click();
+    await page.locator(".emoji-dropdown.is-open").getByRole("button", { name: /Äpfel/ }).click();
     await expect(page.getByLabel("Welcome message preview")).toContainText("Grüße & Spaß / ÄÖÜß");
     await page.getByRole("button", { name: "Delete role" }).last().click();
     await expect(names).toHaveCount(1);
@@ -106,7 +106,7 @@ test("community deletion handles cancel and confirmation while Twitch sync updat
     expect(firstDeleteBox?.x).toBeCloseTo(secondDeleteBox?.x ?? 0, 0);
     page.once("dialog", dialog => dialog.dismiss());
     await page.getByRole("button", { name: "Sprachkanal Gaming Lounge löschen" }).click();
-    await expect(page.getByText("Gaming Lounge")).toBeVisible();
+    await expect(page.getByText("Sprachkanal: Gaming Lounge", { exact: true })).toBeVisible();
     page.once("dialog", dialog => dialog.accept());
     await page.getByRole("button", { name: "Sprachkanal Gaming Lounge löschen" }).click();
     await expect(page.getByText("Community-Sprachkanal „Gaming Lounge“ gelöscht.", { exact: true }).first()).toBeVisible();
@@ -114,6 +114,65 @@ test("community deletion handles cancel and confirmation while Twitch sync updat
     await page.getByText("Twitch Settings").click();
     await page.getByRole("button", { name: "Twitch-Rollen jetzt synchronisieren" }).click();
     await expect(page.getByRole("status").filter({ hasText: /2 Rollenänderungen/ }).first()).toBeVisible();
+});
+
+test("community channel names page while scrolling without search or reload", async ({ page }) => {
+    await login(page);
+    const list = page.locator(".community-name-list");
+    const rows = list.locator(".community-name-row");
+
+    await expect(rows).toHaveCount(100);
+    await list.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await expect(rows).toHaveCount(200);
+    await list.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await expect(rows).toHaveCount(253);
+    await expect(list.getByText("Kanal 0250", { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/127\.0\.0\.1:8799\/?$/);
+});
+
+test("community channel names support Unicode CRUD, export and import", async ({ page }, testInfo) => {
+    await login(page);
+    const suffix = testInfo.project.name === "mobile-chromium" ? "Mobil" : "Desktop";
+    const addedName = `Grüße & Spaß / ÄÖÜß ${suffix}`;
+    const renamedName = `Café <Test> & Öl ${suffix}`;
+    const search = page.getByLabel("Community-Kanalnamen durchsuchen");
+
+    await page.getByLabel("Neuer Community-Kanalname").fill(addedName);
+    await page.getByRole("button", { name: "Kanalname hinzufügen" }).click();
+    await search.fill(addedName);
+    await expect(page.getByText(addedName, { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: `Kanalname ${addedName} bearbeiten` }).click();
+    await page.getByLabel(`Kanalname ${addedName} bearbeiten`).fill(renamedName);
+    await page.getByRole("button", { name: `Kanalname ${addedName} speichern` }).click();
+    await search.fill(renamedName);
+    await expect(page.getByText(renamedName, { exact: true })).toBeVisible();
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export" }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^community-channel-names-\d{4}-\d{2}-\d{2}\.json$/);
+
+    await page.route("**/api/community/names/import", route => route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ names: [renamedName, `Import ÄÖÜß / ${suffix}`] })
+    }));
+    await page.locator('.community-name-manager input[type="file"]').setInputFiles({
+        name: `kanalnamen-${suffix.toLowerCase()}.json`,
+        mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify({
+            format: "discord-bot-community-channel-names",
+            version: 1,
+            names: [renamedName, `Import ÄÖÜß / ${suffix}`]
+        }))
+    });
+    await search.fill(`Import ÄÖÜß / ${suffix}`);
+    await expect(page.getByText(`Import ÄÖÜß / ${suffix}`, { exact: true })).toBeVisible();
+
+    await search.fill(renamedName);
+    page.once("dialog", dialog => dialog.accept());
+    await page.getByRole("button", { name: `Kanalname ${renamedName} löschen` }).click();
+    await expect(page.getByText(renamedName, { exact: true })).toBeHidden();
 });
 
 test("module toggles, SQLite navigation and logout update the visible application", async ({ page }, testInfo) => {
@@ -191,7 +250,7 @@ test("settings handlers, secrets, backup and malformed restore behave like user 
     await expect(page.getByText("Configuration backup downloaded.", { exact: true }).first()).toBeVisible();
 
     page.once("dialog", dialog => dialog.accept());
-    await page.locator('input[type="file"]').setInputFiles({
+    await page.locator('input[type="file"]').last().setInputFiles({
         name: "ungültig-äöü.json",
         mimeType: "application/json",
         buffer: Buffer.from("{ kein gültiges JSON / <test> }")

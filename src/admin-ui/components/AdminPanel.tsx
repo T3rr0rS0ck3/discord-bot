@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import type { AdminConfig, ChannelOption, CommunityRuntimeStatus, DatabaseStatus, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState, TwitchRoleSyncStatus } from "../types";
 import { ActionBar } from "./admin/ActionBar";
 import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
+import { CommunityChannelNamesManager } from "./admin/CommunityChannelNamesManager";
 import { CommunityVotingSettingsSection } from "./admin/CommunityVotingSettingsSection";
 import { CoreSettingsSection } from "./admin/CoreSettingsSection";
 import { MusicSettingsSection } from "./admin/MusicSettingsSection";
@@ -60,6 +61,7 @@ type AdminPanelProps = {
     discordStatus: DiscordRuntimeStatus;
     databaseStatus: DatabaseStatus;
     communityStatus: CommunityRuntimeStatus;
+    communityChannelNames: string[];
     twitchSyncStatus: TwitchRoleSyncStatus;
     saveDisabled: boolean;
     restartDisabled: boolean;
@@ -73,6 +75,11 @@ type AdminPanelProps = {
     onRestart: () => void;
     onSaveAndRestart: () => void;
     onDeleteCommunityChannel: (channelId: string, channelName: string) => void;
+    onAddCommunityChannelName: (name: string) => Promise<void>;
+    onRenameCommunityChannelName: (currentName: string, nextName: string) => Promise<void>;
+    onDeleteCommunityChannelName: (name: string) => Promise<void>;
+    onDownloadCommunityChannelNames: () => Promise<void>;
+    onImportCommunityChannelNames: (file: File) => Promise<void>;
     onSyncTwitchRoles: () => void;
     onDownloadBackup: () => void;
     onRestoreBackup: (file: File) => void;
@@ -219,6 +226,15 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                             status={props.communityStatus}
                                             onUpdateConfig={props.onUpdateConfig}
                                             onDeleteChannel={props.onDeleteCommunityChannel}
+                                        />
+                                        <CommunityChannelNamesManager
+                                            names={props.communityChannelNames}
+                                            busy={props.busy}
+                                            onAdd={props.onAddCommunityChannelName}
+                                            onRename={props.onRenameCommunityChannelName}
+                                            onDelete={props.onDeleteCommunityChannelName}
+                                            onExport={props.onDownloadCommunityChannelNames}
+                                            onImport={props.onImportCommunityChannelNames}
                                         />
                                     </CollapsibleRegion>
 

@@ -67,6 +67,7 @@ export function useAdminApp(initialAuth: AuthState) {
         connected: false,
         voiceChannels: []
     });
+    const [communityChannelNames, setCommunityChannelNames] = useState<string[]>([]);
     const [twitchSyncStatus, setTwitchSyncStatus] = useState<TwitchRoleSyncStatus>({
         followerChanges: 0,
         subscriberChanges: 0,
@@ -143,16 +144,18 @@ export function useAdminApp(initialAuth: AuthState) {
     }
 
     async function loadConfigAndMetadata(showLoadedStatus: boolean): Promise<void> {
-        const [cfgResult, channelsResult, emojisResult] = await Promise.all([
+        const [cfgResult, channelsResult, emojisResult, communityNamesResult] = await Promise.all([
             adminApi.loadConfig(),
             adminApi.loadChannels(),
-            adminApi.loadEmojis()
+            adminApi.loadEmojis(),
+            adminApi.loadCommunityChannelNames()
         ]);
 
         const normalized = normalizeConfig(cfgResult);
         setConfig(normalized);
         setChannels(Array.isArray(channelsResult.channels) ? channelsResult.channels : []);
         setEmojis(Array.isArray(emojisResult.emojis) ? emojisResult.emojis : []);
+        setCommunityChannelNames(Array.isArray(communityNamesResult.names) ? communityNamesResult.names : []);
 
         setInitialSnapshot(serializeConfig(normalized));
         setRestartBaseline(toRestartRelevantState(normalized));
@@ -492,6 +495,73 @@ export function useAdminApp(initialAuth: AuthState) {
         }
     }
 
+    async function addCommunityChannelName(name: string): Promise<void> {
+        try {
+            const result = await adminApi.addCommunityChannelName(name);
+            setCommunityChannelNames(result.names);
+            showToast(`Community-Kanalname „${name.trim()}“ hinzugefügt.`, "system");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            showToast(message, "error");
+            throw error;
+        }
+    }
+
+    async function renameCommunityChannelName(currentName: string, nextName: string): Promise<void> {
+        try {
+            const result = await adminApi.renameCommunityChannelName(currentName, nextName);
+            setCommunityChannelNames(result.names);
+            showToast(`Community-Kanalname „${currentName}“ umbenannt.`, "system");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            showToast(message, "error");
+            throw error;
+        }
+    }
+
+    async function deleteCommunityChannelName(name: string): Promise<void> {
+        if (!window.confirm(`Community-Kanalname „${name}“ wirklich löschen?`)) return;
+        try {
+            const result = await adminApi.deleteCommunityChannelName(name);
+            setCommunityChannelNames(result.names);
+            showToast(`Community-Kanalname „${name}“ gelöscht.`, "system");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            showToast(message, "error");
+        }
+    }
+
+    async function downloadCommunityChannelNames(): Promise<void> {
+        try {
+            const result = await adminApi.downloadCommunityChannelNames();
+            const url = URL.createObjectURL(result.blob);
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = result.fileName;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+            showToast("Community-Kanalnamen exportiert.", "system");
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : String(error), "error");
+        }
+    }
+
+    async function importCommunityChannelNames(file: File): Promise<void> {
+        try {
+            const payload = JSON.parse(await file.text()) as unknown;
+            const result = await adminApi.importCommunityChannelNames(payload);
+            setCommunityChannelNames(result.names);
+            showToast(`${result.names.length} Community-Kanalnamen importiert.`, "system");
+        } catch (error) {
+            const message = error instanceof SyntaxError
+                ? "Die ausgewählte Datei enthält kein gültiges JSON."
+                : error instanceof Error ? error.message : String(error);
+            showToast(message, "error");
+        }
+    }
+
     async function downloadConfigBackup(): Promise<void> {
         try {
             setBusyText("Creating configuration backup...");
@@ -563,6 +633,7 @@ export function useAdminApp(initialAuth: AuthState) {
         discordStatus,
         databaseStatus,
         communityStatus,
+        communityChannelNames,
         twitchSyncStatus,
         saveDisabled,
         restartDisabled,
@@ -580,6 +651,11 @@ export function useAdminApp(initialAuth: AuthState) {
         restartOnly,
         saveAndRestart,
         deleteCommunityChannel,
+        addCommunityChannelName,
+        renameCommunityChannelName,
+        deleteCommunityChannelName,
+        downloadCommunityChannelNames,
+        importCommunityChannelNames,
         syncTwitchRoles,
         downloadConfigBackup,
         restoreConfigBackup

@@ -7,6 +7,7 @@ import type {
     RestoreBackupResponse,
     SaveResponse,
     CommunityRuntimeStatus,
+    CommunityNamesResponse,
     DiscordRuntimeStatus,
     DatabaseStatus,
     TwitchRoleSyncResult,
@@ -96,6 +97,24 @@ export const adminApi = {
     },
     deleteCommunityChannel(channelId: string): Promise<{ ok: boolean }> {
         return request<{ ok: boolean }>("/api/community/channel/delete", "POST", { channelId });
+    },
+    loadCommunityChannelNames(): Promise<CommunityNamesResponse> {
+        return request<CommunityNamesResponse>("/api/community/names");
+    },
+    addCommunityChannelName(name: string): Promise<CommunityNamesResponse> {
+        return request<CommunityNamesResponse>("/api/community/names", "POST", { name });
+    },
+    renameCommunityChannelName(currentName: string, nextName: string): Promise<CommunityNamesResponse> {
+        return request<CommunityNamesResponse>("/api/community/names", "PUT", { currentName, nextName });
+    },
+    deleteCommunityChannelName(name: string): Promise<CommunityNamesResponse> {
+        return request<CommunityNamesResponse>("/api/community/names", "DELETE", { name });
+    },
+    downloadCommunityChannelNames(): Promise<{ blob: Blob; fileName: string }> {
+        return download("/api/community/names/export");
+    },
+    importCommunityChannelNames(payload: unknown): Promise<CommunityNamesResponse> {
+        return request<CommunityNamesResponse>("/api/community/names/import", "POST", payload);
     },
     loadTwitchSyncStatus(): Promise<TwitchRoleSyncStatus> {
         return request<TwitchRoleSyncStatus>("/api/twitch/sync-status");

@@ -34,6 +34,41 @@ test('fresh SQLite deployment seeds all names once and preserves later changes',
     } finally { await store.db?.close(); }
 });
 
+test('community channel names support Unicode CRUD and atomic imports', async () => {
+    const store = new AdminConfigStore(':memory:');
+    try {
+        await store.initializeCommunityNames();
+        await store.addCommunityChannelName('  Grüße & Spaß / ÄÖÜß  ');
+        assert.ok((await store.getCommunityChannelNames()).includes('Grüße & Spaß / ÄÖÜß'));
+        await assert.rejects(store.addCommunityChannelName('grüße & spaß / äöüß'), /bereits vorhanden/);
+
+        await store.renameCommunityChannelName('Grüße & Spaß / ÄÖÜß', 'Café <Test> & Co');
+        assert.ok((await store.getCommunityChannelNames()).includes('Café <Test> & Co'));
+        await store.renameCommunityChannelName('Café <Test> & Co', 'Café <Test> & Co');
+        await assert.rejects(store.renameCommunityChannelName('fehlt', 'Neu'), /nicht gefunden/);
+        await store.addCommunityChannelName('Zweiter Name');
+        await assert.rejects(store.renameCommunityChannelName('Zweiter Name', 'café <test> & co'), /bereits vorhanden/);
+        await assert.rejects(store.renameCommunityChannelName('', 'Neu'), /zwischen 1 und 100/);
+
+        assert.deepEqual(
+            await store.replaceCommunityChannelNames(['  Lötstation  ', 'Gaming / Talk', 'Äpfel & Öl']),
+            ['Äpfel & Öl', 'Gaming / Talk', 'Lötstation']
+        );
+        await assert.rejects(store.replaceCommunityChannelNames(['Doppelt', 'doppelt']), /doppelte/);
+        await assert.rejects(store.replaceCommunityChannelNames([]), /mindestens einen/);
+        await assert.rejects(store.replaceCommunityChannelNames(null), /mindestens einen/);
+        await assert.rejects(store.replaceCommunityChannelNames([123]), /zwischen 1 und 100/);
+        await assert.rejects(store.replaceCommunityChannelNames(['x'.repeat(101)]), /zwischen 1 und 100/);
+        assert.deepEqual(await store.getCommunityChannelNames(), ['Äpfel & Öl', 'Gaming / Talk', 'Lötstation']);
+
+        await assert.rejects(store.deleteCommunityChannelName('Nicht vorhanden'), /nicht gefunden/);
+        await store.deleteCommunityChannelName('Gaming / Talk');
+        await store.deleteCommunityChannelName('Lötstation');
+        await assert.rejects(store.deleteCommunityChannelName('Äpfel & Öl'), /Mindestens ein/);
+        await assert.rejects(store.addCommunityChannelName(' '.repeat(5)), /zwischen 1 und 100/);
+    } finally { await store.db?.close(); }
+});
+
 test('SQLite migration removes legacy Spotify settings and tokens', async () => {
     const store = new AdminConfigStore(':memory:');
     try {

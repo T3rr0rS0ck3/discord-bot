@@ -188,8 +188,80 @@ export class AdminConfigStore {
 
     public async getCommunityChannelNames(): Promise<string[]> {
         await this.ensureDb();
-        const rows = await this.db!.all<Array<{ name: string }>>("SELECT name FROM community_channel_names ORDER BY name");
-        return rows.map(row => row.name);
+        const rows = await this.db!.all<Array<{ name: string }>>("SELECT name FROM community_channel_names");
+        return rows.map(row => row.name).sort((a, b) => a.localeCompare(b, "de"));
+    }
+
+    public async addCommunityChannelName(name: string): Promise<void> {
+        await this.ensureDb();
+        const normalized = this.normalizeCommunityChannelName(name);
+        await this.assertCommunityChannelNameAvailable(normalized);
+        await this.db!.run("INSERT INTO community_channel_names (name) VALUES (?)", normalized);
+    }
+
+    public async renameCommunityChannelName(currentName: string, nextName: string): Promise<void> {
+        await this.ensureDb();
+        const current = this.normalizeCommunityChannelName(currentName);
+        const normalized = this.normalizeCommunityChannelName(nextName);
+        const existing = await this.db!.get<{ name: string }>(
+            "SELECT name FROM community_channel_names WHERE name = ?",
+            current
+        );
+        if (!existing) throw new Error("Der Community-Kanalname wurde nicht gefunden.");
+        await this.assertCommunityChannelNameAvailable(normalized, current);
+        await this.db!.run("UPDATE community_channel_names SET name = ? WHERE name = ?", normalized, current);
+    }
+
+    public async deleteCommunityChannelName(name: string): Promise<void> {
+        await this.ensureDb();
+        const normalized = this.normalizeCommunityChannelName(name);
+        const count = await this.db!.get<{ count: number }>("SELECT COUNT(*) AS count FROM community_channel_names");
+        if ((count?.count ?? 0) <= 1) throw new Error("Mindestens ein Community-Kanalname muss erhalten bleiben.");
+        const result = await this.db!.run("DELETE FROM community_channel_names WHERE name = ?", normalized);
+        if ((result.changes ?? 0) === 0) throw new Error("Der Community-Kanalname wurde nicht gefunden.");
+    }
+
+    public async replaceCommunityChannelNames(names: unknown[]): Promise<string[]> {
+        await this.ensureDb();
+        if (!Array.isArray(names) || names.length === 0) {
+            throw new Error("Der Import muss mindestens einen Community-Kanalnamen enthalten.");
+        }
+
+        const normalized = names.map(name => this.normalizeCommunityChannelName(name));
+        const uniqueNames = new Set(normalized.map(name => name.toLocaleLowerCase("de")));
+        if (uniqueNames.size !== normalized.length) {
+            throw new Error("Der Import enthält doppelte Community-Kanalnamen.");
+        }
+
+        await this.db!.exec("BEGIN IMMEDIATE");
+        try {
+            await this.db!.run("DELETE FROM community_channel_names");
+            for (const name of normalized) {
+                await this.db!.run("INSERT INTO community_channel_names (name) VALUES (?)", name);
+            }
+            await this.db!.exec("COMMIT");
+        } catch (error) {
+            await this.db!.exec("ROLLBACK");
+            throw error;
+        }
+        return this.getCommunityChannelNames();
+    }
+
+    private normalizeCommunityChannelName(value: unknown): string {
+        const name = typeof value === "string" ? value.trim() : "";
+        if (name.length === 0 || name.length > 100) {
+            throw new Error("Community-Kanalnamen müssen zwischen 1 und 100 Zeichen lang sein.");
+        }
+        return name;
+    }
+
+    private async assertCommunityChannelNameAvailable(name: string, ignoredName?: string): Promise<void> {
+        const names = await this.db!.all<Array<{ name: string }>>("SELECT name FROM community_channel_names");
+        const normalizedName = name.toLocaleLowerCase("de");
+        const duplicate = names.find(row =>
+            row.name !== ignoredName && row.name.toLocaleLowerCase("de") === normalizedName
+        );
+        if (duplicate) throw new Error("Dieser Community-Kanalname ist bereits vorhanden.");
     }
 
     public async createTwitchMemberOAuthState(state: string, guildId: string, discordUserId: string, expiresAt: number): Promise<void> {

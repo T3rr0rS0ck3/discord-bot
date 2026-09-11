@@ -59,6 +59,7 @@ function App(): React.JSX.Element {
             discordStatus={state.discordStatus}
             databaseStatus={state.databaseStatus}
             communityStatus={state.communityStatus}
+            communityChannelNames={state.communityChannelNames}
             twitchSyncStatus={state.twitchSyncStatus}
             saveDisabled={state.saveDisabled}
             restartDisabled={state.restartDisabled}
@@ -72,6 +73,11 @@ function App(): React.JSX.Element {
             onRestart={() => void state.restartOnly()}
             onSaveAndRestart={() => void state.saveAndRestart()}
             onDeleteCommunityChannel={(channelId, channelName) => void state.deleteCommunityChannel(channelId, channelName)}
+            onAddCommunityChannelName={state.addCommunityChannelName}
+            onRenameCommunityChannelName={state.renameCommunityChannelName}
+            onDeleteCommunityChannelName={state.deleteCommunityChannelName}
+            onDownloadCommunityChannelNames={state.downloadCommunityChannelNames}
+            onImportCommunityChannelNames={state.importCommunityChannelNames}
             onSyncTwitchRoles={() => void state.syncTwitchRoles()}
             onDownloadBackup={() => void state.downloadConfigBackup()}
             onRestoreBackup={file => void state.restoreConfigBackup(file)}

@@ -19,6 +19,11 @@ type AdminWebServerOptions = {
     getDatabaseStatus: () => Promise<DatabaseStatus>;
     getCommunityStatus: () => Promise<CommunityRuntimeStatus>;
     deleteCommunityChannel: (channelId: string) => Promise<void>;
+    getCommunityChannelNames: () => Promise<string[]>;
+    addCommunityChannelName: (name: string) => Promise<void>;
+    renameCommunityChannelName: (currentName: string, nextName: string) => Promise<void>;
+    deleteCommunityChannelName: (name: string) => Promise<void>;
+    replaceCommunityChannelNames: (names: unknown[]) => Promise<string[]>;
     consumeTwitchMemberOAuthState: (state: string) => Promise<{ guildId: string; discordUserId: string } | undefined>;
     saveTwitchMemberLink: (link: import("./AdminConfigStore").TwitchMemberLink) => Promise<void>;
     syncTwitchRoles: () => Promise<TwitchRoleSyncResult>;
@@ -30,6 +35,13 @@ type ConfigBackup = {
     version: 1;
     exportedAt: string;
     config: AdminConfig;
+};
+
+type CommunityNamesExport = {
+    format: "discord-bot-community-channel-names";
+    version: 1;
+    exportedAt: string;
+    names: string[];
 };
 
 export class AdminWebServer {
@@ -161,6 +173,84 @@ export class AdminWebServer {
             if (!/^\d+$/.test(channelId)) throw new Error("Ungültige Sprachkanal-ID.");
             await this.options.deleteCommunityChannel(channelId);
             this.sendJson(res, 200, { ok: true });
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/community/names") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+            this.sendJson(res, 200, { names: await this.options.getCommunityChannelNames() });
+            return;
+        }
+
+        if (req.method === "POST" && url.pathname === "/api/community/names") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+            const body = JSON.parse(await this.readBody(req)) as { name?: unknown };
+            await this.options.addCommunityChannelName(String(body.name ?? ""));
+            this.sendJson(res, 200, { names: await this.options.getCommunityChannelNames() });
+            return;
+        }
+
+        if (req.method === "PUT" && url.pathname === "/api/community/names") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+            const body = JSON.parse(await this.readBody(req)) as { currentName?: unknown; nextName?: unknown };
+            await this.options.renameCommunityChannelName(String(body.currentName ?? ""), String(body.nextName ?? ""));
+            this.sendJson(res, 200, { names: await this.options.getCommunityChannelNames() });
+            return;
+        }
+
+        if (req.method === "DELETE" && url.pathname === "/api/community/names") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+            const body = JSON.parse(await this.readBody(req)) as { name?: unknown };
+            await this.options.deleteCommunityChannelName(String(body.name ?? ""));
+            this.sendJson(res, 200, { names: await this.options.getCommunityChannelNames() });
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/community/names/export") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+            const payload: CommunityNamesExport = {
+                format: "discord-bot-community-channel-names",
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                names: await this.options.getCommunityChannelNames()
+            };
+            const body = JSON.stringify(payload, null, 2);
+            res.writeHead(200, {
+                "Content-Type": "application/json; charset=utf-8",
+                "Content-Disposition": `attachment; filename="community-channel-names-${new Date().toISOString().slice(0, 10)}.json"`,
+                "Content-Length": Buffer.byteLength(body),
+                "Cache-Control": "no-store"
+            });
+            res.end(body);
+            return;
+        }
+
+        if (req.method === "POST" && url.pathname === "/api/community/names/import") {
+            if (!authenticatedUser) {
+                this.sendJson(res, 401, { error: "Unauthorized" });
+                return;
+            }
+            const body = JSON.parse(await this.readBody(req)) as Partial<CommunityNamesExport>;
+            if (body.format !== "discord-bot-community-channel-names" || body.version !== 1 || !Array.isArray(body.names)) {
+                throw new Error("Die Datei ist kein gültiger Community-Kanalnamen-Export.");
+            }
+            const names = await this.options.replaceCommunityChannelNames(body.names);
+            this.sendJson(res, 200, { names });
             return;
         }
 
@@ -1478,6 +1568,56 @@ export class AdminWebServer {
         .community-channel-members { white-space:nowrap; text-align:right; }
         .community-channel-delete { justify-self:end; }
         .community-channel-action-placeholder { width:38px; }
+        .community-name-manager {
+            margin-top:16px;
+            border:1px solid #2f3d67;
+            border-radius:12px;
+            background:#090f20;
+            overflow:hidden;
+        }
+        .community-name-manager-head,
+        .community-name-toolbar {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:10px;
+            padding:10px 12px;
+            border-bottom:1px solid #2f3d67;
+        }
+        .community-name-manager-head > div:first-child { display:flex; flex-direction:column; gap:2px; }
+        .community-name-actions,
+        .community-name-add,
+        .community-name-row-actions { display:flex; align-items:center; gap:8px; }
+        .community-name-toolbar > input { min-width:0; flex:1 1 320px; margin:0; }
+        .community-name-add { flex:1 1 320px; }
+        .community-name-add input { min-width:0; margin:0; }
+        .community-name-list {
+            max-height:420px;
+            overflow-y:auto;
+            scrollbar-gutter:stable;
+            contain:content;
+        }
+        .community-name-row {
+            display:grid;
+            grid-template-columns:minmax(0, 1fr) auto;
+            align-items:center;
+            gap:10px;
+            min-height:48px;
+            padding:5px 12px;
+            border-bottom:1px dashed rgba(120,136,184,.16);
+        }
+        .community-name-row > span { min-width:0; overflow-wrap:anywhere; }
+        .community-name-row > input { min-width:0; margin:0; }
+        .community-name-empty,
+        .community-name-more { padding:14px 12px; text-align:center; color:var(--muted); }
+        @media (max-width: 700px) {
+            .community-name-manager-head,
+            .community-name-toolbar { align-items:stretch; flex-direction:column; }
+            .community-name-actions { display:grid; grid-template-columns:1fr 1fr; }
+            .community-name-actions button { justify-content:center; }
+            .community-name-toolbar > input,
+            .community-name-add { flex-basis:auto; width:100%; }
+        }
         .log-level { display:inline-block; min-width:52px; font-weight:700; }
         .log-level.log, .log-level.info { color:#b7c3ea; }
         .log-level.warn { color:#f3d077; }

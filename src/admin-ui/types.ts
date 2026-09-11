@@ -136,6 +136,10 @@ export type EmojisResponse = {
     emojis: EmojiOption[];
 };
 
+export type CommunityNamesResponse = {
+    names: string[];
+};
+
 export type LogEntry = {
     timestamp: number;
     level: string;

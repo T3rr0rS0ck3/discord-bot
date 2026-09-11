@@ -45,6 +45,12 @@ const communityChannels = [
     { id: "456789012345678901", name: "Gaming Lounge", memberCount: 0, isManaged: true },
     { id: "567890123456789012", name: "Besprechung", memberCount: 3, isManaged: true }
 ];
+let communityChannelNames = [
+    "Äpfel & Öl",
+    "Gaming Lounge",
+    "Lötstation",
+    ...Array.from({ length: 250 }, (_, index) => `Kanal ${String(index + 1).padStart(4, "0")}`)
+];
 
 const server = new AdminWebServer({
     port: 8799,
@@ -73,6 +79,16 @@ const server = new AdminWebServer({
         voiceChannels: communityChannels
     }),
     deleteCommunityChannel: async () => {},
+    getCommunityChannelNames: async () => [...communityChannelNames].sort((a, b) => a.localeCompare(b, "de")),
+    addCommunityChannelName: async name => { communityChannelNames.push(name.trim()); },
+    renameCommunityChannelName: async (currentName, nextName) => {
+        communityChannelNames = communityChannelNames.map(name => name === currentName ? nextName.trim() : name);
+    },
+    deleteCommunityChannelName: async name => { communityChannelNames = communityChannelNames.filter(item => item !== name); },
+    replaceCommunityChannelNames: async names => {
+        communityChannelNames = names.map(name => String(name).trim());
+        return [...communityChannelNames].sort((a, b) => a.localeCompare(b, "de"));
+    },
     consumeTwitchMemberOAuthState: async () => undefined,
     saveTwitchMemberLink: async () => {},
     syncTwitchRoles: async () => ({ guildId: config.guildId, attemptedAt: Date.now(), successful: true, followerChanges: 1, subscriberChanges: 1 }),

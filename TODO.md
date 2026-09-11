@@ -35,10 +35,11 @@
 - [x] Status der Community-Kategorie und verwalteten Kanaele in der Admin-UI anzeigen
 - [x] Verwaiste Community-Kanaele manuell ueber die UI aufraeumen koennen
 - [ ] Bestimmte Rollen oder Benutzer von Community-Kanaelen ausschliessen koennen
-- [ ] Community-Kanalnamen aus der UI exportieren koennen
-- [ ] Community-Kanalnamen aus der UI importieren koennen
-- [ ] Liste der Community Kanal namen inkl beabreiten löschne und hinzufügen
+- [x] Community-Kanalnamen aus der UI exportieren koennen
+- [x] Community-Kanalnamen aus der UI importieren koennen
+- [x] Liste der Community-Kanalnamen inklusive Bearbeiten, Loeschen und Hinzufuegen
 - [x] Kanalnamenvorschlaege mit konfigurierbarer Abstimmungsdauer und zufaelliger Viererauswahl
+- [ ] Kanalvorschlaege als echte umfrage
 
 ## Welcome und Twitch
 
@@ -51,7 +52,8 @@
 ## Features
 
 - [ ] Achivement system
-- [ ] Admin UI pfade undco funktionieren im home assistant inkl. cloudflare proxy über das ha plugin
+- [x] Admin UI pfade undco funktionieren im home assistant inkl. cloudflare proxy über das ha plugin
+- [ ] sql lite browser wieder funktions fähig im ha
 
 ## Tests und Qualitaet
 
