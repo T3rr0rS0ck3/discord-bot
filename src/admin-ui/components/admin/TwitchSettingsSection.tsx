@@ -1,4 +1,5 @@
 import React from "react";
+import { resolveAdminUrl } from "../../api/adminApi";
 import type { AdminConfig, TwitchRoleSyncStatus } from "../../types";
 
 type TwitchSettingsSectionProps = {
@@ -142,7 +143,7 @@ export function TwitchSettingsSection(props: TwitchSettingsSectionProps): React.
                     type="button"
                     className="add icon-btn"
                     disabled={props.busy || !canStartOAuth}
-                    onClick={() => window.open("/api/twitch/oauth/start", "_blank", "noopener,noreferrer")}
+                    onClick={() => window.open(resolveAdminUrl("api/twitch/oauth/start"), "_blank", "noopener,noreferrer")}
                 >
                     <i className="fa-solid fa-link" aria-hidden="true"></i>
                     Broadcaster mit Twitch verbinden

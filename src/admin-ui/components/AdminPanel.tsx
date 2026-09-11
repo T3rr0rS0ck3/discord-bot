@@ -333,7 +333,7 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                             </p>
 
                             <div className="sqlite-browser-frame">
-                                <iframe title="SQLite Browser" src="/admin/sqlite/" />
+                                <iframe title="SQLite Browser" src="admin/sqlite/" />
                             </div>
                         </>
                     )}

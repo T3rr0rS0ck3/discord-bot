@@ -18,7 +18,7 @@ async function request<T>(path: string, method = "GET", body?: unknown, timeoutM
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
     try {
-        response = await fetch(path, {
+        response = await fetch(resolveAdminUrl(path), {
             method,
             headers: {
                 "Content-Type": "application/json"
@@ -45,7 +45,7 @@ async function request<T>(path: string, method = "GET", body?: unknown, timeoutM
 }
 
 async function download(path: string): Promise<{ blob: Blob; fileName: string }> {
-    const response = await fetch(path, { credentials: "same-origin" });
+    const response = await fetch(resolveAdminUrl(path), { credentials: "same-origin" });
     if (!response.ok) {
         const error = await response.json().catch(() => ({} as { error?: string }));
         throw new Error(error.error ?? `HTTP ${response.status}`);
@@ -54,6 +54,10 @@ async function download(path: string): Promise<{ blob: Blob; fileName: string }>
     const disposition = response.headers.get("content-disposition") ?? "";
     const fileName = disposition.match(/filename="([^"]+)"/)?.[1] ?? "discord-bot-config.json";
     return { blob: await response.blob(), fileName };
+}
+
+export function resolveAdminUrl(path: string): string {
+    return new URL(path.replace(/^\/+/, ""), document.baseURI).toString();
 }
 
 export const adminApi = {

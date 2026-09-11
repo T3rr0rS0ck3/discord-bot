@@ -1680,7 +1680,7 @@ export class AdminWebServer {
   <script>
     window.__ADMIN_INITIAL_AUTH__ = ${initialAuthState};
   </script>
-  <script src="/admin/app.js" defer></script>
+    <script src="admin/app.js" defer></script>
 </body>
 </html>`;
     }
