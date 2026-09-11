@@ -57,9 +57,11 @@ test('discord bot reports login states, readiness and stop lifecycle', async () 
     await bot.stop(); assert.equal(bot.getStatus().state, 'offline'); assert.equal(client.destroyed, 1);
 
     const invalid = new DiscordBot({ token: 'bad', commands: [] }); const invalidClient = Client.instances.at(-1); invalidClient.loginError = { code: 'TokenInvalid' };
-    await invalid.start(); assert.equal(invalid.getStatus().state, 'token-invalid'); assert.equal(invalidClient.destroyed, 1);
+    await invalid.start(); assert.equal(invalid.getStatus().state, 'token-invalid'); assert.match(invalid.getStatus().message, /Invalid Discord token/); assert.equal(invalidClient.destroyed, 1);
+    const numericInvalid = new DiscordBot({ token: 'bad-number', commands: [] }); const numericInvalidClient = Client.instances.at(-1); numericInvalidClient.loginError = { code: 4004 };
+    await numericInvalid.start(); assert.equal(numericInvalid.getStatus().state, 'error'); assert.match(numericInvalid.getStatus().message, /4004/); assert.equal(numericInvalidClient.destroyed, 1);
     const failed = new DiscordBot({ token: 'bad', commands: [] }); const failedClient = Client.instances.at(-1); failedClient.loginError = 'offline';
-    await failed.start(); assert.equal(failed.getStatus().state, 'error');
+    await failed.start(); assert.equal(failed.getStatus().state, 'error'); assert.match(failed.getStatus().message, /UnknownError/); assert.equal(failedClient.destroyed, 1);
 });
 
 test('ready event registers guild and global commands and reports setup failures', async () => {

@@ -119,3 +119,18 @@ test('startup channel and emoji callbacks sort German labels and shutdown only o
     instances.signals.SIGINT(); await new Promise(resolve => setImmediate(resolve));
     assert.equal(manager.stopped, true); assert.equal(server.stopped, true); assert.equal(store.closed, true);
 });
+
+test('shutdown reports failures, sets the exit code and remains idempotent', async () => {
+    const { instances, processStub } = await loadStartup({ stopError: true });
+    const server = instances.servers[0], manager = instances.managers[0], store = instances.stores[0];
+
+    instances.signals.SIGTERM();
+    await new Promise(resolve => setImmediate(resolve));
+    instances.signals.SIGINT();
+    await new Promise(resolve => setImmediate(resolve));
+
+    assert.equal(manager.stopped, true);
+    assert.equal(server.stopped, undefined);
+    assert.equal(store.closed, undefined);
+    assert.equal(processStub.exitCode, 1);
+});

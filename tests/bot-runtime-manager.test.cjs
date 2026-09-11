@@ -119,6 +119,24 @@ test('runtime manager starts modules, routes buttons and stops cleanly', async (
     assert.equal(missing.manager.bot, undefined);
 });
 
+test('runtime manager continues shutdown after a module fails', async () => {
+    const calls = [];
+    factory.modules = [
+        { name: 'broken', getCommands: () => [], shutdown: async () => { calls.push('broken'); throw new Error('kaputt'); } },
+        { name: 'healthy', getCommands: () => [], shutdown: async () => calls.push('healthy') }
+    ];
+    const f = fixture();
+    await f.manager.start();
+    const bot = DiscordBot.instances.at(-1);
+
+    await f.manager.stop();
+
+    assert.deepEqual(calls, ['broken', 'healthy']);
+    assert.equal(bot.stopped, true);
+    assert.equal(f.manager.modules.length, 0);
+    assert.equal(f.manager.bot, undefined);
+});
+
 test('runtime manager delegates community and Twitch operations and saves sanitized config', async () => {
     const community = new CommunityModule();
     const twitch = new TwitchRoleModule(); twitch.result = { successful: true, followerChanges: 1 };

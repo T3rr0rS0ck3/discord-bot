@@ -26,6 +26,36 @@ function createConfig() {
     };
 }
 
+test('healthcheck is available without authentication and returns service status', async () => {
+    const config = createConfig();
+    const server = new AdminWebServer({
+        port: 0,
+        getAuthConfig: () => ({ username: config.adminUiUsername }),
+        verifyAdminPassword: async () => false,
+        getConfig: () => config,
+        getLogs: () => [], saveConfig: async () => {}, restartBot: async () => {},
+        getServerEmojis: async () => [], getWelcomeChannels: async () => [],
+        getDiscordStatus: () => ({ state: 'offline', message: 'offline', updatedAt: new Date().toISOString() }),
+        getDatabaseStatus: async () => ({ schemaVersion: 4, latestMigration: null, appliedMigrations: [] })
+    });
+
+    try {
+        server.start();
+        if (!server.server.listening) await once(server.server, 'listening');
+        const address = server.server.address();
+        const response = await fetch(`http://127.0.0.1:${address.port}/health`);
+        const body = await response.json();
+
+        assert.equal(response.status, 200);
+        assert.equal(body.status, 'ok');
+        assert.equal(body.service, 'discord-bot-admin');
+        assert.equal(Number.isNaN(Date.parse(body.timestamp)), false);
+        assert.equal(response.headers.get('set-cookie'), null);
+    } finally {
+        await server.stop();
+    }
+});
+
 test('admin can download and restore a versioned configuration backup', async () => {
     let config = createConfig();
     const server = new AdminWebServer({

@@ -58,9 +58,9 @@
 ## Tests und Qualitaet
 
 - [x] Mindestens 80 Prozent Coverage fuer Statements, Lines, Functions und Branches in Backend und Admin-UI erzwingen
-- [ ] Tests fuer Pflichtfeldvalidierung ergaenzen
+- [x] Tests fuer Pflichtfeldvalidierung ergaenzen
 - [x] Tests fuer TheAudioDB v1 und v2 ergaenzen
-- [ ] Tests fuer ungueltige Discord-Tokens ergaenzen
-- [ ] Tests fuer Healthcheck und Shutdown ergaenzen
+- [x] Tests fuer ungueltige Discord-Tokens ergaenzen
+- [x] Tests fuer Healthcheck und Shutdown ergaenzen
 - [x] Admin-UI in Desktop- und Mobile-Ansicht als Playwright-E2E pruefen und Ergebnisse zur manuellen Kontrolle ablegen
 - [x] Code-Coverage fuer Backend-Tests und Playwright-UI-Tests als HTML- und LCOV-Bericht bereitstellen

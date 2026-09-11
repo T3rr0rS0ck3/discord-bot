@@ -165,6 +165,23 @@ test('admin validation covers numeric boundaries and conditional module requirem
     assert.deepEqual(server.validateConfigInput({ ...base, adminUiToken: '' }, true), []);
 });
 
+test('admin validation reports every global required field independently', () => {
+    const server = createServer();
+    const base = validConfig();
+    const requiredCases = [
+        ['discordToken', 'Discord Token'],
+        ['adminUiUsername', 'Admin Username'],
+        ['adminUiToken', 'Admin Password']
+    ];
+
+    for (const [field, label] of requiredCases) {
+        const errors = server.validateConfigInput({ ...base, [field]: ' \t\r\n ' });
+        assert.ok(errors.some(error => error === `${label} is required.`), `${label} was not reported`);
+    }
+
+    assert.deepEqual(server.validateConfigInput({ ...base, adminUiToken: '   ' }, true), []);
+});
+
 test('admin HTML escaping and SQLite rewriting handle special characters safely', () => {
     const server = createServer();
     assert.equal(server.escapeHtml(`<Grüße & "Jörg's">`), '&lt;Grüße &amp; &quot;Jörg&#39;s&quot;&gt;');
