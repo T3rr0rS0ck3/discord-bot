@@ -43,6 +43,7 @@ test("normalizeConfig handles defaults, Unicode values and numeric boundaries", 
     assert.equal(configured.communityCategoryName, "Grüße / ÄÖÜß <Test>");
     assert.equal(configured.communityMaxChannels, 1);
     assert.equal(configured.guildId, "123");
+    assert.deepEqual(configured.guildIds, ["123"]);
     assert.equal(configured.musicDefaultVolumePercent, 0);
     assert.equal(configured.musicDebugSearch, false);
     assert.equal(configured.audioDbApiVersion, "v2");
@@ -50,6 +51,7 @@ test("normalizeConfig handles defaults, Unicode values and numeric boundaries", 
     assert.equal(configured.twitchAccessTokenExpiresAt, 12345);
 
     assert.equal(normalizeConfig({ communityVotingDurationDays: 7 }).communityVotingDurationHours, 168);
+    assert.deepEqual(normalizeConfig({ guildIds: [" 123 ", "456", "123", ""] }).guildIds, ["123", "456"]);
 });
 
 test("serializeConfig trims text and preserves empty or malformed numeric input", () => {

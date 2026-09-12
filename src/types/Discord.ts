@@ -1,9 +1,11 @@
 import type { Client } from "discord.js";
 import type { ICommand } from "../commands/interfaces/ICommand";
+import type { GuildConfig } from "../admin/AdminConfigStore";
 
 export type DiscordBotOptions = {
     token: string;
     guildId?: string;
+    guildIds?: string[];
     commands: ICommand[];
     buttonHandler?: (customId: string, interaction: import("discord.js").ButtonInteraction) => Promise<boolean>;
     onReady?: (client: Client) => Promise<void> | void;
@@ -55,6 +57,7 @@ export type TwitchRoleModuleOptions = {
     saveSyncResult?: (result: import("../admin/AdminConfigStore").TwitchRoleSyncResult) => Promise<void>;
     addRoleChange?: (change: import("../admin/AdminConfigStore").TwitchRoleChange) => Promise<void>;
     onTokensUpdated?: (tokens: {
+        guildId?: string;
         accessToken: string;
         refreshToken?: string;
         accessTokenExpiresAt?: number;
@@ -94,6 +97,8 @@ export type BotModuleFactoryOptions = {
     saveCommunityNameVotingMessage?: (guildId: string, channelId: string, messageId: string) => Promise<void>;
 
     guildId?: string;
+    guildIds?: string[];
+    guildConfigs?: Record<string, GuildConfig>;
     musicRoleName: string;
     musicPlayback: MusicPlaybackOptions;
     welcomeChannelId?: string;
@@ -109,6 +114,7 @@ export type BotModuleFactoryOptions = {
 
 export type MusicBotModuleOptions = {
     guildId?: string;
+    guildIds?: string[];
     musicRoleName: string;
     musicPlayback: MusicPlaybackOptions;
 };

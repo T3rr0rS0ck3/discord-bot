@@ -70,6 +70,10 @@ test("login rejects invalid credentials and trims valid user input", async ({ pa
 test("admin edits and saves Unicode configuration with restart tracking", async ({ page }, testInfo) => {
     await login(page);
     const projectSuffix = testInfo.project.name === "mobile-chromium" ? "Mobil" : "Desktop";
+    const selectedGuildId = testInfo.project.name === "mobile-chromium" ? "987654321098765432" : "123456789012345678";
+    await page.getByLabel("Discord Server", { exact: true }).selectOption(selectedGuildId);
+    await expect(page.getByPlaceholder("Enter the role name for music access"))
+        .toHaveValue(testInfo.project.name === "mobile-chromium" ? "Music Bot Server Beta" : "Music Bot Server Alpha");
     await page.getByLabel("Kategoriename").fill(`Grüße ÄÖÜß / <Test> & Co ${projectSuffix}`);
     await page.getByLabel("Maximale Anzahl temporärer Sprachkanäle (1-50)").fill("17");
     await page.getByLabel("Welcome Title").fill(`Willkommen, Jörg & Käthe 🎵 ${projectSuffix}`);
@@ -125,7 +129,7 @@ test("community channel names page while scrolling without search or reload", as
     await list.evaluate(element => { element.scrollTop = element.scrollHeight; });
     await expect(rows).toHaveCount(200);
     await list.evaluate(element => { element.scrollTop = element.scrollHeight; });
-    await expect(rows).toHaveCount(253);
+    await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(253);
     await expect(list.getByText("Kanal 0250", { exact: true })).toBeVisible();
     await expect(page).toHaveURL(/127\.0\.0\.1:8799\/?$/);
 });

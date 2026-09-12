@@ -13,6 +13,15 @@ type Migration = {
     apply: (db: Database) => Promise<void>;
 };
 
+const guildConfigSettingKeys = [
+    "systemEnabled", "musicEnabled", "welcomeEnabled", "twitchEnabled", "communityEnabled", "communityVotingEnabled",
+    "communityCategoryName", "communityVotingChannelName", "communityVotingDurationHours", "communityEmptyTimeoutSeconds", "communityMaxChannels",
+    "musicRoleName", "musicDefaultVolumePercent", "musicDebugSearch", "musicYoutubeSearchLimit", "audioDbApiKey", "audioDbApiVersion",
+    "welcomeChannelId", "welcomeTitle", "welcomeReactionPrompt", "welcomeReactionInstructions",
+    "twitchBroadcasterName", "twitchClientId", "twitchClientSecret", "twitchRedirectUri", "twitchAccessToken", "twitchRefreshToken",
+    "twitchAccessTokenExpiresAt", "twitchFollowerRoleName", "twitchSubscriberRoleName", "twitchLinkChannelName", "twitchLinkPanelTitle", "twitchLinkPanelMessage"
+];
+
 const migrations: Migration[] = [
     {
         version: 1,
@@ -167,6 +176,60 @@ const migrations: Migration[] = [
                 CREATE INDEX IF NOT EXISTS twitch_role_change_log_guild_created
                     ON twitch_role_change_log(guild_id, created_at DESC);
             `);
+        }
+    },
+    {
+        version: 8,
+        id: "guild-config-profiles-v1",
+        apply: async (db) => {
+            const rows = await db.all<Array<{ key: string; value: string }>>(
+                "SELECT key, value FROM settings"
+            );
+            const settings = new Map<string, unknown>();
+            for (const row of rows) {
+                try {
+                    settings.set(row.key, JSON.parse(row.value));
+                } catch {
+                    settings.set(row.key, row.value);
+                }
+            }
+
+            const configuredIds = Array.isArray(settings.get("guildIds"))
+                ? settings.get("guildIds") as unknown[]
+                : [settings.get("guildId")];
+            const guildIds = [...new Set(configuredIds.map(value => String(value ?? "").trim()).filter(Boolean))];
+            if (guildIds.length === 0) return;
+
+            const storedProfiles = settings.get("guildConfigs");
+            const existingProfiles = storedProfiles && typeof storedProfiles === "object" && !Array.isArray(storedProfiles)
+                ? storedProfiles as Record<string, Record<string, unknown>>
+                : {};
+            const rootProfile = Object.fromEntries(
+                guildConfigSettingKeys
+                    .filter(key => settings.has(key))
+                    .map(key => [key, settings.get(key)])
+            );
+            const roles = await db.all<Array<{ name: string; emoji: string; description: string }>>(
+                "SELECT name, emoji, description FROM roles ORDER BY sort_order ASC, id ASC"
+            );
+            if (roles.length > 0) rootProfile.welcomeRoles = roles;
+
+            const guildConfigs = Object.fromEntries(guildIds.map(guildId => [
+                guildId,
+                { ...rootProfile, ...(existingProfiles[guildId] ?? {}) }
+            ]));
+            await db.run(
+                "INSERT INTO settings (key, value) VALUES ('guildId', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                JSON.stringify(guildIds[0])
+            );
+            await db.run(
+                "INSERT INTO settings (key, value) VALUES ('guildIds', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                JSON.stringify(guildIds)
+            );
+            await db.run(
+                "INSERT INTO settings (key, value) VALUES ('guildConfigs', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                JSON.stringify(guildConfigs)
+            );
         }
     }
 ];

@@ -1,4 +1,13 @@
-import type { AdminConfig, RestartRelevantState } from "../types";
+import type { AdminConfig, GuildConfig, RestartRelevantState } from "../types";
+
+export const guildConfigKeys: Array<keyof GuildConfig> = [
+    "systemEnabled", "musicEnabled", "welcomeEnabled", "twitchEnabled", "communityEnabled", "communityVotingEnabled",
+    "communityCategoryName", "communityVotingChannelName", "communityVotingDurationHours", "communityEmptyTimeoutSeconds", "communityMaxChannels",
+    "musicRoleName", "musicDefaultVolumePercent", "musicDebugSearch", "musicYoutubeSearchLimit", "audioDbApiKey", "audioDbApiVersion",
+    "welcomeChannelId", "welcomeTitle", "welcomeReactionPrompt", "welcomeReactionInstructions", "welcomeRoles",
+    "twitchBroadcasterName", "twitchClientId", "twitchClientSecret", "twitchRedirectUri", "twitchAccessToken", "twitchRefreshToken",
+    "twitchAccessTokenExpiresAt", "twitchFollowerRoleName", "twitchSubscriberRoleName", "twitchLinkChannelName", "twitchLinkPanelTitle", "twitchLinkPanelMessage"
+];
 
 export const restartFieldLabels: Record<keyof RestartRelevantState, string> = {
     systemEnabled: "Modul System",
@@ -8,7 +17,8 @@ export const restartFieldLabels: Record<keyof RestartRelevantState, string> = {
     communityEnabled: "Modul Community",
     communityVotingEnabled: "Modul Kanalnamen-Abstimmung",
     discordToken: "Discord Token",
-    guildId: "Guild ID",
+    guildIds: "Discord Server IDs",
+    guildConfigs: "Server configuration",
     musicRoleName: "Music Role",
     musicDefaultVolumePercent: "Music Default Volume",
     musicDebugSearch: "Music Debug Search",
@@ -18,6 +28,9 @@ export const restartFieldLabels: Record<keyof RestartRelevantState, string> = {
 };
 
 export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
+    const guildIds = Array.isArray(input.guildIds)
+        ? [...new Set(input.guildIds.map(value => String(value).trim()).filter(Boolean))]
+        : input.guildId ? [String(input.guildId).trim()].filter(Boolean) : [];
     return {
         systemEnabled: input.systemEnabled === true,
             musicEnabled: input.musicEnabled === true,
@@ -31,7 +44,9 @@ export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
         communityVotingDurationHours: Number(input.communityVotingDurationHours ?? ((input.communityVotingDurationDays ?? 7) * 24)),
         communityEmptyTimeoutSeconds: Number(input.communityEmptyTimeoutSeconds ?? 60),
         discordToken: String(input.discordToken ?? ""),
-        guildId: input.guildId ? String(input.guildId) : "",
+        guildId: guildIds[0] ?? "",
+        guildIds,
+        guildConfigs: Object.fromEntries(guildIds.map(id => [id, input.guildConfigs?.[id] ?? {}])),
         adminUiUsername: String(input.adminUiUsername ?? "admin"),
         adminUiToken: String(input.adminUiToken ?? ""),
         adminUiPort: Number(input.adminUiPort ?? 8787),
@@ -79,10 +94,13 @@ export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
 }
 
 export function serializeConfig(cfg: AdminConfig): string {
+    const guildIds = [...new Set((cfg.guildIds ?? (cfg.guildId ? [cfg.guildId] : [])).map(value => value.trim()).filter(Boolean))];
     return JSON.stringify({
         ...cfg,
         discordToken: cfg.discordToken.trim(),
-        guildId: cfg.guildId?.trim() || "",
+        guildId: guildIds[0] ?? "",
+        guildIds,
+        guildConfigs: cfg.guildConfigs ?? {},
         adminUiUsername: cfg.adminUiUsername.trim(),
         adminUiToken: cfg.adminUiToken.trim(),
         musicRoleName: cfg.musicRoleName.trim(),
@@ -130,7 +148,8 @@ export function toRestartRelevantState(cfg: AdminConfig): RestartRelevantState {
         communityEnabled: cfg.communityEnabled === true,
         communityVotingEnabled: cfg.communityVotingEnabled === true,
         discordToken: cfg.discordToken.trim(),
-        guildId: (cfg.guildId ?? "").trim(),
+        guildIds: [...new Set((cfg.guildIds ?? (cfg.guildId ? [cfg.guildId] : [])).map(value => value.trim()).filter(Boolean))].sort().join(","),
+        guildConfigs: JSON.stringify(cfg.guildConfigs ?? {}),
         musicRoleName: cfg.musicRoleName.trim(),
         musicDefaultVolumePercent:
             cfg.musicDefaultVolumePercent === undefined || Number.isNaN(cfg.musicDefaultVolumePercent)

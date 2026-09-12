@@ -114,9 +114,11 @@ test('suggestion modal remains available while legacy vote buttons are ignored',
     const suggest = interaction(); assert.equal(await f.module.handleButtonInteraction('community-name-voting:suggest', suggest), true); assert.equal(suggest.calls[0][0], 'modal');
     assert.equal(await f.module.handleButtonInteraction('other', interaction()), false);
     assert.equal(await f.module.handleButtonInteraction('community-name-voting:vote:7', interaction()), false);
+    assert.equal(await f.module.handleButtonInteraction('community-name-voting:suggest', interaction({ guildId: 'guild-2' })), false);
     const modal = interaction(); assert.equal(await f.module.handleModalSubmitInteraction('community-name-voting:suggest-modal', modal), true); assert.match(modal.calls[0][1].content, /Lötstation/);
     assert.deepEqual(Array.from(f.options.addArgs), ['guild-1', '  Lötstation 🎵 / Grüße  ', 'user-äöü']);
     assert.equal(await f.module.handleModalSubmitInteraction('other', interaction()), false);
+    assert.equal(await f.module.handleModalSubmitInteraction('community-name-voting:suggest-modal', interaction({ guildId: 'guild-2' })), false);
 
     const failedAdd = fixture({ addError: 'kaputt / <script>' }); await failedAdd.module.onReady(failedAdd.client);
     const addError = interaction(); await failedAdd.module.handleModalSubmitInteraction('community-name-voting:suggest-modal', addError); assert.equal(addError.calls[0][1].content, 'kaputt / <script>');

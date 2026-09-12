@@ -23,6 +23,8 @@ export type AdminConfig = {
 
     discordToken: string;
     guildId?: string;
+    guildIds?: string[];
+    guildConfigs?: Record<string, GuildConfig>;
     adminUiUsername: string;
     adminUiToken: string;
     adminUiPort: number;
@@ -52,6 +54,52 @@ export type AdminConfig = {
     twitchLinkPanelTitle?: string;
     twitchLinkPanelMessage?: string;
 };
+
+export type GuildConfig = {
+    systemEnabled?: boolean;
+    musicEnabled?: boolean;
+    welcomeEnabled?: boolean;
+    twitchEnabled?: boolean;
+    communityEnabled?: boolean;
+    communityVotingEnabled?: boolean;
+    communityCategoryName?: string;
+    communityVotingChannelName?: string;
+    communityVotingDurationHours?: number;
+    communityEmptyTimeoutSeconds?: number;
+    communityMaxChannels?: number;
+    musicRoleName?: string;
+    musicDefaultVolumePercent?: number;
+    musicDebugSearch?: boolean;
+    musicYoutubeSearchLimit?: number;
+    audioDbApiKey?: string;
+    audioDbApiVersion?: "v1" | "v2";
+    welcomeChannelId?: string;
+    welcomeTitle?: string;
+    welcomeReactionPrompt?: string;
+    welcomeReactionInstructions?: string;
+    welcomeRoles?: WelcomeRoleOption[];
+    twitchBroadcasterName?: string;
+    twitchClientId?: string;
+    twitchClientSecret?: string;
+    twitchRedirectUri?: string;
+    twitchAccessToken?: string;
+    twitchRefreshToken?: string;
+    twitchAccessTokenExpiresAt?: number;
+    twitchFollowerRoleName?: string;
+    twitchSubscriberRoleName?: string;
+    twitchLinkChannelName?: string;
+    twitchLinkPanelTitle?: string;
+    twitchLinkPanelMessage?: string;
+};
+
+export const guildConfigKeys: Array<keyof GuildConfig> = [
+    "systemEnabled", "musicEnabled", "welcomeEnabled", "twitchEnabled", "communityEnabled", "communityVotingEnabled",
+    "communityCategoryName", "communityVotingChannelName", "communityVotingDurationHours", "communityEmptyTimeoutSeconds", "communityMaxChannels",
+    "musicRoleName", "musicDefaultVolumePercent", "musicDebugSearch", "musicYoutubeSearchLimit", "audioDbApiKey", "audioDbApiVersion",
+    "welcomeChannelId", "welcomeTitle", "welcomeReactionPrompt", "welcomeReactionInstructions", "welcomeRoles",
+    "twitchBroadcasterName", "twitchClientId", "twitchClientSecret", "twitchRedirectUri", "twitchAccessToken", "twitchRefreshToken",
+    "twitchAccessTokenExpiresAt", "twitchFollowerRoleName", "twitchSubscriberRoleName", "twitchLinkChannelName", "twitchLinkPanelTitle", "twitchLinkPanelMessage"
+];
 
 export type CommunityState = {
     categoryId?: string;
@@ -703,7 +751,8 @@ export class AdminConfigStore {
         const roles = this.normalizeRoles(input.welcomeRoles);
 
         const discordToken = String(input.discordToken ?? "").trim();
-        const guildId = this.normalizeString(input.guildId);
+        const guildIds = this.normalizeGuildIds(input.guildIds, input.guildId);
+        const guildId = guildIds[0];
         const adminUiUsername = String(input.adminUiUsername ?? "admin").trim() || "admin";
         const adminUiToken = String(input.adminUiToken ?? "").trim();
         const adminUiPort = this.normalizeNumber(input.adminUiPort, 1, 65535) ?? 8787;
@@ -748,6 +797,8 @@ export class AdminConfigStore {
             communityEmptyTimeoutSeconds: Math.floor(this.normalizeNumber(input.communityEmptyTimeoutSeconds, 1, 86400) ?? 60),
             discordToken,
             guildId,
+            guildIds,
+            guildConfigs: Object.fromEntries(guildIds.map(id => [id, this.normalizeGuildConfig(input.guildConfigs?.[id], input)])),
             adminUiUsername,
             adminUiToken,
             adminUiPort,
@@ -794,6 +845,22 @@ export class AdminConfigStore {
     private normalizeString(value: unknown): string | undefined {
         const text = String(value ?? "").trim();
         return text.length > 0 ? text : undefined;
+    }
+
+    private normalizeGuildIds(value: unknown, legacyValue: unknown): string[] {
+        const entries = Array.isArray(value) ? value : legacyValue === undefined ? [] : [legacyValue];
+        return [...new Set(entries.map(item => String(item).trim()).filter(Boolean))];
+    }
+
+    private normalizeGuildConfig(value: GuildConfig | undefined, fallback: Partial<AdminConfig>): GuildConfig {
+        const normalized = this.normalize({
+            ...fallback,
+            ...value,
+            guildId: undefined,
+            guildIds: [],
+            guildConfigs: undefined
+        });
+        return Object.fromEntries(guildConfigKeys.map(key => [key, normalized[key]])) as GuildConfig;
     }
 
     private normalizeNumber(value: unknown, min: number, max: number): number | undefined {

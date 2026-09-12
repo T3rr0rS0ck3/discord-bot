@@ -37,7 +37,7 @@ Modularer Discord-Bot mit erweiterbarer Modul-Architektur.
    - Benutzername: `admin`
    - Token: `admin`
 
-   Dort kannst du alle Einstellungen setzen, inkl. `DISCORD_TOKEN`, `GUILD_ID`, Music/Welcome und Admin-Login.
+   Dort kannst du alle Einstellungen setzen, inklusive Discord-Token, mehreren Discord Server IDs, Music/Welcome und Admin-Login.
 
 ## Entwicklung starten
 
@@ -178,7 +178,18 @@ Alle Einstellungen werden in SQLite gespeichert:
 Hinweis zur Laufzeit:
 
 - Welcome-Änderungen werden live angewendet.
-- Discord Token, Guild ID und Admin UI Port/Login gelten nach Neustart.
+- Discord Token, Discord Server IDs und Admin UI Port/Login gelten nach Neustart.
+
+### Mehrere Discord-Server
+
+- Die Admin-Oberfläche bietet eine Serverauswahl. Dort können Guild-IDs hinzugefügt, ausgewählt und entfernt werden.
+- Slash Commands werden beim Start in jeder konfigurierten Guild registriert. Doppelte IDs werden automatisch entfernt.
+- Modulschalter sowie Community-, Voting-, Music-, Twitch- und Welcome-Einstellungen werden für jeden ausgewählten Server in einem eigenen Profil gespeichert.
+- Discord-Token, Admin-Login und Admin-Server-Einstellungen bleiben global und gelten für den gesamten Bot.
+- Community-Zustand, temporäre Kanäle, Kanalnamenvorschläge, Abstimmungen und Twitch-Mitgliederverknüpfungen bleiben über die Guild-ID getrennt in SQLite gespeichert.
+- System- und Musikbefehle verwenden die Guild-ID der jeweiligen Discord-Interaction. Die Musik-Queue und Wiedergabe bleiben dadurch pro Server getrennt.
+- Aktionen und Statusanzeigen für Channels, Emojis, Community und Twitch beziehen sich auf den aktuell ausgewählten Server.
+- Alte Konfigurationen mit nur `guildId`, Root-Einstellungen oder `GUILD_ID` werden automatisch als Profil des ersten Servers übernommen. Die bisherige Einzelserver-Konfiguration bleibt damit kompatibel.
 
 ### Konfigurations-Backup
 
@@ -209,7 +220,7 @@ Ausgeschaltete Module registrieren keine Befehle und starten keine Verarbeitung.
 
 ### Temporäre Community-Sprachkanäle
 
-- Mit gesetzter Guild ID erstellt der Bot beim Start eine Kategorie `Community` und darunter den Sprachkanal `➕ Sprachkanal erstellen`.
+- In jeder konfigurierten Guild erstellt der Bot beim Start eine Kategorie `Community` und darunter den Sprachkanal `➕ Sprachkanal erstellen`.
 - Wer diesem Kanal beitritt, erhält einen eigenen Sprachkanal und wird automatisch dorthin verschoben.
 - Neue Sprachkanäle erhalten zufällige Namen aus der SQLite-Tabelle `community_channel_names` in `data/bot-config.sqlite`. Bereits verwendete Namen werden nach Möglichkeit übersprungen. Die versionierte Migration `src/admin/migrations/communityChannelNames.ts` enthält die 10.000 Startnamen und ist im Build und Docker-Image enthalten. Beim ersten Start wird die Tabelle automatisch befüllt, auch bei bestehenden Installationen. Weitere Starts/Deployments überschreiben keine Änderungen an den Namen. Eine separate JSON-Namensdatei ist nicht nötig.
 - **Maximale Anzahl temporärer Sprachkanäle** ist in der Adminoberfläche von 1 bis 50 einstellbar (Standard 50). Leere Kanäle während des Timeouts zählen mit. Discord erlaubt insgesamt 50 Kanäle pro Kategorie, daher sind mit dem Erstellen-Kanal höchstens 49 temporäre Kanäle möglich; weitere fremde Kanäle in derselben Kategorie reduzieren die verfügbaren Plätze. Es werden keine zusätzlichen Kategorien angelegt.
@@ -222,7 +233,7 @@ Ausgeschaltete Module registrieren keine Befehle und starten keine Verarbeitung.
 
 ### Kanalnamen-Abstimmung
 
-Das eigenständige Modul **Kanalnamen-Abstimmung** kann unabhängig von den temporären Community-Sprachkanälen in der Admin-UI aktiviert werden. Dort lassen sich der Name des Discord-Textkanals und die Abstimmungsdauer von 1 bis 30 Tagen konfigurieren.
+Das eigenständige Modul **Kanalnamen-Abstimmung** kann unabhängig von den temporären Community-Sprachkanälen in der Admin-UI aktiviert werden. Dort lassen sich der Name des Discord-Textkanals und die Abstimmungsdauer von 1 bis 768 Stunden konfigurieren.
 
 - Der Bot erstellt im konfigurierten Textkanal eine dauerhaft aktualisierte Abstimmungsnachricht.
 - Über **Namen vorschlagen** öffnet sich direkt in Discord ein Formular. Ein Slash-Command ist nicht erforderlich.
@@ -233,8 +244,8 @@ Das eigenständige Modul **Kanalnamen-Abstimmung** kann unabhängig von den temp
 - Der Kandidat mit den meisten Stimmen wird in die bestehende Tabelle `community_channel_names` übernommen. Bei Gleichstand gewinnt der früher eingereichte Kandidat.
 - Runden, Kandidaten, Stimmen und Discord-Nachrichtenreferenzen werden vollständig in SQLite gespeichert und über versionierte Migrationen angelegt.
 
-- `GUILD_ID` sorgt dafür, dass `/ping` sofort auf deinem Server verfügbar ist.
-- Ohne `GUILD_ID` wird der Command global registriert (kann bis zu 1h dauern).
+- `GUILD_ID` wird für bestehende Installationen weiterhin als erster Server übernommen.
+- Ohne konfigurierte Discord Server IDs werden Commands global registriert (kann bis zu 1h dauern).
 - Für `/join` braucht der Bot Voice-Rechte auf dem Channel (`Connect`, optional `Speak`).
 - Für `/play` kannst du MP3-URLs, YouTube-Links oder Suchtext (Titel/Interpret) verwenden. Suchtext wird über TheAudioDB mit Metadaten angereichert und anschließend auf YouTube aufgelöst.
 - Wenn du MP3/WAV/ähnliche Dateien abspielen willst, wird `ffmpeg-static` mitinstalliert.

@@ -38,7 +38,7 @@ function createServer(config = validConfig()) {
         getServerEmojis: async () => [],
         getWelcomeChannels: async () => [],
         getDiscordStatus: () => ({ state: 'offline', message: 'offline', updatedAt: new Date().toISOString() }),
-        getDatabaseStatus: async () => ({ schemaVersion: 7, latestMigration: null, appliedMigrations: [] }),
+        getDatabaseStatus: async () => ({ schemaVersion: 8, latestMigration: null, appliedMigrations: [] }),
         getCommunityStatus: async () => ({ configured: false, connected: false, voiceChannels: [] }),
         deleteCommunityChannel: async () => {},
         consumeTwitchMemberOAuthState: async () => undefined,
@@ -99,6 +99,7 @@ test('admin normalization preserves typical Unicode and sanitizes channel names'
     assert.deepEqual(normalized.welcomeRoles, [{ emoji: '🎮', name: 'Zocker*innen', description: 'Spaß & Freunde <3' }]);
     assert.equal(normalized.twitchLinkChannelName, 'twitch-grüße-spaß-co');
     assert.equal(normalized.twitchLinkPanelMessage, 'Konto mit <Discord> & Twitch verbinden.');
+    assert.deepEqual(normalized.guildIds, ['123456789012345678']);
 
     assert.equal(server.normalize({ ...validConfig(), communityVotingDurationDays: 7 }).communityVotingDurationHours, 168);
     assert.equal(server.normalize({ ...validConfig(), communityVotingDurationHours: 768 }).communityVotingDurationHours, 768);
@@ -180,6 +181,7 @@ test('admin validation reports every global required field independently', () =>
     }
 
     assert.deepEqual(server.validateConfigInput({ ...base, adminUiToken: '   ' }, true), []);
+    assert.ok(server.validateConfigInput({ ...base, guildIds: ['123456789012345678', 'invalid/ä'] }).some(error => error.includes('invalid/ä')));
 });
 
 test('admin HTML escaping and SQLite rewriting handle special characters safely', () => {

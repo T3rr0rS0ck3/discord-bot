@@ -50,6 +50,8 @@ function App(): React.JSX.Element {
                 activePage={page}
             username={state.auth.username}
             config={state.config}
+            guildIds={state.guildIds}
+            selectedGuildId={state.selectedGuildId}
             toast={state.toast}
             busy={state.busy}
             busyText={state.busyText}
@@ -66,6 +68,9 @@ function App(): React.JSX.Element {
             saveAndRestartDisabled={state.saveAndRestartDisabled}
             onRefreshChannelsAndEmojis={() => void state.refreshChannelsAndEmojis()}
             onUpdateConfig={state.updateConfig}
+            onSelectGuild={state.setSelectedGuildId}
+            onAddGuild={state.addGuild}
+            onRemoveGuild={state.removeGuild}
             onUpdateRole={state.updateRole}
             onAddRole={state.addRole}
             onRemoveRole={state.removeRole}

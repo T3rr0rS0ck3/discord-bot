@@ -6,17 +6,19 @@ import { IBotModule } from "../modules/interfaces/IBotModule";
 export class DiscordBot {
     private readonly client: Client;
     private readonly token: string;
-    private readonly guildId?: string;
+    private readonly guildIds: string[];
     private readonly buttonHandler?: (customId: string, interaction: import("discord.js").ButtonInteraction) => Promise<boolean>;
     private readonly onReady?: (client: Client) => Promise<void> | void;
     private readonly onStatusChange?: (status: DiscordRuntimeStatus) => void;
     private status: DiscordRuntimeStatus = { state: "offline", message: "Bot is offline.", updatedAt: new Date().toISOString() };
     private readonly modules: IBotModule[] = [];
-    private readonly commands = new Map<string, ICommand>();
+    private readonly commands = new Map<string, ICommand[]>();
 
     public constructor(options: DiscordBotOptions & { modules?: IBotModule[] }) {
         this.token = options.token;
-        this.guildId = options.guildId;
+        this.guildIds = options.guildIds?.length
+            ? [...new Set(options.guildIds)]
+            : options.guildId ? [options.guildId] : [];
         this.buttonHandler = options.buttonHandler;
         this.onReady = options.onReady;
         this.onStatusChange = options.onStatusChange;
@@ -34,7 +36,9 @@ export class DiscordBot {
         });
 
         for (const command of options.commands) {
-            this.commands.set(command.data.name, command);
+            const entries = this.commands.get(command.data.name) ?? [];
+            entries.push(command);
+            this.commands.set(command.data.name, entries);
         }
 
         this.registerEvents();
@@ -86,11 +90,15 @@ export class DiscordBot {
             try {
                 console.log(`Bot ist online als ${readyClient.user.tag}`);
 
-                const commandData = [...this.commands.values()].map((command) => command.data.toJSON());
-
-                if (this.guildId) {
-                    await readyClient.application.commands.set(commandData, this.guildId);
-                    console.log(`Slash commands registered for guild ${this.guildId}.`);
+                if (this.guildIds.length > 0) {
+                    for (const guildId of this.guildIds) {
+                        const commandData = [...this.commands.values()]
+                            .map(commands => commands.find(command => command.targetGuildId === guildId))
+                            .filter((command): command is ICommand => Boolean(command))
+                            .map(command => command.data.toJSON());
+                        await readyClient.application?.commands.set(commandData, guildId);
+                    }
+                    console.log(`Slash commands registered for guilds ${this.guildIds.join(", ")}.`);
 
                     // Remove old global commands so Discord does not show duplicate old/new variants.
                     await readyClient.application.commands.set([]);
@@ -103,6 +111,10 @@ export class DiscordBot {
                     return;
                 }
 
+                const commandData = [...this.commands.values()]
+                    .map(commands => commands.find(command => !command.targetGuildId) ?? commands[0])
+                    .filter((command): command is ICommand => Boolean(command))
+                    .map(command => command.data.toJSON());
                 await readyClient.application.commands.set(commandData);
                 console.log("Slash commands registered globally (can take up to 1 hour).");
 
@@ -110,13 +122,13 @@ export class DiscordBot {
                     await this.onReady(readyClient);
                 }
             } catch (error) {
-                if (this.guildId) {
-                    this.setStatus("guild-unreachable", `Discord is online, but guild ${this.guildId} is unreachable.`);
+                if (this.guildIds.length > 0) {
+                    this.setStatus("guild-unreachable", `Discord is online, but at least one configured guild is unreachable: ${this.guildIds.join(", ")}.`);
                 } else {
                     this.setStatus("error", "Discord connected, but startup setup failed.");
                 }
                 console.error(
-                    `[Discord] Startup setup failed (guild: ${this.guildId ?? "global"}). Check Guild ID and bot installation in the admin UI, then restart the bot. The admin UI remains available.`,
+                    `[Discord] Startup setup failed (guilds: ${this.guildIds.join(", ") || "global"}). Check Guild IDs and bot installation in the admin UI, then restart the bot. The admin UI remains available.`,
                     error
                 );
             }
@@ -182,7 +194,8 @@ export class DiscordBot {
             }
 
             if (interaction.isAutocomplete()) {
-                const command = this.commands.get(interaction.commandName);
+                const command = this.commands.get(interaction.commandName)?.find(item => item.targetGuildId === interaction.guildId)
+                    ?? this.commands.get(interaction.commandName)?.find(item => !item.targetGuildId);
                 if (!command?.executeAutocomplete) {
                     return;
                 }
@@ -203,7 +216,8 @@ export class DiscordBot {
                 return;
             }
 
-            const command = this.commands.get(interaction.commandName);
+            const command = this.commands.get(interaction.commandName)?.find(item => item.targetGuildId === interaction.guildId)
+                ?? this.commands.get(interaction.commandName)?.find(item => !item.targetGuildId);
 
             if (!command) {
                 return;

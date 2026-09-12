@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import http, { IncomingMessage, Server, ServerResponse } from "node:http";
 import path from "node:path";
-import type { AdminConfig, DatabaseStatus, TwitchRoleSyncResult, TwitchRoleSyncStatus } from "./AdminConfigStore";
+import { guildConfigKeys, type AdminConfig, type GuildConfig, type DatabaseStatus, type TwitchRoleSyncResult, type TwitchRoleSyncStatus } from "./AdminConfigStore";
 import type { CommunityRuntimeStatus, DiscordRuntimeStatus } from "../types/Discord";
 
 type AdminWebServerOptions = {
@@ -13,12 +13,12 @@ type AdminWebServerOptions = {
     getLogs: () => Array<{ timestamp: number; level: string; message: string }>;
     saveConfig: (config: AdminConfig) => Promise<void>;
     restartBot: () => Promise<void>;
-    getServerEmojis: () => Promise<Array<{ value: string; label: string }>>;
-    getWelcomeChannels: () => Promise<Array<{ id: string; name: string }>>;
+    getServerEmojis: (guildId?: string) => Promise<Array<{ value: string; label: string }>>;
+    getWelcomeChannels: (guildId?: string) => Promise<Array<{ id: string; name: string }>>;
     getDiscordStatus: () => DiscordRuntimeStatus;
     getDatabaseStatus: () => Promise<DatabaseStatus>;
-    getCommunityStatus: () => Promise<CommunityRuntimeStatus>;
-    deleteCommunityChannel: (channelId: string) => Promise<void>;
+    getCommunityStatus: (guildId?: string) => Promise<CommunityRuntimeStatus>;
+    deleteCommunityChannel: (channelId: string, guildId?: string) => Promise<void>;
     getCommunityChannelNames: () => Promise<string[]>;
     addCommunityChannelName: (name: string) => Promise<void>;
     renameCommunityChannelName: (currentName: string, nextName: string) => Promise<void>;
@@ -26,8 +26,8 @@ type AdminWebServerOptions = {
     replaceCommunityChannelNames: (names: unknown[]) => Promise<string[]>;
     consumeTwitchMemberOAuthState: (state: string) => Promise<{ guildId: string; discordUserId: string } | undefined>;
     saveTwitchMemberLink: (link: import("./AdminConfigStore").TwitchMemberLink) => Promise<void>;
-    syncTwitchRoles: () => Promise<TwitchRoleSyncResult>;
-    getTwitchRoleSyncStatus: () => Promise<TwitchRoleSyncStatus>;
+    syncTwitchRoles: (guildId?: string) => Promise<TwitchRoleSyncResult>;
+    getTwitchRoleSyncStatus: (guildId?: string) => Promise<TwitchRoleSyncStatus>;
 };
 
 type ConfigBackup = {
@@ -159,7 +159,7 @@ export class AdminWebServer {
                 this.sendJson(res, 401, { error: "Unauthorized" });
                 return;
             }
-            this.sendJson(res, 200, await this.options.getCommunityStatus());
+            this.sendJson(res, 200, await this.options.getCommunityStatus(url.searchParams.get("guildId") ?? undefined));
             return;
         }
 
@@ -168,10 +168,10 @@ export class AdminWebServer {
                 this.sendJson(res, 401, { error: "Unauthorized" });
                 return;
             }
-            const body = JSON.parse(await this.readBody(req)) as { channelId?: string };
+            const body = JSON.parse(await this.readBody(req)) as { channelId?: string; guildId?: string };
             const channelId = String(body.channelId ?? "").trim();
             if (!/^\d+$/.test(channelId)) throw new Error("Ungültige Sprachkanal-ID.");
-            await this.options.deleteCommunityChannel(channelId);
+            await this.options.deleteCommunityChannel(channelId, this.normalizeString(body.guildId));
             this.sendJson(res, 200, { ok: true });
             return;
         }
@@ -346,13 +346,13 @@ export class AdminWebServer {
         }
 
         if (req.method === "GET" && url.pathname === "/api/channels") {
-            const channels = await this.options.getWelcomeChannels();
+            const channels = await this.options.getWelcomeChannels(url.searchParams.get("guildId") ?? undefined);
             this.sendJson(res, 200, { channels });
             return;
         }
 
         if (req.method === "GET" && url.pathname === "/api/emojis") {
-            const serverEmojis = (await this.options.getServerEmojis()).map((emoji) => ({
+            const serverEmojis = (await this.options.getServerEmojis(url.searchParams.get("guildId") ?? undefined)).map((emoji) => ({
                 ...emoji,
                 group: "Server Emojis"
             }));
@@ -430,12 +430,13 @@ export class AdminWebServer {
         }
 
         if (req.method === "GET" && url.pathname === "/api/twitch/sync-status") {
-            this.sendJson(res, 200, await this.options.getTwitchRoleSyncStatus());
+            this.sendJson(res, 200, await this.options.getTwitchRoleSyncStatus(url.searchParams.get("guildId") ?? undefined));
             return;
         }
 
         if (req.method === "POST" && url.pathname === "/api/twitch/sync") {
-            const result = await this.options.syncTwitchRoles();
+            const body = JSON.parse(await this.readBody(req) || "{}") as { guildId?: string };
+            const result = await this.options.syncTwitchRoles(this.normalizeString(body.guildId));
             if (!result.successful) {
                 this.sendJson(res, 502, { error: result.error ?? "Twitch-Synchronisierung fehlgeschlagen.", result });
                 return;
@@ -474,6 +475,7 @@ export class AdminWebServer {
     }
 
     private normalize(input: Partial<AdminConfig>): AdminConfig {
+        const guildIds = this.normalizeGuildIds(input.guildIds, input.guildId);
         const roles = Array.isArray(input.welcomeRoles)
             ? input.welcomeRoles
                   .map((role) => ({
@@ -501,7 +503,9 @@ export class AdminWebServer {
             ) ?? 168),
             communityEmptyTimeoutSeconds: Math.floor(this.normalizeNumber(input.communityEmptyTimeoutSeconds, 1, 86400) ?? 60),
             discordToken: String(input.discordToken ?? "").trim(),
-            guildId: this.normalizeString(input.guildId),
+            guildId: guildIds[0],
+            guildIds,
+            guildConfigs: Object.fromEntries(guildIds.map(id => [id, this.normalizeGuildConfig(input.guildConfigs?.[id], input)])),
             adminUiUsername: String(input.adminUiUsername ?? "admin").trim() || "admin",
             adminUiToken: String(input.adminUiToken ?? "").trim(),
             adminUiPort: this.normalizeNumber(input.adminUiPort, 1, 65535) ?? 8787,
@@ -553,6 +557,11 @@ export class AdminWebServer {
         integerInRange(input.adminUiPort, 1, 65535, "Admin UI Port");
         integerInRange(input.adminLoginMaxFailures, 1, 20, "Admin Login Failure Limit");
         integerInRange(input.adminLoginBlockMinutes, 1, 1440, "Admin Login Block Duration");
+        for (const guildId of this.normalizeGuildIds(input.guildIds, input.guildId)) {
+            if (!/^\d{17,20}$/.test(guildId)) errors.push(`Guild ID ${guildId} must contain 17 to 20 digits.`);
+            const profile = input.guildConfigs?.[guildId];
+            if (profile) errors.push(...this.validateGuildConfig(profile).map(error => `[${guildId}] ${error}`));
+        }
 
         if (input.musicEnabled === true) {
             required(input.musicRoleName, "Music Role Name");
@@ -842,15 +851,21 @@ export class AdminWebServer {
         { key: "communityEnabled", label: "Modul Community" },
         { key: "communityVotingEnabled", label: "Modul Kanalnamen-Abstimmung" },
         { key: "discordToken", label: "Discord Token" },
-        { key: "guildId", label: "Guild ID" },
+        { key: "guildIds", label: "Discord Server IDs" },
                 { key: "musicRoleName", label: "Music Role" },
         { key: "musicDefaultVolumePercent", label: "Music Default Volume" },
         { key: "musicDebugSearch", label: "Music Debug Search" },
                 { key: "musicYoutubeSearchLimit", label: "Music YouTube Search Limit" }
       ];
 
-      const changed = fields
-        .filter((field) => (previous[field.key] ?? null) !== (next[field.key] ?? null))
+            const changed = fields
+                .filter((field) => {
+                        if (field.key === "guildIds") {
+                                return this.normalizeGuildIds(previous.guildIds, previous.guildId).sort().join(",")
+                                        !== this.normalizeGuildIds(next.guildIds, next.guildId).sort().join(",");
+                        }
+                        return (previous[field.key] ?? null) !== (next[field.key] ?? null);
+                })
         .map((field) => field.label);
 
       return {
@@ -862,6 +877,33 @@ export class AdminWebServer {
     private normalizeString(value: unknown): string | undefined {
         const text = String(value ?? "").trim();
         return text.length > 0 ? text : undefined;
+    }
+
+    private normalizeGuildIds(value: unknown, legacyValue: unknown): string[] {
+        const entries = Array.isArray(value) ? value : legacyValue === undefined ? [] : [legacyValue];
+        return [...new Set(entries.map(item => String(item).trim()).filter(Boolean))];
+    }
+
+    private normalizeGuildConfig(value: GuildConfig | undefined, fallback: Partial<AdminConfig>): GuildConfig {
+        const normalized = this.normalize({ ...fallback, ...value, guildId: undefined, guildIds: [], guildConfigs: undefined });
+        return Object.fromEntries(guildConfigKeys.map(key => [key, normalized[key]])) as GuildConfig;
+    }
+
+    private validateGuildConfig(profile: GuildConfig): string[] {
+        return this.validateConfigInput({
+            discordToken: "profile-validation",
+            adminUiUsername: "profile-validation",
+            adminUiToken: "profile-validation",
+            adminUiPort: 8787,
+            adminLoginMaxFailures: 5,
+            adminLoginBlockMinutes: 15,
+            musicRoleName: "Music Bot",
+            musicDebugSearch: true,
+            welcomeRoles: [],
+            ...profile,
+            guildIds: [],
+            guildConfigs: undefined
+        }, false);
     }
 
     private async proxyToSqliteWeb(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
@@ -1434,6 +1476,25 @@ export class AdminWebServer {
         }
         input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(176,92,255,.22); }
         textarea { min-height:82px; resize:vertical; font:inherit; }
+        .server-selector {
+            display:grid;
+            grid-template-columns:minmax(220px, .75fr) minmax(0, 1.5fr);
+            align-items:end;
+            gap:12px;
+            margin:16px 0 4px;
+            padding:14px;
+            border:1px solid #2f3d67;
+            border-radius:12px;
+            background:#0a1123;
+        }
+        .server-selector > div { min-width:0; }
+        .server-selector label { margin-top:0; }
+        .server-selector-actions {
+            display:grid;
+            grid-template-columns:minmax(180px, 1fr) auto auto;
+            gap:8px;
+        }
+        .server-selector-actions > * { min-width:0; }
         .welcome-copy-fields { margin-top:14px; }
         .welcome-preview { margin-top:16px; padding:14px; border:1px solid #344166; border-left:4px solid #5865f2; border-radius:8px; background:#111827; color:#f2f3f5; overflow-wrap:anywhere; }
         .welcome-preview-label { margin-bottom:10px; color:#aeb7d4; font-size:11px; font-weight:700; text-transform:uppercase; }
@@ -1615,6 +1676,10 @@ export class AdminWebServer {
         .community-name-empty,
         .community-name-more { padding:14px 12px; text-align:center; color:var(--muted); }
         @media (max-width: 700px) {
+            .server-selector { grid-template-columns:1fr; align-items:stretch; }
+            .server-selector-actions { grid-template-columns:1fr 1fr; }
+            .server-selector-actions input { grid-column:1 / -1; }
+            .server-selector-actions button { justify-content:center; }
             .community-name-manager-head,
             .community-name-toolbar { align-items:stretch; flex-direction:column; }
             .community-name-actions { display:grid; grid-template-columns:1fr 1fr; }

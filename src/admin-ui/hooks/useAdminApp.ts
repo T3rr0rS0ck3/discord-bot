@@ -17,6 +17,7 @@ import type {
 } from "../types";
 import {
     normalizeConfig,
+    guildConfigKeys,
     restartFieldLabels,
     serializeConfig,
     toRestartRelevantState
@@ -31,6 +32,7 @@ export function useAdminApp(initialAuth: AuthState) {
     const [loginStatus, setLoginStatus] = useState<StatusState>({ text: "", color: "#fca5a5" });
 
     const [config, setConfig] = useState<AdminConfig | null>(null);
+    const [selectedGuildId, setSelectedGuildId] = useState("");
     const [status, setStatus] = useState<StatusState>({ text: "", color: "#86efac" });
     const [toasts, setToasts] = useState<ToastState[]>([]);
     const toastTimersRef = useRef(new Map<number, ReturnType<typeof setTimeout>>());
@@ -90,6 +92,11 @@ export function useAdminApp(initialAuth: AuthState) {
 
         return changed;
     }, [config, restartBaseline]);
+
+    const selectedConfig = useMemo<AdminConfig | null>(() => {
+        if (!config || !selectedGuildId) return config;
+        return { ...config, ...config.guildConfigs?.[selectedGuildId], guildId: selectedGuildId };
+    }, [config, selectedGuildId]);
 
     const hasUnsavedChanges = useMemo(() => {
         if (!config) {
@@ -153,6 +160,7 @@ export function useAdminApp(initialAuth: AuthState) {
 
         const normalized = normalizeConfig(cfgResult);
         setConfig(normalized);
+        setSelectedGuildId(current => normalized.guildIds?.includes(current) ? current : normalized.guildIds?.[0] ?? "");
         setChannels(Array.isArray(channelsResult.channels) ? channelsResult.channels : []);
         setEmojis(Array.isArray(emojisResult.emojis) ? emojisResult.emojis : []);
         setCommunityChannelNames(Array.isArray(communityNamesResult.names) ? communityNamesResult.names : []);
@@ -185,6 +193,19 @@ export function useAdminApp(initialAuth: AuthState) {
             }
         })();
     }, [auth.authenticated]);
+
+    useEffect(() => {
+        if (!auth.authenticated || !selectedGuildId) return;
+        let cancelled = false;
+        void Promise.all([adminApi.loadChannels(selectedGuildId), adminApi.loadEmojis(selectedGuildId)])
+            .then(([channelsResult, emojisResult]) => {
+                if (cancelled) return;
+                setChannels(Array.isArray(channelsResult.channels) ? channelsResult.channels : []);
+                setEmojis(Array.isArray(emojisResult.emojis) ? emojisResult.emojis : []);
+            })
+            .catch(() => undefined);
+        return () => { cancelled = true; };
+    }, [auth.authenticated, selectedGuildId]);
 
     useEffect(() => {
         if (!auth.authenticated || busy) {
@@ -225,7 +246,7 @@ export function useAdminApp(initialAuth: AuthState) {
 
         const loadCommunityStatus = async () => {
             try {
-                const result = await adminApi.loadCommunityStatus();
+                const result = await adminApi.loadCommunityStatus(selectedGuildId);
                 if (!cancelled) setCommunityStatus(result);
             } catch {
                 // Community can be disabled while the rest of the dashboard remains available.
@@ -234,7 +255,7 @@ export function useAdminApp(initialAuth: AuthState) {
 
         const loadTwitchSyncStatus = async () => {
             try {
-                const result = await adminApi.loadTwitchSyncStatus();
+                const result = await adminApi.loadTwitchSyncStatus(selectedGuildId);
                 if (!cancelled) setTwitchSyncStatus(result);
             } catch {
                 // Twitch can be disabled while the rest of the dashboard remains available.
@@ -266,7 +287,7 @@ export function useAdminApp(initialAuth: AuthState) {
             cancelled = true;
             clearInterval(timer);
         };
-    }, [auth.authenticated, busy]);
+    }, [auth.authenticated, busy, selectedGuildId]);
 
     async function login(): Promise<void> {
         try {
@@ -300,8 +321,8 @@ export function useAdminApp(initialAuth: AuthState) {
 
         try {
             const [channelsResult, emojisResult] = await Promise.all([
-                adminApi.loadChannels(),
-                adminApi.loadEmojis()
+                adminApi.loadChannels(selectedGuildId),
+                adminApi.loadEmojis(selectedGuildId)
             ]);
             setChannels(Array.isArray(channelsResult.channels) ? channelsResult.channels : []);
             setEmojis(Array.isArray(emojisResult.emojis) ? emojisResult.emojis : []);
@@ -368,7 +389,37 @@ export function useAdminApp(initialAuth: AuthState) {
             if (!prev) {
                 return prev;
             }
+            if (selectedGuildId && guildConfigKeys.includes(key as keyof import("../types").GuildConfig)) {
+                return {
+                    ...prev,
+                    guildConfigs: {
+                        ...prev.guildConfigs,
+                        [selectedGuildId]: { ...prev.guildConfigs?.[selectedGuildId], [key]: value }
+                    }
+                };
+            }
             return { ...prev, [key]: value };
+        });
+    }
+
+    function addGuild(guildId: string): void {
+        if (!/^\d{17,20}$/.test(guildId)) return;
+        setConfig(prev => {
+            if (!prev || prev.guildIds?.includes(guildId)) return prev;
+            const profile = Object.fromEntries(guildConfigKeys.map(key => [key, prev[key]]));
+            return { ...prev, guildIds: [...(prev.guildIds ?? []), guildId], guildConfigs: { ...prev.guildConfigs, [guildId]: profile } };
+        });
+        setSelectedGuildId(guildId);
+    }
+
+    function removeGuild(guildId: string): void {
+        setConfig(prev => {
+            if (!prev) return prev;
+            const guildIds = (prev.guildIds ?? []).filter(id => id !== guildId);
+            const guildConfigs = { ...prev.guildConfigs };
+            delete guildConfigs[guildId];
+            setSelectedGuildId(guildIds[0] ?? "");
+            return { ...prev, guildId: guildIds[0], guildIds, guildConfigs };
         });
     }
 
@@ -378,10 +429,11 @@ export function useAdminApp(initialAuth: AuthState) {
                 return prev;
             }
 
-            const nextRoles = prev.welcomeRoles.map((role, roleIndex) =>
+            const roles = selectedGuildId ? (prev.guildConfigs?.[selectedGuildId]?.welcomeRoles ?? prev.welcomeRoles) : prev.welcomeRoles;
+            const nextRoles = roles.map((role, roleIndex) =>
                 roleIndex === index ? { ...role, ...patch } : role
             );
-
+            if (selectedGuildId) return { ...prev, guildConfigs: { ...prev.guildConfigs, [selectedGuildId]: { ...prev.guildConfigs?.[selectedGuildId], welcomeRoles: nextRoles } } };
             return { ...prev, welcomeRoles: nextRoles };
         });
     }
@@ -393,7 +445,9 @@ export function useAdminApp(initialAuth: AuthState) {
             }
             return {
                 ...prev,
-                welcomeRoles: [...prev.welcomeRoles, { emoji: "", name: "", description: "" }]
+                ...(selectedGuildId
+                    ? { guildConfigs: { ...prev.guildConfigs, [selectedGuildId]: { ...prev.guildConfigs?.[selectedGuildId], welcomeRoles: [...(prev.guildConfigs?.[selectedGuildId]?.welcomeRoles ?? prev.welcomeRoles), { emoji: "", name: "", description: "" }] } } }
+                    : { welcomeRoles: [...prev.welcomeRoles, { emoji: "", name: "", description: "" }] })
             };
         });
     }
@@ -405,7 +459,9 @@ export function useAdminApp(initialAuth: AuthState) {
             }
             return {
                 ...prev,
-                welcomeRoles: prev.welcomeRoles.filter((_, roleIndex) => roleIndex !== index)
+                ...(selectedGuildId
+                    ? { guildConfigs: { ...prev.guildConfigs, [selectedGuildId]: { ...prev.guildConfigs?.[selectedGuildId], welcomeRoles: (prev.guildConfigs?.[selectedGuildId]?.welcomeRoles ?? prev.welcomeRoles).filter((_, roleIndex) => roleIndex !== index) } } }
+                    : { welcomeRoles: prev.welcomeRoles.filter((_, roleIndex) => roleIndex !== index) })
             };
         });
     }
@@ -460,8 +516,8 @@ export function useAdminApp(initialAuth: AuthState) {
         try {
             setBusyText("Synchronisiere Twitch-Rollen...");
             setBusy(true);
-            const response = await adminApi.syncTwitchRoles();
-            const latest = await adminApi.loadTwitchSyncStatus();
+            const response = await adminApi.syncTwitchRoles(selectedGuildId);
+            const latest = await adminApi.loadTwitchSyncStatus(selectedGuildId);
             setTwitchSyncStatus(latest);
             const changes = response.result.followerChanges + response.result.subscriberChanges;
             setStatus({ text: `Twitch-Synchronisierung abgeschlossen: ${changes} Rollenänderungen.`, color: "#86efac" });
@@ -470,7 +526,7 @@ export function useAdminApp(initialAuth: AuthState) {
             const message = error instanceof Error ? error.message : String(error);
             setStatus({ text: message, color: "#fca5a5" });
             showToast(message, "error");
-            try { setTwitchSyncStatus(await adminApi.loadTwitchSyncStatus()); } catch { }
+            try { setTwitchSyncStatus(await adminApi.loadTwitchSyncStatus(selectedGuildId)); } catch { }
         } finally {
             setBusy(false);
         }
@@ -481,8 +537,8 @@ export function useAdminApp(initialAuth: AuthState) {
         try {
             setBusyText("Lösche Community-Sprachkanal...");
             setBusy(true);
-            await adminApi.deleteCommunityChannel(channelId);
-            setCommunityStatus(await adminApi.loadCommunityStatus());
+            await adminApi.deleteCommunityChannel(channelId, selectedGuildId);
+            setCommunityStatus(await adminApi.loadCommunityStatus(selectedGuildId));
             const message = `Community-Sprachkanal „${channelName}“ gelöscht.`;
             setStatus({ text: message, color: "#86efac" });
             showToast(message, "system");
@@ -622,7 +678,12 @@ export function useAdminApp(initialAuth: AuthState) {
         loginUsername,
         loginToken,
         loginStatus,
-        config,
+        config: selectedConfig,
+        guildIds: config?.guildIds ?? [],
+        selectedGuildId,
+        setSelectedGuildId,
+        addGuild,
+        removeGuild,
         status,
         toast: visibleToasts,
         busy,

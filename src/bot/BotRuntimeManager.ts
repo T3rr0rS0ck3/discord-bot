@@ -34,8 +34,18 @@ export class BotRuntimeManager {
         return this.bot?.getStatus() ?? this.statusStore.get();
     }
 
-    public async getCommunityStatus(): Promise<CommunityRuntimeStatus> {
-        const guildId = this.config.guildId;
+    private getGuildIds(): string[] {
+        return this.config.guildIds?.length
+            ? [...new Set(this.config.guildIds)]
+            : this.config.guildId ? [this.config.guildId] : [];
+    }
+
+    private getGuildConfig(guildId: string | undefined): AdminConfig {
+        return guildId ? { ...this.config, ...this.config.guildConfigs?.[guildId], guildId } : this.config;
+    }
+
+    public async getCommunityStatus(selectedGuildId?: string): Promise<CommunityRuntimeStatus> {
+        const guildId = selectedGuildId ?? this.getGuildIds()[0];
         if (!guildId) {
             return { configured: false, connected: false, voiceChannels: [] };
         }
@@ -93,10 +103,24 @@ export class BotRuntimeManager {
         return result.sort((left, right) => left.name.localeCompare(right.name, "de"));
     }
 
-    public async deleteCommunityChannel(channelId: string): Promise<void> {
-        const module = this.modules.find((item): item is CommunityModule => item instanceof CommunityModule);
-        if (!module) throw new Error("Das Community-Modul ist nicht aktiv.");
-        await module.deleteManagedChannel(channelId);
+    public async deleteCommunityChannel(channelId: string, selectedGuildId?: string): Promise<void> {
+        const modules = this.modules.filter((item): item is CommunityModule => item instanceof CommunityModule);
+        if (modules.length === 0) throw new Error("Das Community-Modul ist nicht aktiv.");
+        const selectedModule = selectedGuildId
+            ? modules.find(module => (module as CommunityModule & { targetGuildId?: string }).targetGuildId === selectedGuildId)
+            : undefined;
+        if (selectedGuildId && !selectedModule) throw new Error("Das Community-Modul ist auf diesem Server nicht aktiv.");
+        if (selectedModule) return selectedModule.deleteManagedChannel(channelId);
+        let lastError: unknown;
+        for (const module of modules) {
+            try {
+                await module.deleteManagedChannel(channelId);
+                return;
+            } catch (error) {
+                lastError = error;
+            }
+        }
+        throw lastError;
     }
 
     public async saveConfig(config: AdminConfig): Promise<void> {
@@ -121,12 +145,16 @@ export class BotRuntimeManager {
             await module.initialize?.();
         }
 
-        const commands = this.modules.flatMap((module) => module.getCommands());
+        const commands = this.modules.flatMap((module) => module.getCommands().map(command => {
+            command.targetGuildId = module.targetGuildId;
+            return command;
+        }));
         console.log(`[Modules] Active: ${this.modules.map((module) => module.name).join(", ")}`);
 
         this.bot = new DiscordBot({
             token: this.config.discordToken,
             guildId: this.config.guildId,
+            guildIds: this.getGuildIds(),
             commands,
             modules: this.modules,
             onReady: async (client) => {
@@ -153,12 +181,20 @@ export class BotRuntimeManager {
         await this.start();
     }
 
-    public async syncTwitchRoles(): Promise<import("../admin/AdminConfigStore").TwitchRoleSyncResult> {
-        const module = this.modules.find((item): item is TwitchRoleModule => item instanceof TwitchRoleModule);
-        if (!module) throw new Error("Das Twitch-Modul ist nicht aktiv.");
-        const result = await module.syncNow();
-        if (!result) throw new Error("Der Twitch-Sync kann erst nach dem Discord-Start ausgeführt werden.");
-        return result;
+    public async syncTwitchRoles(selectedGuildId?: string): Promise<import("../admin/AdminConfigStore").TwitchRoleSyncResult> {
+        const modules = this.modules.filter((item): item is TwitchRoleModule => item instanceof TwitchRoleModule)
+            .filter(module => !selectedGuildId || (module as TwitchRoleModule & { targetGuildId?: string }).targetGuildId === selectedGuildId);
+        if (modules.length === 0) throw new Error("Das Twitch-Modul ist nicht aktiv.");
+        const results = (await Promise.all(modules.map(module => module.syncNow()))).filter(result => result !== undefined);
+        if (results.length === 0) throw new Error("Der Twitch-Sync kann erst nach dem Discord-Start ausgeführt werden.");
+        return {
+            guildId: results.length === 1 ? results[0].guildId : "multiple",
+            attemptedAt: Math.max(...results.map(result => result.attemptedAt)),
+            successful: results.every(result => result.successful),
+            error: results.find(result => result.error)?.error,
+            followerChanges: results.reduce((sum, result) => sum + result.followerChanges, 0),
+            subscriberChanges: results.reduce((sum, result) => sum + result.subscriberChanges, 0)
+        };
     }
 
     public async stop(): Promise<void> {
@@ -196,30 +232,31 @@ export class BotRuntimeManager {
         const readyClient = this.getReadyClient();
 
         for (const module of this.modules) {
+            const moduleConfig = this.getGuildConfig(module.targetGuildId);
             await module.applyRuntimeConfig?.(
                 {
-                    communityCategoryName: this.config.communityCategoryName,
-                    communityEmptyTimeoutSeconds: this.config.communityEmptyTimeoutSeconds,
-                    communityMaxChannels: this.config.communityMaxChannels,
-                    communityVotingChannelName: this.config.communityVotingChannelName,
-                    communityVotingDurationHours: this.config.communityVotingDurationHours,
-                    welcomeChannelId: this.config.welcomeChannelId,
-                    welcomeTitle: this.config.welcomeTitle,
-                    welcomeReactionPrompt: this.config.welcomeReactionPrompt,
-                    welcomeReactionInstructions: this.config.welcomeReactionInstructions,
-                    welcomeRoles: this.config.welcomeRoles,
-                    twitchBroadcasterName: this.config.twitchBroadcasterName,
-                    twitchClientId: this.config.twitchClientId,
-                    twitchClientSecret: this.config.twitchClientSecret,
-                    twitchRedirectUri: this.config.twitchRedirectUri,
-                    twitchAccessToken: this.config.twitchAccessToken,
-                    twitchRefreshToken: this.config.twitchRefreshToken,
-                    twitchAccessTokenExpiresAt: this.config.twitchAccessTokenExpiresAt,
-                    twitchFollowerRoleName: this.config.twitchFollowerRoleName,
-                    twitchSubscriberRoleName: this.config.twitchSubscriberRoleName
-                    ,twitchLinkChannelName: this.config.twitchLinkChannelName
-                    ,twitchLinkPanelTitle: this.config.twitchLinkPanelTitle
-                    ,twitchLinkPanelMessage: this.config.twitchLinkPanelMessage
+                    communityCategoryName: moduleConfig.communityCategoryName,
+                    communityEmptyTimeoutSeconds: moduleConfig.communityEmptyTimeoutSeconds,
+                    communityMaxChannels: moduleConfig.communityMaxChannels,
+                    communityVotingChannelName: moduleConfig.communityVotingChannelName,
+                    communityVotingDurationHours: moduleConfig.communityVotingDurationHours,
+                    welcomeChannelId: moduleConfig.welcomeChannelId,
+                    welcomeTitle: moduleConfig.welcomeTitle,
+                    welcomeReactionPrompt: moduleConfig.welcomeReactionPrompt,
+                    welcomeReactionInstructions: moduleConfig.welcomeReactionInstructions,
+                    welcomeRoles: moduleConfig.welcomeRoles,
+                    twitchBroadcasterName: moduleConfig.twitchBroadcasterName,
+                    twitchClientId: moduleConfig.twitchClientId,
+                    twitchClientSecret: moduleConfig.twitchClientSecret,
+                    twitchRedirectUri: moduleConfig.twitchRedirectUri,
+                    twitchAccessToken: moduleConfig.twitchAccessToken,
+                    twitchRefreshToken: moduleConfig.twitchRefreshToken,
+                    twitchAccessTokenExpiresAt: moduleConfig.twitchAccessTokenExpiresAt,
+                    twitchFollowerRoleName: moduleConfig.twitchFollowerRoleName,
+                    twitchSubscriberRoleName: moduleConfig.twitchSubscriberRoleName,
+                    twitchLinkChannelName: moduleConfig.twitchLinkChannelName,
+                    twitchLinkPanelTitle: moduleConfig.twitchLinkPanelTitle,
+                    twitchLinkPanelMessage: moduleConfig.twitchLinkPanelMessage
                 },
                 readyClient
             );
@@ -255,6 +292,8 @@ export class BotRuntimeManager {
             getCommunityNameVotingMessage: (guildId) => this.configStore.getCommunityNameVotingMessage(guildId),
             saveCommunityNameVotingMessage: (guildId, channelId, messageId) => this.configStore.saveCommunityNameVotingMessage(guildId, channelId, messageId),
             guildId: this.config.guildId,
+            guildIds: this.getGuildIds(),
+            guildConfigs: this.config.guildConfigs,
             musicRoleName: this.config.musicRoleName,
             musicPlayback: {
                 defaultVolumePercent: this.config.musicDefaultVolumePercent,
@@ -291,12 +330,22 @@ export class BotRuntimeManager {
                 saveSyncResult: (result) => this.configStore.saveTwitchRoleSyncResult(result),
                 addRoleChange: (change) => this.configStore.addTwitchRoleChange(change),
                 onTokensUpdated: async (tokens) => {
-                    this.config = {
-                        ...this.config,
-                        twitchAccessToken: tokens.accessToken,
-                        twitchRefreshToken: tokens.refreshToken,
-                        twitchAccessTokenExpiresAt: tokens.accessTokenExpiresAt
-                    };
+                    if (tokens.guildId) {
+                        this.config = {
+                            ...this.config,
+                            guildConfigs: {
+                                ...this.config.guildConfigs,
+                                [tokens.guildId]: {
+                                    ...this.config.guildConfigs?.[tokens.guildId],
+                                    twitchAccessToken: tokens.accessToken,
+                                    twitchRefreshToken: tokens.refreshToken,
+                                    twitchAccessTokenExpiresAt: tokens.accessTokenExpiresAt
+                                }
+                            }
+                        };
+                    } else {
+                        this.config = { ...this.config, twitchAccessToken: tokens.accessToken, twitchRefreshToken: tokens.refreshToken, twitchAccessTokenExpiresAt: tokens.accessTokenExpiresAt };
+                    }
                     await this.configStore.save(this.config);
                     await this.applyRuntimeConfig();
                 }

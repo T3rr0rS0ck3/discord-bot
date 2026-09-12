@@ -83,6 +83,18 @@ test('ready event registers guild and global commands and reports setup failures
     assert.equal(brokenGlobal.getStatus().state, 'error');
 });
 
+test('ready event registers commands in every configured guild exactly once', async () => {
+    const bot = new DiscordBot({ token: 't', guildIds: ['guild-a', 'guild-b', 'guild-a'], commands: [command('multi')] });
+    const client = Client.instances.at(-1); const sets = [];
+    await emitAsync(client, 'clientReady', {
+        user: { tag: 'Multi#1' },
+        application: { commands: { set: async (...args) => sets.push(args) } }
+    });
+
+    assert.deepEqual(Array.from(sets, call => call[1] ?? 'global'), ['guild-a', 'guild-b', 'global']);
+    assert.equal(bot.getStatus().state, 'online');
+});
+
 test('interaction router covers module handlers, fallbacks and failures', async () => {
     const modules = [{
         name: 'module',

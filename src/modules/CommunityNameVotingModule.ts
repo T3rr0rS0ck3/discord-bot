@@ -56,6 +56,7 @@ export class CommunityNameVotingModule implements IBotModule {
     }
 
     public async handleButtonInteraction(customId: string, interaction: ButtonInteraction): Promise<boolean> {
+        if (interaction.guildId !== this.options.guildId) return false;
         if (customId === SUGGEST_BUTTON_ID) {
             await interaction.showModal(
                 new ModalBuilder()
@@ -81,6 +82,7 @@ export class CommunityNameVotingModule implements IBotModule {
 
     public async handleModalSubmitInteraction(customId: string, interaction: ModalSubmitInteraction): Promise<boolean> {
         if (customId !== SUGGEST_MODAL_ID) return false;
+        if (interaction.guildId !== this.options.guildId) return false;
         if (!interaction.guildId || !this.options.addCommunityNameSuggestion) {
             await interaction.reply({ content: "Der Vorschlag konnte nicht gespeichert werden.", ephemeral: true });
             return true;

@@ -3,6 +3,7 @@ import { ICommand } from "../../commands/interfaces/ICommand";
 import type { WelcomeRoleOption } from "../../types/Discord";
 
 export interface IBotModule {
+    targetGuildId?: string;
     handleRoleSelectInteraction?(interaction: import("discord.js").RoleSelectMenuInteraction): Promise<boolean>;
     name: string;
     getCommands(): ICommand[];

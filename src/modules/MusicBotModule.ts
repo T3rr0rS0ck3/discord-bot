@@ -9,13 +9,15 @@ import { IBotModule } from "./interfaces/IBotModule";
 
 export class MusicBotModule implements IBotModule {
     public readonly name = "musicbot";
-    private readonly guildId?: string;
+    private readonly guildIds: string[];
     private readonly musicRoleName: string;
     private readonly audioDbService: TheAudioDbService;
     private readonly playbackService: MusicPlaybackService;
 
     public constructor(options: MusicBotModuleOptions) {
-        this.guildId = options.guildId;
+        this.guildIds = options.guildIds?.length
+            ? [...new Set(options.guildIds)]
+            : options.guildId ? [options.guildId] : [];
         this.musicRoleName = options.musicRoleName;
         this.audioDbService = new TheAudioDbService({
             apiKey: options.musicPlayback.audioDbApiKey,
@@ -40,18 +42,15 @@ export class MusicBotModule implements IBotModule {
     }
 
     public async onReady(client: Client): Promise<void> {
-        if (!this.guildId) {
-            return;
-        }
+        for (const guildId of this.guildIds) {
+            const role = await RoleService.ensureRole(client.guilds.cache.get(guildId) ?? await client.guilds.fetch(guildId), {
+                name: this.musicRoleName,
+                reason: "Automatically created role for music commands"
+            });
 
-        const role = await RoleService.ensureRole(client.guilds.cache.get(this.guildId) ?? await client.guilds.fetch(this.guildId), {
-            name: this.musicRoleName,
-            reason: "Automatically created role for music commands"
-        });
-
-        if (!role) {
-            console.log(`[MusicRole] Role "${this.musicRoleName}" could not be provisioned.`);
-            return;
+            if (!role) {
+                console.log(`[MusicRole] Role "${this.musicRoleName}" could not be provisioned in guild ${guildId}.`);
+            }
         }
     }
 
@@ -59,12 +58,14 @@ export class MusicBotModule implements IBotModule {
         if (!customId.startsWith("music:")) {
             return false;
         }
+        if (this.guildIds.length > 0 && (!interaction.guildId || !this.guildIds.includes(interaction.guildId))) return false;
 
         return await this.playbackService.handleButtonInteraction(interaction);
     }
 
     public async handleStringSelectInteraction(customId: string, interaction: import("discord.js").StringSelectMenuInteraction): Promise<boolean> {
         if (!customId.startsWith("music:")) return false;
+        if (this.guildIds.length > 0 && (!interaction.guildId || !this.guildIds.includes(interaction.guildId))) return false;
         return this.playbackService.handleStringSelectInteraction(interaction);
     }
 }

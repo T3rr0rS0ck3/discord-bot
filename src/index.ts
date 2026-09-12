@@ -123,8 +123,8 @@ export class Startup {
                 await botRuntimeManager.restart();
                 console.log("[AdminUI] Bot restarted.");
             },
-            getWelcomeChannels: async () => {
-                const guildId = botRuntimeManager.getConfig().guildId;
+            getWelcomeChannels: async (selectedGuildId) => {
+                const guildId = selectedGuildId ?? botRuntimeManager.getConfig().guildId;
                 if (!guildId) {
                     return [];
                 }
@@ -148,8 +148,8 @@ export class Startup {
             },
             getDiscordStatus: () => botRuntimeManager.getStatus(),
             getDatabaseStatus: () => adminConfigStore.getDatabaseStatus(),
-            getCommunityStatus: () => botRuntimeManager.getCommunityStatus(),
-            deleteCommunityChannel: (channelId) => botRuntimeManager.deleteCommunityChannel(channelId),
+            getCommunityStatus: (guildId) => botRuntimeManager.getCommunityStatus(guildId),
+            deleteCommunityChannel: (channelId, guildId) => botRuntimeManager.deleteCommunityChannel(channelId, guildId),
             getCommunityChannelNames: () => adminConfigStore.getCommunityChannelNames(),
             addCommunityChannelName: (name) => adminConfigStore.addCommunityChannelName(name),
             renameCommunityChannelName: (currentName, nextName) => adminConfigStore.renameCommunityChannelName(currentName, nextName),
@@ -157,14 +157,14 @@ export class Startup {
             replaceCommunityChannelNames: (names) => adminConfigStore.replaceCommunityChannelNames(names),
             consumeTwitchMemberOAuthState: (state) => adminConfigStore.consumeTwitchMemberOAuthState(state),
             saveTwitchMemberLink: (link) => adminConfigStore.saveTwitchMemberLink(link),
-            syncTwitchRoles: () => botRuntimeManager.syncTwitchRoles(),
-            getTwitchRoleSyncStatus: async () => {
-                const guildId = botRuntimeManager.getConfig().guildId;
+            syncTwitchRoles: (guildId) => botRuntimeManager.syncTwitchRoles(guildId),
+            getTwitchRoleSyncStatus: async (selectedGuildId) => {
+                const guildId = selectedGuildId ?? botRuntimeManager.getConfig().guildId;
                 if (!guildId) return { followerChanges: 0, subscriberChanges: 0, changes: [] };
                 return adminConfigStore.getTwitchRoleSyncStatus(guildId);
             },
-            getServerEmojis: async () => {
-                const guildId = botRuntimeManager.getConfig().guildId;
+            getServerEmojis: async (selectedGuildId) => {
+                const guildId = selectedGuildId ?? botRuntimeManager.getConfig().guildId;
                 if (!guildId) {
                     return [];
                 }

@@ -25,12 +25,50 @@ test('fresh SQLite deployment seeds all names once and preserves later changes',
         assert.equal(updated.length, 10000);
         assert.ok(updated.includes('mein-eigener-kanal'));
         assert.ok(!updated.includes(names[0]));
-        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 7);
+        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 8);
         assert.deepEqual(await store.getDatabaseStatus(), {
-            schemaVersion: 7,
-            latestMigration: 'twitch-role-sync-status-v1',
-            appliedMigrations: ['community-name-voting-candidates-v1', 'community-name-voting-v1', 'community-names-v1', 'community-state-v1', 'remove-spotify-v1', 'twitch-member-linking-v1', 'twitch-role-sync-status-v1']
+            schemaVersion: 8,
+            latestMigration: 'guild-config-profiles-v1',
+            appliedMigrations: ['community-name-voting-candidates-v1', 'community-name-voting-v1', 'community-names-v1', 'community-state-v1', 'guild-config-profiles-v1', 'remove-spotify-v1', 'twitch-member-linking-v1', 'twitch-role-sync-status-v1']
         });
+    } finally { await store.db?.close(); }
+});
+
+test('SQLite migration persists legacy single-server settings as a guild profile', async () => {
+    const store = new AdminConfigStore(':memory:');
+    try {
+        await store.ensureDb();
+        await store.db.exec(`
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE roles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                emoji TEXT NOT NULL,
+                description TEXT NOT NULL,
+                sort_order INTEGER NOT NULL
+            );
+            INSERT INTO settings (key, value) VALUES
+                ('guildId', '"123456789012345678"'),
+                ('musicEnabled', 'true'),
+                ('musicRoleName', '"Legacy Music"'),
+                ('welcomeTitle', '"Legacy Welcome"');
+            INSERT INTO roles (name, emoji, description, sort_order)
+            VALUES ('Gaming', '🎮', 'Gaming role', 0);
+        `);
+
+        await store.initialize({ welcomeRoles: [] });
+
+        assert.deepEqual(JSON.parse((await store.db.get("SELECT value FROM settings WHERE key = 'guildIds'")).value), ['123456789012345678']);
+        const profiles = JSON.parse((await store.db.get("SELECT value FROM settings WHERE key = 'guildConfigs'")).value);
+        assert.deepEqual(profiles['123456789012345678'], {
+            musicEnabled: true,
+            musicRoleName: 'Legacy Music',
+            welcomeTitle: 'Legacy Welcome',
+            welcomeRoles: [{ name: 'Gaming', emoji: '🎮', description: 'Gaming role' }]
+        });
+
+        await store.initialize({ welcomeRoles: [] });
+        assert.equal((await store.db.get("SELECT COUNT(*) AS count FROM schema_migrations WHERE id = 'guild-config-profiles-v1'")).count, 1);
     } finally { await store.db?.close(); }
 });
 

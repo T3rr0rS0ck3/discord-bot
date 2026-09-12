@@ -20,6 +20,8 @@ export type AdminConfig = {
 
     discordToken: string;
     guildId?: string;
+    guildIds?: string[];
+    guildConfigs?: Record<string, GuildConfig>;
     adminUiUsername: string;
     adminUiToken: string;
     adminUiPort: number;
@@ -36,6 +38,43 @@ export type AdminConfig = {
     welcomeReactionPrompt?: string;
     welcomeReactionInstructions?: string;
     welcomeRoles: RoleConfig[];
+    twitchBroadcasterName?: string;
+    twitchClientId?: string;
+    twitchClientSecret?: string;
+    twitchRedirectUri?: string;
+    twitchAccessToken?: string;
+    twitchRefreshToken?: string;
+    twitchAccessTokenExpiresAt?: number;
+    twitchFollowerRoleName?: string;
+    twitchSubscriberRoleName?: string;
+    twitchLinkChannelName?: string;
+    twitchLinkPanelTitle?: string;
+    twitchLinkPanelMessage?: string;
+};
+
+export type GuildConfig = {
+    systemEnabled?: boolean;
+    musicEnabled?: boolean;
+    welcomeEnabled?: boolean;
+    twitchEnabled?: boolean;
+    communityEnabled?: boolean;
+    communityVotingEnabled?: boolean;
+    communityCategoryName?: string;
+    communityVotingChannelName?: string;
+    communityVotingDurationHours?: number;
+    communityEmptyTimeoutSeconds?: number;
+    communityMaxChannels?: number;
+    musicRoleName?: string;
+    musicDefaultVolumePercent?: number;
+    musicDebugSearch?: boolean;
+    musicYoutubeSearchLimit?: number;
+    audioDbApiKey?: string;
+    audioDbApiVersion?: "v1" | "v2";
+    welcomeChannelId?: string;
+    welcomeTitle?: string;
+    welcomeReactionPrompt?: string;
+    welcomeReactionInstructions?: string;
+    welcomeRoles?: RoleConfig[];
     twitchBroadcasterName?: string;
     twitchClientId?: string;
     twitchClientSecret?: string;
@@ -105,7 +144,8 @@ export type RestartRelevantState = {
     communityEnabled: boolean;
     communityVotingEnabled: boolean;
     discordToken: string;
-    guildId: string;
+    guildIds: string;
+    guildConfigs: string;
     musicRoleName: string;
     musicDefaultVolumePercent: string;
     musicDebugSearch: boolean;

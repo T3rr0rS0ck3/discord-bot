@@ -17,6 +17,11 @@ const config = {
     communityMaxChannels: 50,
     discordToken: "e2e-discord-token",
     guildId: "123456789012345678",
+    guildIds: ["123456789012345678", "987654321098765432"],
+    guildConfigs: {
+        "123456789012345678": { musicRoleName: "Music Bot Server Alpha", communityCategoryName: "Community Alpha" },
+        "987654321098765432": { musicRoleName: "Music Bot Server Beta", communityCategoryName: "Community Beta" }
+    },
     adminUiUsername: "admin",
     adminUiToken: "",
     adminUiPort: 8799,
@@ -70,7 +75,7 @@ const server = new AdminWebServer({
     ],
     getWelcomeChannels: async () => [{ id: "234567890123456789", name: "#willkommen" }],
     getDiscordStatus: () => ({ state: "online", message: "Bot ist fuer den E2E-Test online.", updatedAt: new Date().toISOString() }),
-    getDatabaseStatus: async () => ({ schemaVersion: 7, latestMigration: "twitch-role-sync-status-v1", appliedMigrations: [] }),
+    getDatabaseStatus: async () => ({ schemaVersion: 8, latestMigration: "guild-config-profiles-v1", appliedMigrations: [] }),
     getCommunityStatus: async () => ({
         configured: true,
         connected: true,

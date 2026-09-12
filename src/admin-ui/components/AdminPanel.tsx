@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { AdminConfig, ChannelOption, CommunityRuntimeStatus, DatabaseStatus, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState, TwitchRoleSyncStatus } from "../types";
 import { ActionBar } from "./admin/ActionBar";
 import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
@@ -52,6 +52,8 @@ type AdminPanelProps = {
     activePage: "dashboard" | "sqlite";
     username: string | null;
     config: AdminConfig | null;
+    guildIds: string[];
+    selectedGuildId: string;
     toast: ToastState[];
     busy: boolean;
     busyText: string;
@@ -68,6 +70,9 @@ type AdminPanelProps = {
     saveAndRestartDisabled: boolean;
     onRefreshChannelsAndEmojis: () => void;
     onUpdateConfig: <K extends keyof AdminConfig>(key: K, value: AdminConfig[K]) => void;
+    onSelectGuild: (guildId: string) => void;
+    onAddGuild: (guildId: string) => void;
+    onRemoveGuild: (guildId: string) => void;
     onUpdateRole: (index: number, patch: Partial<AdminConfig["welcomeRoles"][number]>) => void;
     onAddRole: () => void;
     onRemoveRole: (index: number) => void;
@@ -88,6 +93,7 @@ type AdminPanelProps = {
 };
 
 export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
+    const [newGuildId, setNewGuildId] = useState("");
     const logBodyRef = useRef<HTMLDivElement | null>(null);
     const logAutoScrollRef = useRef(true);
 
@@ -192,6 +198,32 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
 
                             {props.config ? (
                                 <>
+                                    <div className="server-selector" aria-label="Discord server selection">
+                                        <div>
+                                            <label htmlFor="activeDiscordServer">Discord Server</label>
+                                            <select id="activeDiscordServer" value={props.selectedGuildId} disabled={props.busy || props.guildIds.length === 0}
+                                                onChange={event => props.onSelectGuild(event.target.value)}>
+                                                {props.guildIds.map(guildId => <option key={guildId} value={guildId}>{guildId}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="newDiscordServer">Server hinzufügen</label>
+                                            <div className="server-selector-actions">
+                                                <input id="newDiscordServer" value={newGuildId} disabled={props.busy} placeholder="Guild ID"
+                                                    onChange={event => setNewGuildId(event.target.value.trim())} />
+                                                <button type="button" className="add icon-btn" disabled={props.busy || !/^\d{17,20}$/.test(newGuildId)}
+                                                    onClick={() => { props.onAddGuild(newGuildId); setNewGuildId(""); }}>
+                                                    <i className="fa-solid fa-plus" aria-hidden="true"></i>
+                                                    Hinzufügen
+                                                </button>
+                                                <button type="button" className="del icon-btn" disabled={props.busy || !props.selectedGuildId}
+                                                    onClick={() => props.onRemoveGuild(props.selectedGuildId)}>
+                                                    <i className="fa-solid fa-trash" aria-hidden="true"></i>
+                                                    Entfernen
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <CollapsibleRegion
                                         title="Core Settings"
                                         defaultOpen={true}

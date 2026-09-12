@@ -27,16 +27,6 @@ export function CoreSettingsSection(props: CoreSettingsSectionProps): React.JSX.
                         onChange={(event) => onUpdateConfig("discordToken", event.target.value)}
                     />
                 </div>
-                <div>
-                    <label>Guild ID</label>
-                    <input
-                        type="text"
-                        placeholder="Enter the Discord server ID (optional)"
-                        value={config.guildId ?? ""}
-                        disabled={busy}
-                        onChange={(event) => onUpdateConfig("guildId", event.target.value)}
-                    />
-                </div>
             </div>
 
             <div className="grid2">

@@ -55,9 +55,11 @@ test('music module wires services, lifecycle, role provisioning and interaction 
     await module.onReady({ guilds: { cache: new Map([['guild', guild]]), fetch: async () => { throw new Error('unused'); } } });
     assert.equal(ensured[0][0], guild);
     assert.equal(await module.handleButtonInteraction('other', {}), false);
-    assert.equal(await module.handleButtonInteraction('music:skip', { id: 'button' }), true);
+    assert.equal(await module.handleButtonInteraction('music:skip', { id: 'button', guildId: 'other' }), false);
+    assert.equal(await module.handleButtonInteraction('music:skip', { id: 'button', guildId: 'guild' }), true);
     assert.equal(await module.handleStringSelectInteraction('other', {}), false);
-    assert.equal(await module.handleStringSelectInteraction('music:volume', { id: 'select' }), true);
+    assert.equal(await module.handleStringSelectInteraction('music:volume', { id: 'select', guildId: 'other' }), false);
+    assert.equal(await module.handleStringSelectInteraction('music:volume', { id: 'select', guildId: 'guild' }), true);
     await module.shutdown();
     assert.equal(playbackInstances[0].stopped, true);
 

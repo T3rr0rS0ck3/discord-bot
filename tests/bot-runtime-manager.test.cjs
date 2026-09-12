@@ -97,13 +97,15 @@ test('runtime manager exposes config, status fallbacks and community channel sta
 
 test('runtime manager starts modules, routes buttons and stops cleanly', async () => {
     const calls = [];
-    const first = { name: 'first', initialize: async () => calls.push('init-1'), getCommands: () => ['a'], onReady: async () => calls.push('ready-1'), handleButtonInteraction: async () => false, shutdown: async () => calls.push('stop-1') };
-    const second = { name: 'second', initialize: async () => calls.push('init-2'), getCommands: () => ['b'], onReady: async () => calls.push('ready-2'), handleButtonInteraction: async () => true, shutdown: async () => calls.push('stop-2') };
+    const firstCommand = { data: { name: 'a' } };
+    const secondCommand = { data: { name: 'b' } };
+    const first = { name: 'first', initialize: async () => calls.push('init-1'), getCommands: () => [firstCommand], onReady: async () => calls.push('ready-1'), handleButtonInteraction: async () => false, shutdown: async () => calls.push('stop-1') };
+    const second = { name: 'second', initialize: async () => calls.push('init-2'), getCommands: () => [secondCommand], onReady: async () => calls.push('ready-2'), handleButtonInteraction: async () => true, shutdown: async () => calls.push('stop-2') };
     factory.modules = [first, second];
     const f = fixture(); await f.manager.start();
     const bot = DiscordBot.instances.at(-1);
     assert.equal(bot.started, true);
-    assert.deepEqual(Array.from(bot.options.commands), ['a', 'b']);
+    assert.deepEqual(Array.from(bot.options.commands, command => command.data.name), ['a', 'b']);
     await bot.options.onReady({});
     assert.equal(await bot.options.buttonHandler('x', {}), true);
     bot.options.onStatusChange({ state: 'online' });
@@ -117,6 +119,21 @@ test('runtime manager starts modules, routes buttons and stops cleanly', async (
     const missing = fixture({ config: { discordToken: '' } });
     await missing.manager.start();
     assert.equal(missing.manager.bot, undefined);
+});
+
+test('runtime manager assigns each command to its module guild', async () => {
+    const commandA = { data: { name: 'system' } };
+    const commandB = { data: { name: 'system' } };
+    factory.modules = [
+        { name: 'server-a', targetGuildId: 'guild-a', initialize: async () => {}, getCommands: () => [commandA] },
+        { name: 'server-b', targetGuildId: 'guild-b', initialize: async () => {}, getCommands: () => [commandB] }
+    ];
+    const f = fixture({ config: { guildIds: ['guild-a', 'guild-b'] } });
+    await f.manager.start();
+
+    assert.equal(commandA.targetGuildId, 'guild-a');
+    assert.equal(commandB.targetGuildId, 'guild-b');
+    assert.deepEqual(Array.from(DiscordBot.instances.at(-1).options.commands, command => command.targetGuildId), ['guild-a', 'guild-b']);
 });
 
 test('runtime manager continues shutdown after a module fails', async () => {
@@ -163,9 +180,11 @@ test('runtime manager delegates community and Twitch operations and saves saniti
 
 test('factory options forward configuration and refreshed Twitch tokens', async () => {
     factory.modules = [];
-    const f = fixture();
+    const f = fixture({ config: { guildIds: ['guild', 'guild-2'] } });
     await f.manager.start();
     assert.equal(factory.lastOptions.communityCategoryName, 'Community ÄÖÜ');
+    assert.deepEqual(Array.from(factory.lastOptions.guildIds), ['guild', 'guild-2']);
+    assert.deepEqual(Array.from(DiscordBot.instances.at(-1).options.guildIds), ['guild', 'guild-2']);
     assert.deepEqual(Array.from(factory.lastOptions.musicPlayback.allowedRoleNames), ['Musik']);
     await factory.lastOptions.twitchRole.onTokensUpdated({ accessToken: 'neu-äöü', refreshToken: 'refresh-neu', accessTokenExpiresAt: 999 });
     assert.equal(f.manager.getConfig().twitchAccessToken, 'neu-äöü');

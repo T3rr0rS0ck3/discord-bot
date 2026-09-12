@@ -61,6 +61,10 @@ export function resolveAdminUrl(path: string): string {
     return new URL(path.replace(/^\/+/, ""), document.baseURI).toString();
 }
 
+function guildPath(path: string, guildId?: string): string {
+    return guildId ? `${path}?guildId=${encodeURIComponent(guildId)}` : path;
+}
+
 export const adminApi = {
     login(username: string, token: string): Promise<LoginResponse> {
         return request<LoginResponse>("/api/login", "POST", { username, token });
@@ -77,11 +81,11 @@ export const adminApi = {
     restart(): Promise<{ ok: boolean }> {
         return request<{ ok: boolean }>("/api/restart", "POST", {}, 45_000);
     },
-    loadChannels(): Promise<ChannelsResponse> {
-        return request<ChannelsResponse>("/api/channels");
+    loadChannels(guildId?: string): Promise<ChannelsResponse> {
+        return request<ChannelsResponse>(guildPath("/api/channels", guildId));
     },
-    loadEmojis(): Promise<EmojisResponse> {
-        return request<EmojisResponse>("/api/emojis");
+    loadEmojis(guildId?: string): Promise<EmojisResponse> {
+        return request<EmojisResponse>(guildPath("/api/emojis", guildId));
     },
     loadLogs(): Promise<LogsResponse> {
         return request<LogsResponse>("/api/logs");
@@ -92,11 +96,11 @@ export const adminApi = {
     loadDatabaseStatus(): Promise<DatabaseStatus> {
         return request<DatabaseStatus>("/api/database-status");
     },
-    loadCommunityStatus(): Promise<CommunityRuntimeStatus> {
-        return request<CommunityRuntimeStatus>("/api/community/status");
+    loadCommunityStatus(guildId?: string): Promise<CommunityRuntimeStatus> {
+        return request<CommunityRuntimeStatus>(guildPath("/api/community/status", guildId));
     },
-    deleteCommunityChannel(channelId: string): Promise<{ ok: boolean }> {
-        return request<{ ok: boolean }>("/api/community/channel/delete", "POST", { channelId });
+    deleteCommunityChannel(channelId: string, guildId?: string): Promise<{ ok: boolean }> {
+        return request<{ ok: boolean }>("/api/community/channel/delete", "POST", { channelId, guildId });
     },
     loadCommunityChannelNames(): Promise<CommunityNamesResponse> {
         return request<CommunityNamesResponse>("/api/community/names");
@@ -116,11 +120,11 @@ export const adminApi = {
     importCommunityChannelNames(payload: unknown): Promise<CommunityNamesResponse> {
         return request<CommunityNamesResponse>("/api/community/names/import", "POST", payload);
     },
-    loadTwitchSyncStatus(): Promise<TwitchRoleSyncStatus> {
-        return request<TwitchRoleSyncStatus>("/api/twitch/sync-status");
+    loadTwitchSyncStatus(guildId?: string): Promise<TwitchRoleSyncStatus> {
+        return request<TwitchRoleSyncStatus>(guildPath("/api/twitch/sync-status", guildId));
     },
-    syncTwitchRoles(): Promise<{ ok: boolean; result: TwitchRoleSyncResult }> {
-        return request<{ ok: boolean; result: TwitchRoleSyncResult }>("/api/twitch/sync", "POST", {});
+    syncTwitchRoles(guildId?: string): Promise<{ ok: boolean; result: TwitchRoleSyncResult }> {
+        return request<{ ok: boolean; result: TwitchRoleSyncResult }>("/api/twitch/sync", "POST", { guildId });
     },
     downloadConfigBackup(): Promise<{ blob: Blob; fileName: string }> {
         return download("/api/config/backup");
