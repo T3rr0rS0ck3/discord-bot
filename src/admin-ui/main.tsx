@@ -37,6 +37,7 @@ function App(): React.JSX.Element {
             busy={state.busy}
             busyText={state.busyText}
             channels={state.channels}
+            members={state.members}
             emojis={state.emojis}
             logs={state.logs}
             discordStatus={state.discordStatus}
@@ -44,6 +45,8 @@ function App(): React.JSX.Element {
             communityStatus={state.communityStatus}
             communityChannelNames={state.communityChannelNames}
             twitchSyncStatus={state.twitchSyncStatus}
+            recentAchievements={state.recentAchievements}
+            achievementUserState={state.achievementUserState}
             saveDisabled={state.saveDisabled}
             restartDisabled={state.restartDisabled}
             saveAndRestartDisabled={state.saveAndRestartDisabled}
@@ -65,6 +68,7 @@ function App(): React.JSX.Element {
             onDownloadCommunityChannelNames={state.downloadCommunityChannelNames}
             onImportCommunityChannelNames={state.importCommunityChannelNames}
             onSyncTwitchRoles={() => void state.syncTwitchRoles()}
+            onLoadAchievementUser={userId => void state.loadAchievementUser(userId)}
             onDownloadBackup={() => void state.downloadConfigBackup()}
             onRestoreBackup={file => void state.restoreConfigBackup(file)}
             onLogout={() => void state.logout()}

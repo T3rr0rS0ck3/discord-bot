@@ -11,6 +11,17 @@ export type AdminConfig = {
     twitchEnabled?: boolean;
     communityEnabled?: boolean;
     communityVotingEnabled?: boolean;
+    achievementsEnabled?: boolean;
+    achievementNotificationMode?: "dm" | "channel" | "both" | "silent";
+    achievementChannelId?: string;
+    achievementPublicProfilesEnabled?: boolean;
+    achievementHiddenEnabled?: boolean;
+    achievementCategoryGeneralEnabled?: boolean;
+    achievementCategoryMusicEnabled?: boolean;
+    achievementCategoryCommunityEnabled?: boolean;
+    achievementCategoryVotingEnabled?: boolean;
+    achievementCategoryWelcomeEnabled?: boolean;
+    achievementCategoryTwitchEnabled?: boolean;
     communityCategoryName?: string;
     communityVotingChannelName?: string;
     communityVotingDurationHours?: number;
@@ -59,6 +70,17 @@ export type GuildConfig = {
     twitchEnabled?: boolean;
     communityEnabled?: boolean;
     communityVotingEnabled?: boolean;
+    achievementsEnabled?: boolean;
+    achievementNotificationMode?: "dm" | "channel" | "both" | "silent";
+    achievementChannelId?: string;
+    achievementPublicProfilesEnabled?: boolean;
+    achievementHiddenEnabled?: boolean;
+    achievementCategoryGeneralEnabled?: boolean;
+    achievementCategoryMusicEnabled?: boolean;
+    achievementCategoryCommunityEnabled?: boolean;
+    achievementCategoryVotingEnabled?: boolean;
+    achievementCategoryWelcomeEnabled?: boolean;
+    achievementCategoryTwitchEnabled?: boolean;
     communityCategoryName?: string;
     communityVotingChannelName?: string;
     communityVotingDurationHours?: number;
@@ -136,6 +158,11 @@ export type ChannelOption = {
     name: string;
 };
 
+export type MemberOption = {
+    id: string;
+    name: string;
+};
+
 export type RestartRelevantState = {
     systemEnabled: boolean;
     musicEnabled: boolean;
@@ -171,6 +198,10 @@ export type LoginResponse = {
 
 export type ChannelsResponse = {
     channels: ChannelOption[];
+};
+
+export type MembersResponse = {
+    members: MemberOption[];
 };
 
 export type EmojisResponse = {
@@ -217,4 +248,10 @@ export type TwitchRoleSyncStatus = {
     followerChanges: number;
     subscriberChanges: number;
     changes: TwitchRoleChange[];
+};
+
+export type AchievementRecentUnlock = { userId: string; achievementId: string; unlockedAt: number };
+export type AchievementUserState = {
+    progress: Array<{ seriesId: string; progress: number; updatedAt: number }>;
+    unlocks: Array<{ achievementId: string; unlockedAt: number }>;
 };

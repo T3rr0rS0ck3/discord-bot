@@ -231,6 +231,52 @@ const migrations: Migration[] = [
                 JSON.stringify(guildConfigs)
             );
         }
+    },
+    {
+        version: 9,
+        id: "achievements-v1",
+        apply: async (db) => {
+            await db.exec(`
+                CREATE TABLE IF NOT EXISTS achievement_progress (
+                    guild_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    series_id TEXT NOT NULL,
+                    progress INTEGER NOT NULL DEFAULT 0 CHECK(progress >= 0),
+                    updated_at INTEGER NOT NULL,
+                    PRIMARY KEY(guild_id, user_id, series_id)
+                );
+                CREATE TABLE IF NOT EXISTS achievement_unlocks (
+                    guild_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    achievement_id TEXT NOT NULL,
+                    unlocked_at INTEGER NOT NULL,
+                    PRIMARY KEY(guild_id, user_id, achievement_id)
+                );
+                CREATE TABLE IF NOT EXISTS achievement_facts (
+                    guild_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    series_id TEXT NOT NULL,
+                    fact_key TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    PRIMARY KEY(guild_id, user_id, series_id, fact_key)
+                );
+                CREATE TABLE IF NOT EXISTS achievement_notification_outbox (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guild_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    achievement_id TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    next_attempt_at INTEGER NOT NULL,
+                    delivered_at INTEGER,
+                    UNIQUE(guild_id, user_id, achievement_id)
+                );
+                CREATE INDEX IF NOT EXISTS achievement_unlocks_guild_user_time
+                    ON achievement_unlocks(guild_id, user_id, unlocked_at DESC);
+                CREATE INDEX IF NOT EXISTS achievement_outbox_pending
+                    ON achievement_notification_outbox(delivered_at, next_attempt_at, guild_id, user_id);
+            `);
+        }
     }
 ];
 

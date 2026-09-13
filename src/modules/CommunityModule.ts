@@ -3,6 +3,7 @@ import path from "node:path";
 import { ChannelType, Client, Guild, VoiceState, type CategoryChannel } from "discord.js";
 import type { IBotModule } from "./interfaces/IBotModule";
 import type { CommunityState } from "../admin/AdminConfigStore";
+import type { AchievementService } from "../services/AchievementService";
 
 
 type Config = { communityCategoryName?: string; communityEmptyTimeoutSeconds?: number; communityMaxChannels?: number };
@@ -19,13 +20,27 @@ export class CommunityModule implements IBotModule {
     private stopped = false;
     private config: Config;
     private readonly statePath: string;
+    private readonly voiceSessions = new Map<string, { channelId: string; startedAt: number }>();
     private readonly listener = (before: VoiceState, after: VoiceState): void => {
         if (before.channelId === after.channelId || after.guild.id !== this.guild?.id) return;
         this.enqueue(async () => {
+            const userId = after.member?.id ?? before.member?.id;
+            if (userId && before.channelId && this.state.temporaryIds.includes(before.channelId)) {
+                await this.finishVoiceSession(userId, before.channelId);
+            }
             if (before.channelId) this.scheduleDeletion(before.channelId);
             if (after.channelId) this.scheduleDeletion(after.channelId);
             if (after.channelId === this.state.entryId && after.member && !after.member.user.bot) {
                 await this.createRoom(after);
+            } else if (userId && after.channelId && this.state.temporaryIds.includes(after.channelId) && !after.member?.user.bot) {
+                this.voiceSessions.set(userId, { channelId: after.channelId, startedAt: Date.now() });
+                const otherUsers = [...(after.channel?.members.values() ?? [])].filter(member => !member.user.bot && member.id !== userId).length;
+                await this.options.achievementService?.recordMaximum({
+                    guildId: after.guild.id,
+                    userId,
+                    seriesId: "social-circle",
+                    value: otherUsers
+                });
             }
         });
     };
@@ -35,6 +50,7 @@ export class CommunityModule implements IBotModule {
         getCommunityChannelNames: () => Promise<string[]>;
         getCommunityState?: (guildId: string) => Promise<SavedState | undefined>;
         saveCommunityState?: (guildId: string, state: SavedState) => Promise<void>;
+        achievementService?: AchievementService;
     }) {
         this.config = options;
         // The configured guild ID is never used as a path component without validation.
@@ -212,6 +228,12 @@ export class CommunityModule implements IBotModule {
             await this.persist();
             if (!this.stopped && member.voice.channelId === this.state.entryId) {
                 await member.voice.setChannel(room);
+                await this.options.achievementService?.record({
+                    guildId: guild.id,
+                    userId: member.id,
+                    seriesId: "channel-creator",
+                    amount: 1
+                });
             }
         } finally {
             this.scheduleDeletion(room.id);
@@ -275,11 +297,37 @@ export class CommunityModule implements IBotModule {
         }
     }
 
+    private async finishVoiceSession(userId: string, channelId: string, endedAt = Date.now()): Promise<void> {
+        const session = this.voiceSessions.get(userId);
+        if (!session || session.channelId !== channelId || !this.options.guildId) return;
+        this.voiceSessions.delete(userId);
+        await this.options.achievementService?.record({
+            guildId: this.options.guildId,
+            userId,
+            seriesId: "community-regular",
+            amount: 1,
+            occurredAt: endedAt
+        });
+        const minutes = Math.floor(Math.max(0, endedAt - session.startedAt) / 60_000);
+        if (minutes > 0) {
+            await this.options.achievementService?.record({
+                guildId: this.options.guildId,
+                userId,
+                seriesId: "voice-time",
+                amount: minutes,
+                occurredAt: endedAt
+            });
+        }
+    }
+
     public async shutdown(): Promise<void> {
         this.stopped = true;
         this.client?.off("voiceStateUpdate", this.listener);
         for (const timer of this.timers.values()) clearTimeout(timer);
         this.timers.clear();
+        for (const [userId, session] of [...this.voiceSessions]) {
+            await this.finishVoiceSession(userId, session.channelId);
+        }
         await this.pending;
     }
 }

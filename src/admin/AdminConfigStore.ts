@@ -2,6 +2,8 @@ import path from "node:path";
 import sqlite3 from "sqlite3";
 import { open, type Database } from "sqlite";
 import type { WelcomeRoleOption } from "../types/Discord";
+import type { AchievementRecordResult, AchievementTier, AchievementUserState } from "../types/Achievement";
+import type { AchievementNotificationMode } from "../types/Achievement";
 import { AdminPasswordService } from "../services/AdminPasswordService";
 import { DatabaseMigrationRunner, type DatabaseStatus } from "./DatabaseMigrationRunner";
 
@@ -14,6 +16,17 @@ export type AdminConfig = {
     twitchEnabled?: boolean;
     communityEnabled?: boolean;
     communityVotingEnabled?: boolean;
+    achievementsEnabled?: boolean;
+    achievementNotificationMode?: AchievementNotificationMode;
+    achievementChannelId?: string;
+    achievementPublicProfilesEnabled?: boolean;
+    achievementHiddenEnabled?: boolean;
+    achievementCategoryGeneralEnabled?: boolean;
+    achievementCategoryMusicEnabled?: boolean;
+    achievementCategoryCommunityEnabled?: boolean;
+    achievementCategoryVotingEnabled?: boolean;
+    achievementCategoryWelcomeEnabled?: boolean;
+    achievementCategoryTwitchEnabled?: boolean;
     communityCategoryName?: string;
     communityVotingChannelName?: string;
     communityVotingDurationHours?: number;
@@ -62,6 +75,17 @@ export type GuildConfig = {
     twitchEnabled?: boolean;
     communityEnabled?: boolean;
     communityVotingEnabled?: boolean;
+    achievementsEnabled?: boolean;
+    achievementNotificationMode?: AchievementNotificationMode;
+    achievementChannelId?: string;
+    achievementPublicProfilesEnabled?: boolean;
+    achievementHiddenEnabled?: boolean;
+    achievementCategoryGeneralEnabled?: boolean;
+    achievementCategoryMusicEnabled?: boolean;
+    achievementCategoryCommunityEnabled?: boolean;
+    achievementCategoryVotingEnabled?: boolean;
+    achievementCategoryWelcomeEnabled?: boolean;
+    achievementCategoryTwitchEnabled?: boolean;
     communityCategoryName?: string;
     communityVotingChannelName?: string;
     communityVotingDurationHours?: number;
@@ -93,7 +117,10 @@ export type GuildConfig = {
 };
 
 export const guildConfigKeys: Array<keyof GuildConfig> = [
-    "systemEnabled", "musicEnabled", "welcomeEnabled", "twitchEnabled", "communityEnabled", "communityVotingEnabled",
+    "systemEnabled", "musicEnabled", "welcomeEnabled", "twitchEnabled", "communityEnabled", "communityVotingEnabled", "achievementsEnabled",
+    "achievementNotificationMode", "achievementChannelId",
+    "achievementPublicProfilesEnabled", "achievementHiddenEnabled", "achievementCategoryGeneralEnabled", "achievementCategoryMusicEnabled",
+    "achievementCategoryCommunityEnabled", "achievementCategoryVotingEnabled", "achievementCategoryWelcomeEnabled", "achievementCategoryTwitchEnabled",
     "communityCategoryName", "communityVotingChannelName", "communityVotingDurationHours", "communityEmptyTimeoutSeconds", "communityMaxChannels",
     "musicRoleName", "musicDefaultVolumePercent", "musicDebugSearch", "musicYoutubeSearchLimit", "audioDbApiKey", "audioDbApiVersion",
     "welcomeChannelId", "welcomeTitle", "welcomeReactionPrompt", "welcomeReactionInstructions", "welcomeRoles",
@@ -111,6 +138,13 @@ export type CommunityNameCandidate = {
     id: number;
     name: string;
     votes: number;
+    suggestedBy?: string;
+};
+
+export type CommunityNameVotingWinner = {
+    name: string;
+    suggestionId: number;
+    suggestedBy: string;
 };
 
 export type CommunityNameVotingRound = {
@@ -154,6 +188,20 @@ export type TwitchRoleSyncStatus = {
     followerChanges: number;
     subscriberChanges: number;
     changes: TwitchRoleChange[];
+};
+
+export type AchievementNotification = {
+    id: number;
+    guildId: string;
+    userId: string;
+    achievementId: string;
+    attempts: number;
+};
+
+export type AchievementRecentUnlock = {
+    userId: string;
+    achievementId: string;
+    unlockedAt: number;
 };
 
 export class AdminConfigStore {
@@ -487,6 +535,202 @@ export class AdminConfigStore {
         };
     }
 
+    public async recordAchievementProgress(
+        guildId: string,
+        userId: string,
+        seriesId: string,
+        tiers: AchievementTier[],
+        options: { amount?: number; value?: number; maximum?: number; now?: number } = {}
+    ): Promise<AchievementRecordResult> {
+        await this.ensureDb();
+        const now = options.now ?? Date.now();
+        await this.db!.exec("BEGIN IMMEDIATE");
+        try {
+            const current = await this.db!.get<{ progress: number }>(
+                "SELECT progress FROM achievement_progress WHERE guild_id = ? AND user_id = ? AND series_id = ?",
+                guildId,
+                userId,
+                seriesId
+            );
+            const progress = Math.max(0, Math.floor(
+                options.maximum === undefined
+                    ? options.value ?? ((current?.progress ?? 0) + (options.amount ?? 1))
+                    : Math.max(current?.progress ?? 0, options.maximum)
+            ));
+            await this.db!.run(
+                `INSERT INTO achievement_progress (guild_id, user_id, series_id, progress, updated_at)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(guild_id, user_id, series_id) DO UPDATE SET
+                    progress = excluded.progress,
+                    updated_at = excluded.updated_at`,
+                guildId,
+                userId,
+                seriesId,
+                progress,
+                now
+            );
+
+            const unlocked = [];
+            for (const tier of tiers.filter(item => progress >= item.target)) {
+                const result = await this.db!.run(
+                    "INSERT OR IGNORE INTO achievement_unlocks (guild_id, user_id, achievement_id, unlocked_at) VALUES (?, ?, ?, ?)",
+                    guildId,
+                    userId,
+                    tier.id,
+                    now
+                );
+                if ((result.changes ?? 0) === 0) continue;
+                unlocked.push({ achievementId: tier.id, unlockedAt: now });
+                await this.db!.run(
+                    `INSERT OR IGNORE INTO achievement_notification_outbox
+                        (guild_id, user_id, achievement_id, created_at, next_attempt_at)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    guildId,
+                    userId,
+                    tier.id,
+                    now,
+                    now
+                );
+            }
+            await this.db!.exec("COMMIT");
+            return { progress, unlocked };
+        } catch (error) {
+            await this.db!.exec("ROLLBACK");
+            throw error;
+        }
+    }
+
+    public async recordAchievementFact(
+        guildId: string,
+        userId: string,
+        seriesId: string,
+        factKey: string,
+        tiers: AchievementTier[],
+        now = Date.now()
+    ): Promise<AchievementRecordResult> {
+        await this.ensureDb();
+        await this.db!.exec("BEGIN IMMEDIATE");
+        try {
+            await this.db!.run(
+                "INSERT OR IGNORE INTO achievement_facts (guild_id, user_id, series_id, fact_key, created_at) VALUES (?, ?, ?, ?, ?)",
+                guildId,
+                userId,
+                seriesId,
+                factKey,
+                now
+            );
+            const count = await this.db!.get<{ progress: number }>(
+                "SELECT COUNT(*) AS progress FROM achievement_facts WHERE guild_id = ? AND user_id = ? AND series_id = ?",
+                guildId,
+                userId,
+                seriesId
+            );
+            const progress = count?.progress ?? 0;
+            await this.db!.run(
+                `INSERT INTO achievement_progress (guild_id, user_id, series_id, progress, updated_at)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(guild_id, user_id, series_id) DO UPDATE SET progress = excluded.progress, updated_at = excluded.updated_at`,
+                guildId,
+                userId,
+                seriesId,
+                progress,
+                now
+            );
+            const unlocked = [];
+            for (const tier of tiers.filter(item => progress >= item.target)) {
+                const result = await this.db!.run(
+                    "INSERT OR IGNORE INTO achievement_unlocks (guild_id, user_id, achievement_id, unlocked_at) VALUES (?, ?, ?, ?)",
+                    guildId,
+                    userId,
+                    tier.id,
+                    now
+                );
+                if ((result.changes ?? 0) === 0) continue;
+                unlocked.push({ achievementId: tier.id, unlockedAt: now });
+                await this.db!.run(
+                    `INSERT OR IGNORE INTO achievement_notification_outbox
+                        (guild_id, user_id, achievement_id, created_at, next_attempt_at)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    guildId,
+                    userId,
+                    tier.id,
+                    now,
+                    now
+                );
+            }
+            await this.db!.exec("COMMIT");
+            return { progress, unlocked };
+        } catch (error) {
+            await this.db!.exec("ROLLBACK");
+            throw error;
+        }
+    }
+
+    public async getAchievementUserState(guildId: string, userId: string): Promise<AchievementUserState> {
+        await this.ensureDb();
+        const progress = await this.db!.all<Array<{ series_id: string; progress: number; updated_at: number }>>(
+            "SELECT series_id, progress, updated_at FROM achievement_progress WHERE guild_id = ? AND user_id = ? ORDER BY series_id",
+            guildId,
+            userId
+        );
+        const unlocks = await this.db!.all<Array<{ achievement_id: string; unlocked_at: number }>>(
+            "SELECT achievement_id, unlocked_at FROM achievement_unlocks WHERE guild_id = ? AND user_id = ? ORDER BY unlocked_at DESC, achievement_id",
+            guildId,
+            userId
+        );
+        return {
+            progress: progress.map(row => ({ seriesId: row.series_id, progress: row.progress, updatedAt: row.updated_at })),
+            unlocks: unlocks.map(row => ({ achievementId: row.achievement_id, unlockedAt: row.unlocked_at }))
+        };
+    }
+
+    public async getRecentAchievementUnlocks(guildId: string, limit = 25): Promise<AchievementRecentUnlock[]> {
+        await this.ensureDb();
+        const rows = await this.db!.all<Array<{ user_id: string; achievement_id: string; unlocked_at: number }>>(
+            `SELECT user_id, achievement_id, unlocked_at FROM achievement_unlocks
+             WHERE guild_id = ? ORDER BY unlocked_at DESC, achievement_id LIMIT ?`,
+            guildId,
+            Math.max(1, Math.min(100, Math.floor(limit)))
+        );
+        return rows.map(row => ({ userId: row.user_id, achievementId: row.achievement_id, unlockedAt: row.unlocked_at }));
+    }
+
+    public async getPendingAchievementNotifications(now = Date.now(), limit = 100): Promise<AchievementNotification[]> {
+        await this.ensureDb();
+        const rows = await this.db!.all<Array<{ id: number; guild_id: string; user_id: string; achievement_id: string; attempts: number }>>(
+            `SELECT id, guild_id, user_id, achievement_id, attempts
+             FROM achievement_notification_outbox
+             WHERE delivered_at IS NULL AND next_attempt_at <= ?
+             ORDER BY created_at, id LIMIT ?`,
+            now,
+            limit
+        );
+        return rows.map(row => ({ id: row.id, guildId: row.guild_id, userId: row.user_id, achievementId: row.achievement_id, attempts: row.attempts }));
+    }
+
+    public async markAchievementNotificationsDelivered(ids: number[], now = Date.now()): Promise<void> {
+        await this.ensureDb();
+        if (ids.length === 0) return;
+        const placeholders = ids.map(() => "?").join(", ");
+        await this.db!.run(
+            `UPDATE achievement_notification_outbox SET delivered_at = ? WHERE id IN (${placeholders})`,
+            now,
+            ...ids
+        );
+    }
+
+    public async rescheduleAchievementNotifications(ids: number[], attempts: number, nextAttemptAt: number): Promise<void> {
+        await this.ensureDb();
+        if (ids.length === 0) return;
+        const placeholders = ids.map(() => "?").join(", ");
+        await this.db!.run(
+            `UPDATE achievement_notification_outbox SET attempts = ?, next_attempt_at = ? WHERE id IN (${placeholders})`,
+            attempts,
+            nextAttemptAt,
+            ...ids
+        );
+    }
+
     public async addCommunityNameSuggestion(guildId: string, name: string, userId: string, now = Date.now()): Promise<void> {
         await this.ensureDb();
         const normalized = name.trim().replace(/\s+/g, " ").slice(0, 100);
@@ -576,21 +820,26 @@ export class AdminConfigStore {
         );
         if (!round) return undefined;
 
-        const candidates = await this.db!.all<Array<{ id: number; name: string; votes: number }>>(
-            `SELECT suggestions.id, suggestions.name, COUNT(votes.user_id) AS votes
+        const candidates = await this.db!.all<Array<{ id: number; name: string; votes: number; suggested_by: string }>>(
+            `SELECT suggestions.id, suggestions.name, suggestions.suggested_by, COUNT(votes.user_id) AS votes
              FROM community_name_voting_candidates candidates
              JOIN community_name_suggestions suggestions ON suggestions.id = candidates.suggestion_id
              LEFT JOIN community_name_votes votes
                 ON votes.guild_id = candidates.guild_id AND votes.suggestion_id = candidates.suggestion_id
              WHERE candidates.guild_id = ?
-             GROUP BY suggestions.id, suggestions.name, candidates.position
+             GROUP BY suggestions.id, suggestions.name, suggestions.suggested_by, candidates.position
              ORDER BY candidates.position`,
             guildId
         );
         return {
             startsAt: round.starts_at,
             endsAt: round.ends_at,
-            candidates
+            candidates: candidates.map(candidate => ({
+                id: candidate.id,
+                name: candidate.name,
+                votes: candidate.votes,
+                suggestedBy: candidate.suggested_by
+            }))
         };
     }
 
@@ -613,7 +862,7 @@ export class AdminConfigStore {
         );
     }
 
-    public async finishCommunityNameVotingRound(guildId: string, now = Date.now(), winnerSuggestionId?: number): Promise<string | undefined> {
+    public async finishCommunityNameVotingRound(guildId: string, now = Date.now(), winnerSuggestionId?: number): Promise<CommunityNameVotingWinner | undefined> {
         await this.ensureDb();
         const round = await this.getCommunityNameVotingRound(guildId);
         if (!round || round.endsAt > now) return undefined;
@@ -638,7 +887,7 @@ export class AdminConfigStore {
             }
             await this.db!.run("DELETE FROM community_name_voting_rounds WHERE guild_id = ?", guildId);
             await this.db!.exec("COMMIT");
-            return winner?.name;
+            return winner?.suggestedBy ? { name: winner.name, suggestionId: winner.id, suggestedBy: winner.suggestedBy } : undefined;
         } catch (error) {
             await this.db!.exec("ROLLBACK");
             throw error;
@@ -786,6 +1035,19 @@ export class AdminConfigStore {
             twitchEnabled: input.twitchEnabled === true,
             communityEnabled: input.communityEnabled === true,
             communityVotingEnabled: input.communityVotingEnabled === true,
+            achievementsEnabled: input.achievementsEnabled === true,
+            achievementNotificationMode: ["dm", "channel", "both", "silent"].includes(String(input.achievementNotificationMode))
+                ? input.achievementNotificationMode as AchievementNotificationMode
+                : "dm",
+            achievementChannelId: this.normalizeString(input.achievementChannelId),
+            achievementPublicProfilesEnabled: input.achievementPublicProfilesEnabled !== false,
+            achievementHiddenEnabled: input.achievementHiddenEnabled !== false,
+            achievementCategoryGeneralEnabled: input.achievementCategoryGeneralEnabled !== false,
+            achievementCategoryMusicEnabled: input.achievementCategoryMusicEnabled !== false,
+            achievementCategoryCommunityEnabled: input.achievementCategoryCommunityEnabled !== false,
+            achievementCategoryVotingEnabled: input.achievementCategoryVotingEnabled !== false,
+            achievementCategoryWelcomeEnabled: input.achievementCategoryWelcomeEnabled !== false,
+            achievementCategoryTwitchEnabled: input.achievementCategoryTwitchEnabled !== false,
             communityMaxChannels: Math.floor(this.normalizeNumber(input.communityMaxChannels, 1, 50) ?? 50),
             communityCategoryName: String(input.communityCategoryName ?? "Community").trim().slice(0, 100) || "Community",
             communityVotingChannelName: String(input.communityVotingChannelName ?? "kanalnamen-abstimmung").trim().slice(0, 100) || "kanalnamen-abstimmung",

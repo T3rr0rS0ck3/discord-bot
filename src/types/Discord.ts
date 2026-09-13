@@ -1,6 +1,7 @@
 import type { Client } from "discord.js";
 import type { ICommand } from "../commands/interfaces/ICommand";
 import type { GuildConfig } from "../admin/AdminConfigStore";
+import type { AchievementService } from "../services/AchievementService";
 
 export type DiscordBotOptions = {
     token: string;
@@ -8,6 +9,7 @@ export type DiscordBotOptions = {
     guildIds?: string[];
     commands: ICommand[];
     buttonHandler?: (customId: string, interaction: import("discord.js").ButtonInteraction) => Promise<boolean>;
+    onCommandExecuted?: (command: ICommand, interaction: import("discord.js").ChatInputCommandInteraction) => Promise<void> | void;
     onReady?: (client: Client) => Promise<void> | void;
     onStatusChange?: (status: DiscordRuntimeStatus) => void;
 };
@@ -56,6 +58,7 @@ export type TwitchRoleModuleOptions = {
     saveLinkPanel?: (guildId: string, channelId: string, messageId: string) => Promise<void>;
     saveSyncResult?: (result: import("../admin/AdminConfigStore").TwitchRoleSyncResult) => Promise<void>;
     addRoleChange?: (change: import("../admin/AdminConfigStore").TwitchRoleChange) => Promise<void>;
+    achievementService?: AchievementService;
     onTokensUpdated?: (tokens: {
         guildId?: string;
         accessToken: string;
@@ -71,6 +74,8 @@ export type BotModuleFactoryOptions = {
     twitchEnabled?: boolean;
     communityEnabled?: boolean;
     communityVotingEnabled?: boolean;
+    achievementsEnabled?: boolean;
+    achievementService?: AchievementService;
     getCommunityChannelNames: () => Promise<string[]>;
     getCommunityState?: (guildId: string) => Promise<{
         categoryId?: string;
@@ -92,7 +97,7 @@ export type BotModuleFactoryOptions = {
     startCommunityNameVotingRound?: (guildId: string, durationMs: number) => Promise<import("../admin/AdminConfigStore").CommunityNameVotingRound | undefined>;
     getCommunityNameVotingRound?: (guildId: string) => Promise<import("../admin/AdminConfigStore").CommunityNameVotingRound | undefined>;
     voteForCommunityName?: (guildId: string, suggestionId: number, userId: string) => Promise<void>;
-    finishCommunityNameVotingRound?: (guildId: string, winnerSuggestionId?: number) => Promise<string | undefined>;
+    finishCommunityNameVotingRound?: (guildId: string, winnerSuggestionId?: number) => Promise<import("../admin/AdminConfigStore").CommunityNameVotingWinner | undefined>;
     getCommunityNameVotingMessage?: (guildId: string) => Promise<{ channelId: string; messageId: string } | undefined>;
     saveCommunityNameVotingMessage?: (guildId: string, channelId: string, messageId: string) => Promise<void>;
 
@@ -117,6 +122,7 @@ export type MusicBotModuleOptions = {
     guildIds?: string[];
     musicRoleName: string;
     musicPlayback: MusicPlaybackOptions;
+    achievementService?: AchievementService;
 };
 
 export type WelcomeRoleOption = {
@@ -132,6 +138,7 @@ export type WelcomeModuleOptions = {
     welcomeReactionPrompt?: string;
     welcomeReactionInstructions?: string;
     roles: WelcomeRoleOption[];
+    achievementService?: AchievementService;
 };
 
 export type BotModuleFactoryOptionsWithWelcome = BotModuleFactoryOptions & {

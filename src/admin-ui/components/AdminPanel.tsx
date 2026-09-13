@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { AdminConfig, ChannelOption, CommunityRuntimeStatus, DatabaseStatus, DiscordRuntimeStatus, EmojiOption, LogEntry, StatusState, ToastState, TwitchRoleSyncStatus } from "../types";
+import type { AchievementRecentUnlock, AchievementUserState, AdminConfig, ChannelOption, CommunityRuntimeStatus, DatabaseStatus, DiscordRuntimeStatus, EmojiOption, LogEntry, MemberOption, StatusState, ToastState, TwitchRoleSyncStatus } from "../types";
 import { ActionBar } from "./admin/ActionBar";
 import { CommunitySettingsSection } from "./admin/CommunitySettingsSection";
 import { CommunityChannelNamesManager } from "./admin/CommunityChannelNamesManager";
@@ -8,6 +8,7 @@ import { CoreSettingsSection } from "./admin/CoreSettingsSection";
 import { MusicSettingsSection } from "./admin/MusicSettingsSection";
 import { TwitchSettingsSection } from "./admin/TwitchSettingsSection";
 import { WelcomeSettingsSection } from "./admin/WelcomeSettingsSection";
+import { AchievementSettingsSection } from "./admin/AchievementSettingsSection";
 
 type CollapsibleRegionProps = {
     title: string;
@@ -57,6 +58,7 @@ type AdminPanelProps = {
     busy: boolean;
     busyText: string;
     channels: ChannelOption[];
+    members: MemberOption[];
     emojis: EmojiOption[];
     logs: LogEntry[];
     discordStatus: DiscordRuntimeStatus;
@@ -64,6 +66,8 @@ type AdminPanelProps = {
     communityStatus: CommunityRuntimeStatus;
     communityChannelNames: string[];
     twitchSyncStatus: TwitchRoleSyncStatus;
+    recentAchievements: AchievementRecentUnlock[];
+    achievementUserState?: AchievementUserState;
     saveDisabled: boolean;
     restartDisabled: boolean;
     saveAndRestartDisabled: boolean;
@@ -85,6 +89,7 @@ type AdminPanelProps = {
     onDownloadCommunityChannelNames: () => Promise<void>;
     onImportCommunityChannelNames: (file: File) => Promise<void>;
     onSyncTwitchRoles: () => void;
+    onLoadAchievementUser: (userId: string) => void;
     onDownloadBackup: () => void;
     onRestoreBackup: (file: File) => void;
     onLogout: () => void;
@@ -215,6 +220,25 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                                             config={props.config}
                                             busy={props.busy}
                                             onUpdateConfig={props.onUpdateConfig}
+                                        />
+                                    </CollapsibleRegion>
+
+                                    <CollapsibleRegion
+                                        title="Achievements"
+                                        defaultOpen={true}
+                                        enabled={props.config.achievementsEnabled === true}
+                                        enabledLabel="Achievements"
+                                        onToggle={enabled => props.onUpdateConfig("achievementsEnabled", enabled)}
+                                    >
+                                        <AchievementSettingsSection
+                                            config={props.config}
+                                            busy={props.busy}
+                                            channels={props.channels}
+                                            members={props.members}
+                                            recent={props.recentAchievements}
+                                            userState={props.achievementUserState}
+                                            onUpdateConfig={props.onUpdateConfig}
+                                            onLoadUser={props.onLoadAchievementUser}
                                         />
                                     </CollapsibleRegion>
 

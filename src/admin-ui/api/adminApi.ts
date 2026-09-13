@@ -8,10 +8,12 @@ import type {
     SaveResponse,
     CommunityRuntimeStatus,
     CommunityNamesResponse,
+    MembersResponse,
     DiscordRuntimeStatus,
     DatabaseStatus,
     TwitchRoleSyncResult,
     TwitchRoleSyncStatus
+    , AchievementRecentUnlock, AchievementUserState
 } from "../types";
 
 async function request<T>(path: string, method = "GET", body?: unknown, timeoutMs = 15_000): Promise<T> {
@@ -84,6 +86,9 @@ export const adminApi = {
     loadChannels(guildId?: string): Promise<ChannelsResponse> {
         return request<ChannelsResponse>(guildPath("/api/channels", guildId));
     },
+    loadMembers(guildId: string): Promise<MembersResponse> {
+        return request<MembersResponse>(guildPath("/api/members", guildId));
+    },
     loadEmojis(guildId?: string): Promise<EmojisResponse> {
         return request<EmojisResponse>(guildPath("/api/emojis", guildId));
     },
@@ -125,6 +130,12 @@ export const adminApi = {
     },
     syncTwitchRoles(guildId?: string): Promise<{ ok: boolean; result: TwitchRoleSyncResult }> {
         return request<{ ok: boolean; result: TwitchRoleSyncResult }>("/api/twitch/sync", "POST", { guildId });
+    },
+    loadRecentAchievements(guildId: string): Promise<{ unlocks: AchievementRecentUnlock[] }> {
+        return request<{ unlocks: AchievementRecentUnlock[] }>(guildPath("/api/achievements/recent", guildId));
+    },
+    loadAchievementUser(guildId: string, userId: string): Promise<AchievementUserState> {
+        return request<AchievementUserState>(`${guildPath("/api/achievements/user", guildId)}&userId=${encodeURIComponent(userId)}`);
     },
     downloadConfigBackup(): Promise<{ blob: Blob; fileName: string }> {
         return download("/api/config/backup");

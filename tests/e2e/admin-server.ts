@@ -10,6 +10,16 @@ const config = {
     twitchRedirectUri: "http://127.0.0.1:8799/admin/api/twitch/callback",
     communityEnabled: true,
     communityVotingEnabled: true,
+    achievementsEnabled: true,
+    achievementNotificationMode: "channel" as const,
+    achievementPublicProfilesEnabled: true,
+    achievementHiddenEnabled: true,
+    achievementCategoryGeneralEnabled: true,
+    achievementCategoryMusicEnabled: true,
+    achievementCategoryCommunityEnabled: true,
+    achievementCategoryVotingEnabled: true,
+    achievementCategoryWelcomeEnabled: true,
+    achievementCategoryTwitchEnabled: true,
     communityCategoryName: "Community",
     communityVotingChannelName: "kanalnamen-abstimmung",
     communityVotingDurationHours: 168,
@@ -19,8 +29,8 @@ const config = {
     guildId: "123456789012345678",
     guildIds: ["123456789012345678", "987654321098765432"],
     guildConfigs: {
-        "123456789012345678": { musicRoleName: "Music Bot Server Alpha", communityCategoryName: "Community Alpha" },
-        "987654321098765432": { musicRoleName: "Music Bot Server Beta", communityCategoryName: "Community Beta" }
+        "123456789012345678": { musicRoleName: "Music Bot Server Alpha", communityCategoryName: "Community Alpha", achievementsEnabled: true },
+        "987654321098765432": { musicRoleName: "Music Bot Server Beta", communityCategoryName: "Community Beta", achievementsEnabled: true }
     },
     adminUiUsername: "admin",
     adminUiToken: "",
@@ -74,6 +84,10 @@ const server = new AdminWebServer({
         { value: "<:aepfel:123456789012345678>", label: "<:aepfel:123456789012345678> Äpfel", group: "Server Emojis" }
     ],
     getWelcomeChannels: async () => [{ id: "234567890123456789", name: "#willkommen" }],
+    getGuildMembers: async () => [
+        { id: "345678901234567890", name: "Jörg (@joerg)" },
+        { id: "456789012345678901", name: "@kaethe" }
+    ],
     getDiscordStatus: () => ({ state: "online", message: "Bot ist fuer den E2E-Test online.", updatedAt: new Date().toISOString() }),
     getDatabaseStatus: async () => ({ schemaVersion: 8, latestMigration: "guild-config-profiles-v1", appliedMigrations: [] }),
     getCommunityStatus: async () => ({
@@ -97,7 +111,17 @@ const server = new AdminWebServer({
     consumeTwitchMemberOAuthState: async () => undefined,
     saveTwitchMemberLink: async () => {},
     syncTwitchRoles: async () => ({ guildId: config.guildId, attemptedAt: Date.now(), successful: true, followerChanges: 1, subscriberChanges: 1 }),
-    getTwitchRoleSyncStatus: async () => ({ followerChanges: 1, subscriberChanges: 1, changes: [] })
+    getTwitchRoleSyncStatus: async () => ({ followerChanges: 1, subscriberChanges: 1, changes: [] }),
+    getRecentAchievementUnlocks: async () => [],
+    getAchievementUserState: async (_guildId, userId) => userId === "345678901234567890"
+        ? {
+            progress: [{ seriesId: "command-user", progress: 25, updatedAt: Date.now() }],
+            unlocks: [
+                { achievementId: "command-user-bronze", unlockedAt: Date.now() - 1000 },
+                { achievementId: "command-user-silver", unlockedAt: Date.now() }
+            ]
+        }
+        : { progress: [], unlocks: [] }
 });
 
 server.start();

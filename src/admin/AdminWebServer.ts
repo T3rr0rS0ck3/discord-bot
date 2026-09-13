@@ -15,6 +15,7 @@ type AdminWebServerOptions = {
     restartBot: () => Promise<void>;
     getServerEmojis: (guildId?: string) => Promise<Array<{ value: string; label: string }>>;
     getWelcomeChannels: (guildId?: string) => Promise<Array<{ id: string; name: string }>>;
+    getGuildMembers: (guildId: string) => Promise<Array<{ id: string; name: string }>>;
     getDiscordStatus: () => DiscordRuntimeStatus;
     getDatabaseStatus: () => Promise<DatabaseStatus>;
     getCommunityStatus: (guildId?: string) => Promise<CommunityRuntimeStatus>;
@@ -28,6 +29,8 @@ type AdminWebServerOptions = {
     saveTwitchMemberLink: (link: import("./AdminConfigStore").TwitchMemberLink) => Promise<void>;
     syncTwitchRoles: (guildId?: string) => Promise<TwitchRoleSyncResult>;
     getTwitchRoleSyncStatus: (guildId?: string) => Promise<TwitchRoleSyncStatus>;
+    getRecentAchievementUnlocks: (guildId: string) => Promise<import("./AdminConfigStore").AchievementRecentUnlock[]>;
+    getAchievementUserState: (guildId: string, userId: string) => Promise<import("../types/Achievement").AchievementUserState>;
 };
 
 type ConfigBackup = {
@@ -341,6 +344,13 @@ export class AdminWebServer {
             return;
         }
 
+        if (req.method === "GET" && url.pathname === "/api/members") {
+            const guildId = this.normalizeString(url.searchParams.get("guildId"));
+            if (!guildId) throw new Error("Guild ID is required.");
+            this.sendJson(res, 200, { members: await this.options.getGuildMembers(guildId) });
+            return;
+        }
+
         if (req.method === "GET" && url.pathname === "/api/emojis") {
             const serverEmojis = (await this.options.getServerEmojis(url.searchParams.get("guildId") ?? undefined)).map((emoji) => ({
                 ...emoji,
@@ -421,6 +431,21 @@ export class AdminWebServer {
 
         if (req.method === "GET" && url.pathname === "/api/twitch/sync-status") {
             this.sendJson(res, 200, await this.options.getTwitchRoleSyncStatus(url.searchParams.get("guildId") ?? undefined));
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/achievements/recent") {
+            const guildId = this.normalizeString(url.searchParams.get("guildId"));
+            if (!guildId) throw new Error("Guild ID is required.");
+            this.sendJson(res, 200, { unlocks: await this.options.getRecentAchievementUnlocks(guildId) });
+            return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/achievements/user") {
+            const guildId = this.normalizeString(url.searchParams.get("guildId"));
+            const userId = this.normalizeString(url.searchParams.get("userId"));
+            if (!guildId || !userId) throw new Error("Guild ID and user ID are required.");
+            this.sendJson(res, 200, await this.options.getAchievementUserState(guildId, userId));
             return;
         }
 

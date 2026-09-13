@@ -38,6 +38,14 @@ test("login and dashboard render without horizontal overflow", async ({ page }, 
     await login(page);
     await expect(page.getByText("Bot ist fuer den E2E-Test online.")).toBeVisible();
     await expect(page.getByText("Sprachkanal: Gaming Lounge", { exact: true })).toBeVisible();
+    const achievementRegion = page.locator("details.region").filter({ hasText: "Achievements" });
+    await expect(achievementRegion).toContainText("Achievements: Ein");
+    await expect(achievementRegion.getByLabel("Benachrichtigung")).toHaveValue("channel");
+    const memberSelect = achievementRegion.getByLabel("Servermitglied");
+    await expect(memberSelect).toContainText("Jörg (@joerg)");
+    await memberSelect.selectOption("345678901234567890");
+    await achievementRegion.getByRole("button", { name: "Laden" }).click();
+    await expect(achievementRegion).toContainText("2 Medaillen freigeschaltet");
     const communityChannelList = page.locator(".log-panel").filter({ hasText: "Gaming Lounge" });
     await expect(communityChannelList).not.toContainText("➕ Sprachkanal erstellen");
 

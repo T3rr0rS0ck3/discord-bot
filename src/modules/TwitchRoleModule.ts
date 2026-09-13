@@ -339,6 +339,14 @@ export class TwitchRoleModule implements IBotModule {
             action,
             createdAt: Date.now()
         });
+        if (action === "added") {
+            await this.options.achievementService?.recordMaximum({
+                guildId: link.guildId,
+                userId: link.discordUserId,
+                seriesId: "twitch-support",
+                value: roleType === "subscriber" ? 3 : 2
+            });
+        }
     }
 
     private async ensureLinkPanel(): Promise<void> {

@@ -8,11 +8,13 @@ import type { IBotModule } from "../modules/interfaces/IBotModule";
 import type { CommunityRuntimeStatus, DiscordRuntimeStatus } from "../types/Discord";
 import { RuntimeStatusStore } from "../services/RuntimeStatusStore";
 import { DiscordBot } from "./DiscordBot";
+import { AchievementService } from "../services/AchievementService";
 
 export class BotRuntimeManager {
     private config: AdminConfig;
     private modules: IBotModule[] = [];
     private bot?: DiscordBot;
+    private readonly achievementService: AchievementService;
 
     public constructor(
         initialConfig: AdminConfig,
@@ -20,6 +22,27 @@ export class BotRuntimeManager {
         private readonly statusStore: RuntimeStatusStore
     ) {
         this.config = initialConfig;
+        this.achievementService = new AchievementService(configStore, guildId => {
+            const config = this.getGuildConfig(guildId);
+            return {
+                enabled: config.achievementsEnabled === true,
+                notificationMode: config.achievementNotificationMode ?? "dm",
+                channelId: config.achievementChannelId,
+                activeModuleCount: [config.systemEnabled, config.musicEnabled, config.communityEnabled, config.communityVotingEnabled, config.welcomeEnabled, config.twitchEnabled]
+                    .filter(Boolean).length,
+                welcomeRoleCount: config.welcomeRoles.length
+                , publicProfilesEnabled: config.achievementPublicProfilesEnabled !== false
+                , hiddenEnabled: config.achievementHiddenEnabled !== false
+                , enabledCategories: new Set([
+                    config.achievementCategoryGeneralEnabled !== false && "general",
+                    config.achievementCategoryMusicEnabled !== false && "music",
+                    config.achievementCategoryCommunityEnabled !== false && "community",
+                    config.achievementCategoryVotingEnabled !== false && "voting",
+                    config.achievementCategoryWelcomeEnabled !== false && "welcome",
+                    config.achievementCategoryTwitchEnabled !== false && "twitch"
+                ].filter((value): value is string => Boolean(value)))
+            };
+        });
     }
 
     public getConfig(): AdminConfig {
@@ -32,6 +55,10 @@ export class BotRuntimeManager {
 
     public getStatus(): DiscordRuntimeStatus {
         return this.bot?.getStatus() ?? this.statusStore.get();
+    }
+
+    public async recordAchievementMaximum(guildId: string, userId: string, seriesId: string, value: number): Promise<void> {
+        await this.achievementService.recordMaximum({ guildId, userId, seriesId, value });
     }
 
     private getGuildIds(): string[] {
@@ -147,6 +174,7 @@ export class BotRuntimeManager {
 
         const commands = this.modules.flatMap((module) => module.getCommands().map(command => {
             command.targetGuildId = module.targetGuildId;
+            command.achievementModuleName = module.name;
             return command;
         }));
         console.log(`[Modules] Active: ${this.modules.map((module) => module.name).join(", ")}`);
@@ -158,8 +186,26 @@ export class BotRuntimeManager {
             commands,
             modules: this.modules,
             onReady: async (client) => {
+                this.achievementService.attachClient(client);
                 for (const module of this.modules) {
                     await module.onReady?.(client);
+                }
+            },
+            onCommandExecuted: async (command, interaction) => {
+                if (!interaction.guildId || command.data.name === "achievements") return;
+                await this.achievementService.record({
+                    guildId: interaction.guildId,
+                    userId: interaction.user.id,
+                    seriesId: "command-user",
+                    amount: 1
+                });
+                if (command.achievementModuleName) {
+                    await this.achievementService.recordFact({
+                        guildId: interaction.guildId,
+                        userId: interaction.user.id,
+                        seriesId: "module-explorer",
+                        factKey: command.achievementModuleName
+                    });
                 }
             },
             onStatusChange: (status) => this.statusStore.set(status),
@@ -208,6 +254,7 @@ export class BotRuntimeManager {
         }
 
         this.modules = [];
+        await this.achievementService.shutdown();
         if (this.bot) {
             await this.withTimeout(this.bot.stop(), 10_000, "Discord shutdown");
         }
@@ -275,6 +322,8 @@ export class BotRuntimeManager {
             twitchEnabled: this.config.twitchEnabled,
             communityEnabled: this.config.communityEnabled,
             communityVotingEnabled: this.config.communityVotingEnabled,
+            achievementsEnabled: this.config.achievementsEnabled,
+            achievementService: this.achievementService,
             getCommunityChannelNames: () => this.configStore.getCommunityChannelNames(),
             getCommunityState: (guildId) => this.configStore.getCommunityState(guildId),
             saveCommunityState: (guildId, state) => this.configStore.saveCommunityState(guildId, state),

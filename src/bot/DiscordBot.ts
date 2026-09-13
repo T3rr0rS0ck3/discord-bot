@@ -9,6 +9,7 @@ export class DiscordBot {
     private readonly guildIds: string[];
     private readonly buttonHandler?: (customId: string, interaction: import("discord.js").ButtonInteraction) => Promise<boolean>;
     private readonly onReady?: (client: Client) => Promise<void> | void;
+    private readonly onCommandExecuted?: DiscordBotOptions["onCommandExecuted"];
     private readonly onStatusChange?: (status: DiscordRuntimeStatus) => void;
     private status: DiscordRuntimeStatus = { state: "offline", message: "Bot is offline.", updatedAt: new Date().toISOString() };
     private readonly modules: IBotModule[] = [];
@@ -21,12 +22,14 @@ export class DiscordBot {
             : options.guildId ? [options.guildId] : [];
         this.buttonHandler = options.buttonHandler;
         this.onReady = options.onReady;
+        this.onCommandExecuted = options.onCommandExecuted;
         this.onStatusChange = options.onStatusChange;
         this.modules = options.modules ?? [];
 
         this.client = new Client({
             intents: [
                 GatewayIntentBits.Guilds,
+                GatewayIntentBits.GuildMembers,
                 GatewayIntentBits.GuildVoiceStates,
                 GatewayIntentBits.GuildMessageReactions,
                 IntentsBitField.Flags.GuildVoiceStates,
@@ -225,6 +228,7 @@ export class DiscordBot {
 
             try {
                 await command.execute(interaction);
+                await this.onCommandExecuted?.(command, interaction);
             }
             catch (error) {
                 console.error("Command execution error:", error);

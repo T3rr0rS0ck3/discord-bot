@@ -60,18 +60,18 @@ export class WelcomeRoleAssignmentService {
         guild: Guild,
         member: GuildMember,
         emoji: string
-    ): Promise<void> {
+    ): Promise<{ roleId: string; added: boolean } | undefined> {
         const roleConfig = this.getRoleConfig(emoji);
         if (!roleConfig) {
             console.warn(`[Welcome] Unknown emoji: ${emoji}`);
-            return;
+            return undefined;
         }
 
         try {
             const role = RoleService.findRoleByName(guild, roleConfig.name);
             if (!role) {
                 console.error(`[Welcome] Role "${roleConfig.name}" does not exist.`);
-                return;
+                return undefined;
             }
 
             const hasMemberRole = RoleService.memberHasRoleName(member, roleConfig.name);
@@ -82,8 +82,10 @@ export class WelcomeRoleAssignmentService {
                     `[Welcome] ${member.user.tag} received role "${roleConfig.name}" via ${emoji}`
                 );
             }
+            return { roleId: role.id, added: !hasMemberRole };
         } catch (error) {
             console.error(`[Welcome] Failed to add role "${roleConfig.name}":`, error);
+            return undefined;
         }
     }
 

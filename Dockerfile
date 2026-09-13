@@ -30,6 +30,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --build-from-source=sqlite3
 
 COPY --from=builder /app/dist ./dist
+COPY assets/achievements ./assets/achievements
 RUN mkdir -p /data
 
 EXPOSE 8787 3000

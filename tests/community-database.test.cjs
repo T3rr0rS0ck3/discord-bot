@@ -25,12 +25,71 @@ test('fresh SQLite deployment seeds all names once and preserves later changes',
         assert.equal(updated.length, 10000);
         assert.ok(updated.includes('mein-eigener-kanal'));
         assert.ok(!updated.includes(names[0]));
-        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 8);
+        assert.equal((await store.db.get('SELECT COUNT(*) AS count FROM schema_migrations')).count, 9);
         assert.deepEqual(await store.getDatabaseStatus(), {
-            schemaVersion: 8,
-            latestMigration: 'guild-config-profiles-v1',
-            appliedMigrations: ['community-name-voting-candidates-v1', 'community-name-voting-v1', 'community-names-v1', 'community-state-v1', 'guild-config-profiles-v1', 'remove-spotify-v1', 'twitch-member-linking-v1', 'twitch-role-sync-status-v1']
+            schemaVersion: 9,
+            latestMigration: 'achievements-v1',
+            appliedMigrations: ['achievements-v1', 'community-name-voting-candidates-v1', 'community-name-voting-v1', 'community-names-v1', 'community-state-v1', 'guild-config-profiles-v1', 'remove-spotify-v1', 'twitch-member-linking-v1', 'twitch-role-sync-status-v1']
         });
+    } finally { await store.db?.close(); }
+});
+
+test('achievement progress unlocks tiers once and remains isolated per guild and user', async () => {
+    const store = new AdminConfigStore(':memory:');
+    const tiers = [
+        { id: 'test-bronze', medal: 'bronze', target: 1, points: 10 },
+        { id: 'test-silver', medal: 'silver', target: 5, points: 25 },
+        { id: 'test-gold', medal: 'gold', target: 10, points: 50 }
+    ];
+    try {
+        await store.initialize({ welcomeRoles: [] });
+        assert.deepEqual(await store.recordAchievementProgress('guild-a', 'user', 'test', tiers, { amount: 1, now: 100 }), {
+            progress: 1,
+            unlocked: [{ achievementId: 'test-bronze', unlockedAt: 100 }]
+        });
+        assert.deepEqual(await store.recordAchievementProgress('guild-a', 'user', 'test', tiers, { value: 10, now: 200 }), {
+            progress: 10,
+            unlocked: [
+                { achievementId: 'test-silver', unlockedAt: 200 },
+                { achievementId: 'test-gold', unlockedAt: 200 }
+            ]
+        });
+        assert.equal((await store.recordAchievementProgress('guild-a', 'user', 'test', tiers, { amount: 1, now: 300 })).unlocked.length, 0);
+        await store.recordAchievementProgress('guild-b', 'user', 'test', tiers, { amount: 1, now: 400 });
+        await store.recordAchievementProgress('guild-a', 'other', 'test', tiers, { amount: 1, now: 500 });
+
+        const state = await store.getAchievementUserState('guild-a', 'user');
+        assert.equal(state.progress[0].progress, 11);
+        assert.deepEqual(state.unlocks.map(item => item.achievementId).sort(), ['test-bronze', 'test-gold', 'test-silver']);
+        assert.equal((await store.getAchievementUserState('guild-b', 'user')).progress[0].progress, 1);
+        assert.equal((await store.getAchievementUserState('guild-a', 'other')).progress[0].progress, 1);
+
+        const pending = await store.getPendingAchievementNotifications(1000);
+        assert.equal(pending.length, 5);
+        await store.markAchievementNotificationsDelivered(pending.slice(0, 2).map(item => item.id), 1100);
+        await store.rescheduleAchievementNotifications(pending.slice(2).map(item => item.id), 1, 2000);
+        assert.equal((await store.getPendingAchievementNotifications(1500)).length, 0);
+        assert.equal((await store.getPendingAchievementNotifications(2500)).length, 3);
+    } finally { await store.db?.close(); }
+});
+
+test('achievement facts count distinct values once and remain isolated per guild', async () => {
+    const store = new AdminConfigStore(':memory:');
+    const tiers = [
+        { id: 'facts-bronze', medal: 'bronze', target: 1, points: 10 },
+        { id: 'facts-silver', medal: 'silver', target: 2, points: 25 },
+        { id: 'facts-gold', medal: 'gold', target: 3, points: 50 }
+    ];
+    try {
+        await store.initialize({ welcomeRoles: [] });
+        assert.equal((await store.recordAchievementFact('guild-a', 'user', 'facts', 'one', tiers, 100)).progress, 1);
+        assert.equal((await store.recordAchievementFact('guild-a', 'user', 'facts', 'one', tiers, 200)).progress, 1);
+        const second = await store.recordAchievementFact('guild-a', 'user', 'facts', 'two', tiers, 300);
+        assert.equal(second.progress, 2);
+        assert.deepEqual(second.unlocked, [{ achievementId: 'facts-silver', unlockedAt: 300 }]);
+        assert.equal((await store.recordAchievementFact('guild-b', 'user', 'facts', 'one', tiers, 400)).progress, 1);
+        assert.equal((await store.getAchievementUserState('guild-a', 'user')).progress[0].progress, 2);
+        assert.equal((await store.getAchievementUserState('guild-b', 'user')).progress[0].progress, 1);
     } finally { await store.db?.close(); }
 });
 
@@ -227,9 +286,13 @@ test('name voting selects four suggestions, keeps one vote per user and removes 
         assert.equal(votedRound.candidates[1].votes, 1);
 
         const winner = await store.finishCommunityNameVotingRound('123', 62_000);
-        assert.equal(winner, votedRound.candidates[1].name);
+        assert.deepEqual(winner, {
+            name: votedRound.candidates[1].name,
+            suggestionId: votedRound.candidates[1].id,
+            suggestedBy: votedRound.candidates[1].suggestedBy
+        });
         assert.equal(await store.getCommunityNameSuggestionCount('123'), 1);
-        assert.ok((await store.getCommunityChannelNames()).includes(winner));
+        assert.ok((await store.getCommunityChannelNames()).includes(winner.name));
         assert.equal(await store.getCommunityNameVotingRound('123'), undefined);
 
         for (const name of ['Äpfel', 'Öl', 'Straße', 'Café']) {
@@ -237,9 +300,9 @@ test('name voting selects four suggestions, keeps one vote per user and removes 
         }
         const nativePollRound = await store.startCommunityNameVotingRound('native-poll', 60_000, 2_000);
         const discordWinner = nativePollRound.candidates.at(-1);
-        assert.equal(
+        assert.deepEqual(
             await store.finishCommunityNameVotingRound('native-poll', 62_000, discordWinner.id),
-            discordWinner.name
+            { name: discordWinner.name, suggestionId: discordWinner.id, suggestedBy: discordWinner.suggestedBy }
         );
         assert.ok((await store.getCommunityChannelNames()).includes(discordWinner.name));
     } finally { await store.db?.close(); }

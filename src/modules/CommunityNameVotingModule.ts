@@ -19,6 +19,7 @@ import type { IBotModule } from "./interfaces/IBotModule";
 const SUGGEST_BUTTON_ID = "community-name-voting:suggest";
 const SUGGEST_MODAL_ID = "community-name-voting:suggest-modal";
 const SUGGEST_INPUT_ID = "channel-name";
+const VOTE_BUTTON_PREFIX = "community-name-voting:vote:";
 
 export class CommunityNameVotingModule implements IBotModule {
     public readonly name = "community-name-voting";
@@ -77,6 +78,25 @@ export class CommunityNameVotingModule implements IBotModule {
             return true;
         }
 
+        if (customId.startsWith(VOTE_BUTTON_PREFIX) && this.options.voteForCommunityName && this.options.guildId) {
+            const suggestionId = Number(customId.slice(VOTE_BUTTON_PREFIX.length));
+            const round = await this.options.getCommunityNameVotingRound?.(this.options.guildId);
+            if (!round || !round.candidates.some(candidate => candidate.id === suggestionId)) {
+                await interaction.reply({ content: "Diese Abstimmung ist nicht mehr aktiv.", ephemeral: true });
+                return true;
+            }
+            await this.options.voteForCommunityName(this.options.guildId, suggestionId, interaction.user.id);
+            await this.options.achievementService?.recordFact({
+                guildId: this.options.guildId,
+                userId: interaction.user.id,
+                seriesId: "active-voter",
+                factKey: String(round.startsAt)
+            });
+            await interaction.reply({ content: "Deine Stimme wurde gespeichert. Du kannst sie bis zum Ende der Runde ändern.", ephemeral: true });
+            await this.refresh();
+            return true;
+        }
+
         return false;
     }
 
@@ -91,6 +111,12 @@ export class CommunityNameVotingModule implements IBotModule {
         try {
             const name = interaction.fields.getTextInputValue(SUGGEST_INPUT_ID);
             await this.options.addCommunityNameSuggestion(interaction.guildId, name, interaction.user.id);
+            await this.options.achievementService?.record({
+                guildId: interaction.guildId,
+                userId: interaction.user.id,
+                seriesId: "creative-mind",
+                amount: 1
+            });
             await interaction.reply({ content: `Der Kanalname „${name.trim()}“ wurde für eine kommende Abstimmung gespeichert.`, ephemeral: true });
             await this.refresh();
         } catch (error) {
@@ -119,9 +145,17 @@ export class CommunityNameVotingModule implements IBotModule {
         let winner: string | undefined;
 
         if (round && round.endsAt <= Date.now()) {
-            const winnerSuggestionId = this.getPollWinnerSuggestionId(round, existingMessage);
-            winner = await this.options.finishCommunityNameVotingRound?.(this.options.guildId, winnerSuggestionId);
-            if (winner) console.log(`[CommunityNameVoting] Gewinner hinzugefügt: ${winner}`);
+            const result = await this.options.finishCommunityNameVotingRound?.(this.options.guildId);
+            winner = result?.name;
+            if (result) {
+                await this.options.achievementService?.record({
+                    guildId: this.options.guildId,
+                    userId: result.suggestedBy,
+                    seriesId: "winning-suggestion",
+                    amount: 1
+                });
+                console.log(`[CommunityNameVoting] Gewinner hinzugefügt: ${result.name}`);
+            }
             if (existingMessage) {
                 await existingMessage.delete().catch(error => console.error("[CommunityNameVoting] Alte Umfrage konnte nicht gelöscht werden:", error));
                 existingMessage = undefined;
@@ -138,16 +172,9 @@ export class CommunityNameVotingModule implements IBotModule {
 
         const suggestionCount = await this.options.getCommunityNameSuggestionCount?.(this.options.guildId) ?? 0;
         const messagePayload = this.buildMessage(round, suggestionCount, winner);
-        const canReusePoll = Boolean(round && existingMessage?.poll && !existingMessage.poll.resultsFinalized);
-        if (round && existingMessage && !canReusePoll) {
-            await existingMessage.delete().catch(error => console.error("[CommunityNameVoting] Alte Vorschlagsnachricht konnte nicht gelöscht werden:", error));
-            existingMessage = undefined;
-        }
-        const message = canReusePoll
-            ? existingMessage!
-            : existingMessage
-                ? await existingMessage.edit(messagePayload)
-                : await channel.send(messagePayload);
+        const message = existingMessage
+            ? await existingMessage.edit(messagePayload)
+            : await channel.send(messagePayload);
         if (!message.pinned) {
             await message.pin().catch(error => console.error("[CommunityNameVoting] Umfrage konnte nicht angepinnt werden:", error));
         }
@@ -172,24 +199,17 @@ export class CommunityNameVotingModule implements IBotModule {
             };
         }
 
+        const voteButtons = round.candidates.map(candidate => new ButtonBuilder()
+            .setCustomId(`${VOTE_BUTTON_PREFIX}${candidate.id}`)
+            .setLabel(`${candidate.name.slice(0, 55)} (${candidate.votes})`)
+            .setStyle(ButtonStyle.Secondary));
         return {
             content: `${winner ? `**Gewinner der letzten Runde:** ${winner}\n\n` : ""}# Kanalnamen-Abstimmung\nVier zufällig ausgewählte Vorschläge stehen zur Wahl. Ende: <t:${Math.floor(round.endsAt / 1000)}:R>\nNeue Vorschläge landen im Pool für eine kommende Runde.`,
-            components: [new ActionRowBuilder<ButtonBuilder>().addComponents(suggestButton)],
-            poll: {
-                question: { text: "Wie soll der nächste Community-Sprachkanal heißen?" },
-                answers: round.candidates.map(candidate => ({ text: candidate.name.slice(0, 55) })),
-                duration: Math.max(1, Math.min(32 * 24, Math.ceil((round.endsAt - Date.now()) / 3_600_000))),
-                allowMultiselect: false
-            }
+            components: [
+                new ActionRowBuilder<ButtonBuilder>().addComponents(...voteButtons),
+                new ActionRowBuilder<ButtonBuilder>().addComponents(suggestButton)
+            ]
         };
-    }
-
-    private getPollWinnerSuggestionId(round: CommunityNameVotingRound, message: { poll?: { answers: Map<number, { voteCount: number }> } | null } | undefined): number | undefined {
-        if (!message?.poll) return undefined;
-        const answers = [...message.poll.answers.values()];
-        return round.candidates
-            .map((candidate, index) => ({ id: candidate.id, votes: answers[index]?.voteCount ?? 0 }))
-            .sort((left, right) => right.votes - left.votes || left.id - right.id)[0]?.id;
     }
 
     private async getOrCreateChannel(): Promise<TextChannel> {

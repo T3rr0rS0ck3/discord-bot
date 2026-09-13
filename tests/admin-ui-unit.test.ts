@@ -111,6 +111,7 @@ test("adminApi resolves ingress paths and exercises all request methods", async 
             ok: true,
             username: "admin",
             channels: [],
+            members: [],
             emojis: [],
             logs: [],
             config: {},
@@ -126,6 +127,7 @@ test("adminApi resolves ingress paths and exercises all request methods", async 
         await adminApi.saveConfig({ welcomeTitle: "Grüße <&>" });
         await adminApi.restart();
         await adminApi.loadChannels();
+        await adminApi.loadMembers("123456789012345678");
         await adminApi.loadEmojis();
         await adminApi.loadLogs();
         await adminApi.loadStatus();
@@ -138,7 +140,8 @@ test("adminApi resolves ingress paths and exercises all request methods", async 
         const backup = await adminApi.downloadConfigBackup();
         assert.equal(backup.fileName, "grüße-backup.json");
         assert.equal(await backup.blob.text(), "backup");
-        assert.equal(requests.length, 16);
+        assert.equal(requests.length, 17);
+        assert.equal(requests.some(request => request.url.endsWith("api/members?guildId=123456789012345678")), true);
     } finally {
         globalThis.fetch = originalFetch;
     }

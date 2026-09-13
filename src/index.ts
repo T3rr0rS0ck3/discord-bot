@@ -146,6 +146,25 @@ export class Startup {
                     .map((channel) => ({ id: channel.id, name: `#${channel.name}` }))
                     .sort((a, b) => a.name.localeCompare(b.name, "de"));
             },
+            getGuildMembers: async (selectedGuildId) => {
+                const readyClient = botRuntimeManager.getReadyClient();
+                if (!readyClient) return [];
+
+                const guild = readyClient.guilds.cache.get(selectedGuildId)
+                    ?? await readyClient.guilds.fetch(selectedGuildId).catch(() => null);
+                if (!guild) return [];
+
+                const members = await guild.members.fetch();
+                return members
+                    .filter(member => !member.user.bot)
+                    .map(member => ({
+                        id: member.id,
+                        name: member.displayName === member.user.username
+                            ? `@${member.user.username}`
+                            : `${member.displayName} (@${member.user.username})`
+                    }))
+                    .sort((a, b) => a.name.localeCompare(b.name, "de"));
+            },
             getDiscordStatus: () => botRuntimeManager.getStatus(),
             getDatabaseStatus: () => adminConfigStore.getDatabaseStatus(),
             getCommunityStatus: (guildId) => botRuntimeManager.getCommunityStatus(guildId),
@@ -156,13 +175,18 @@ export class Startup {
             deleteCommunityChannelName: (name) => adminConfigStore.deleteCommunityChannelName(name),
             replaceCommunityChannelNames: (names) => adminConfigStore.replaceCommunityChannelNames(names),
             consumeTwitchMemberOAuthState: (state) => adminConfigStore.consumeTwitchMemberOAuthState(state),
-            saveTwitchMemberLink: (link) => adminConfigStore.saveTwitchMemberLink(link),
+            saveTwitchMemberLink: async (link) => {
+                await adminConfigStore.saveTwitchMemberLink(link);
+                await botRuntimeManager.recordAchievementMaximum(link.guildId, link.discordUserId, "twitch-support", 1);
+            },
             syncTwitchRoles: (guildId) => botRuntimeManager.syncTwitchRoles(guildId),
             getTwitchRoleSyncStatus: async (selectedGuildId) => {
                 const guildId = selectedGuildId ?? botRuntimeManager.getConfig().guildId;
                 if (!guildId) return { followerChanges: 0, subscriberChanges: 0, changes: [] };
                 return adminConfigStore.getTwitchRoleSyncStatus(guildId);
             },
+            getRecentAchievementUnlocks: (guildId) => adminConfigStore.getRecentAchievementUnlocks(guildId),
+            getAchievementUserState: (guildId, userId) => adminConfigStore.getAchievementUserState(guildId, userId),
             getServerEmojis: async (selectedGuildId) => {
                 const guildId = selectedGuildId ?? botRuntimeManager.getConfig().guildId;
                 if (!guildId) {

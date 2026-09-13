@@ -25,7 +25,8 @@ export class MusicBotModule implements IBotModule {
         });
         this.playbackService = new MusicPlaybackService(this.audioDbService, {
             ...options.musicPlayback,
-            allowedRoleNames: options.musicPlayback.allowedRoleNames ?? [this.musicRoleName]
+            allowedRoleNames: options.musicPlayback.allowedRoleNames ?? [this.musicRoleName],
+            achievementService: options.achievementService
         });
     }
 

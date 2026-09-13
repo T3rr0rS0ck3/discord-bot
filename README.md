@@ -4,6 +4,7 @@ Modularer Discord-Bot mit erweiterbarer Modul-Architektur.
 
 - `system`-Modul: `/ping`, `/join`
 - `musicbot`-Modul: `/music` inkl. Player, Queue, Volume und TheAudioDB-Metadaten
+- `achievements`-Modul: `/achievements` mit 15 Reihen, 45 Bronze-/Silber-/Gold-Medaillen, Filtern und öffentlichen Profilen
 
 ## Voraussetzungen
 
@@ -20,6 +21,7 @@ Modularer Discord-Bot mit erweiterbarer Modul-Architektur.
 
 2. Bot in der Discord Developer Console:
    - Bot auf deinen Server einladen
+   - Unter **Bot > Privileged Gateway Intents** das **Server Members Intent** aktivieren, damit die Admin-UI alle Servermitglieder im Achievement-Fortschritt-Dropdown laden kann
 
 3. Entwicklung starten:
 
@@ -60,6 +62,8 @@ Dann im Discord-Channel:
 /music resume
 /music volume percent:70
 /music player
+/achievements
+/achievements user:@Mitglied filter:music
 ```
 
 Antwort vom Bot:
@@ -164,7 +168,6 @@ docker compose down
 Wichtige Ports (in `docker-compose.yml`):
 
 - `8787:8787` Admin-UI
-- SQLite Web GUI ist in die Admin-Oberflaeche eingebettet und laeuft nur innerhalb der angemeldeten Session.
 
 Hinweis: Wenn du den Admin-Port in der UI änderst, musst du das Port-Mapping in `docker-compose.yml` entsprechend anpassen.
 
@@ -184,12 +187,21 @@ Hinweis zur Laufzeit:
 
 - Die Admin-Oberfläche bietet eine Serverauswahl. Dort können Guild-IDs hinzugefügt, ausgewählt und entfernt werden.
 - Slash Commands werden beim Start in jeder konfigurierten Guild registriert. Doppelte IDs werden automatisch entfernt.
-- Modulschalter sowie Community-, Voting-, Music-, Twitch- und Welcome-Einstellungen werden für jeden ausgewählten Server in einem eigenen Profil gespeichert.
+- Modulschalter sowie Community-, Voting-, Music-, Twitch-, Welcome- und Achievement-Einstellungen werden für jeden ausgewählten Server in einem eigenen Profil gespeichert.
 - Discord-Token, Admin-Login und Admin-Server-Einstellungen bleiben global und gelten für den gesamten Bot.
-- Community-Zustand, temporäre Kanäle, Kanalnamenvorschläge, Abstimmungen und Twitch-Mitgliederverknüpfungen bleiben über die Guild-ID getrennt in SQLite gespeichert.
+- Community-Zustand, temporäre Kanäle, Kanalnamenvorschläge, Abstimmungen, Twitch-Mitgliederverknüpfungen und Achievement-Fortschritt bleiben über die Guild-ID getrennt in SQLite gespeichert.
 - System- und Musikbefehle verwenden die Guild-ID der jeweiligen Discord-Interaction. Die Musik-Queue und Wiedergabe bleiben dadurch pro Server getrennt.
 - Aktionen und Statusanzeigen für Channels, Emojis, Community und Twitch beziehen sich auf den aktuell ausgewählten Server.
 - Alte Konfigurationen mit nur `guildId`, Root-Einstellungen oder `GUILD_ID` werden automatisch als Profil des ersten Servers übernommen. Die bisherige Einzelserver-Konfiguration bleibt damit kompatibel.
+
+### Achievements
+
+- Jede Guild kann das Achievement-Modul separat aktivieren und Benachrichtigungen als DM, Kanalnachricht, beides oder stumm konfigurieren.
+- Kategorien, geheime Achievements, öffentliche Nutzerprofile und der Zielkanal sind pro Serverprofil einstellbar.
+- `/achievements` zeigt Punkte, Gesamtfortschritt, Bronze-/Silber-/Gold-Status, Freischaltdaten, Kategorien, Filter und Pagination.
+- Fortschritt, eindeutige Fakten, Freischaltungen und eine persistente Benachrichtigungs-Outbox werden atomar in SQLite gespeichert.
+- Musik zählt erst nach 30 Sekunden, Abstimmungen einmal pro Runde, Welcome-Rollen einmal pro Rolle und Module einmal pro verwendetem Modul.
+- Fehlgeschlagene Benachrichtigungen werden mit begrenztem exponentiellem Abstand erneut versucht; eine Freischaltung wird dadurch nicht zurückgenommen.
 
 ### Konfigurations-Backup
 

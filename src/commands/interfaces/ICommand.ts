@@ -2,6 +2,7 @@ import { AutocompleteInteraction, ChatInputCommandInteraction, SlashCommandBuild
 
 export interface ICommand {
     targetGuildId?: string;
+    achievementModuleName?: string;
     name: string;
     description: string;
     data: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder | SlashCommandSubcommandsOnlyBuilder;

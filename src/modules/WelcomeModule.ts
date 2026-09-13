@@ -10,9 +10,11 @@ export class WelcomeModule implements IBotModule {
     private readonly guildId?: string;
     private welcomeChannelId?: string;
     private assignmentService: WelcomeRoleAssignmentService;
+    private readonly achievementService?: import("../services/AchievementService").AchievementService;
 
     public constructor(options: WelcomeModuleOptions) {
         this.guildId = options.guildId;
+        this.achievementService = options.achievementService;
         this.welcomeChannelId = options.welcomeChannelId;
         this.assignmentService = new WelcomeRoleAssignmentService(
             options.roles.map((r) => ({
@@ -201,7 +203,15 @@ export class WelcomeModule implements IBotModule {
         }
 
         try {
-            await this.assignmentService.assignRoleByReaction(guild, member, emoji);
+            const result = await this.assignmentService.assignRoleByReaction(guild, member, emoji);
+            if (result?.added) {
+                await this.achievementService?.recordFact({
+                    guildId: guild.id,
+                    userId: user.id,
+                    seriesId: "welcome-role",
+                    factKey: result.roleId
+                });
+            }
             return true;
         } catch (error) {
             console.error(`[Welcome] Failed role assignment for "${emoji}":`, error);

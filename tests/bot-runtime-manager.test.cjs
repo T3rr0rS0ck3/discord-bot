@@ -21,6 +21,12 @@ class DiscordBot {
     getReadyClient() { return this.client; }
     getStatus() { return this.status ?? { state: 'online', message: 'Grüße', updatedAt: 'now' }; }
 }
+class AchievementService {
+    constructor(store, getGuildSettings) { this.store = store; this.getGuildSettings = getGuildSettings; }
+    attachClient(client) { this.client = client; }
+    async record(event) { this.lastEvent = event; return { progress: 1, unlocked: [] }; }
+    async shutdown() { this.client = undefined; this.stopped = true; }
+}
 const factory = { modules: [], lastOptions: null, create(options) { this.lastOptions = options; return this.modules; } };
 
 const sourcePath = path.resolve('src/bot/BotRuntimeManager.ts');
@@ -36,6 +42,7 @@ vm.runInNewContext(output, {
         '../modules/BotModuleFactory': { BotModuleFactory: factory },
         '../modules/CommunityModule': { CommunityModule },
         '../modules/TwitchRoleModule': { TwitchRoleModule },
+        '../services/AchievementService': { AchievementService },
         './DiscordBot': { DiscordBot }
     })[name] ?? require(name)
 }, { filename: sourcePath });

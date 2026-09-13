@@ -7,6 +7,7 @@ import { WelcomeModule } from "./WelcomeModule";
 
 import { CommunityModule } from "./CommunityModule";
 import { CommunityNameVotingModule } from "./CommunityNameVotingModule";
+import { AchievementModule } from "./AchievementModule";
 
 export class BotModuleFactory {
     public static create(options: BotModuleFactoryOptions): IBotModule[] {
@@ -44,15 +45,19 @@ export class BotModuleFactory {
             if (guildOptions.musicEnabled === true) modules.push(Object.assign(new MusicBotModule(guildOptions), { targetGuildId: guildId }));
             if (guildOptions.communityEnabled === true) modules.push(Object.assign(new CommunityModule(guildOptions), { targetGuildId: guildId }));
             if (guildOptions.communityVotingEnabled === true) modules.push(Object.assign(new CommunityNameVotingModule(guildOptions), { targetGuildId: guildId }));
+            if (guildId && guildOptions.achievementsEnabled === true && options.achievementService) {
+                modules.push(new AchievementModule(guildId, options.achievementService));
+            }
 
             if (guildOptions.welcomeEnabled === true && guildOptions.welcomeChannelId && guildOptions.welcomeRoles && guildOptions.welcomeRoles.length > 0) {
                 modules.push(Object.assign(new WelcomeModule({
                     guildId,
-                    welcomeChannelId: options.welcomeChannelId,
-                    welcomeTitle: options.welcomeTitle,
-                    welcomeReactionPrompt: options.welcomeReactionPrompt,
-                    welcomeReactionInstructions: options.welcomeReactionInstructions,
-                    roles: guildOptions.welcomeRoles
+                    welcomeChannelId: guildOptions.welcomeChannelId,
+                    welcomeTitle: guildOptions.welcomeTitle,
+                    welcomeReactionPrompt: guildOptions.welcomeReactionPrompt,
+                    welcomeReactionInstructions: guildOptions.welcomeReactionInstructions,
+                    roles: guildOptions.welcomeRoles,
+                    achievementService: options.achievementService
                 }), { targetGuildId: guildId }));
             }
 
@@ -78,6 +83,7 @@ export class BotModuleFactory {
                     saveLinkPanel: guildOptions.twitchRole.saveLinkPanel,
                     saveSyncResult: guildOptions.twitchRole.saveSyncResult,
                     addRoleChange: guildOptions.twitchRole.addRoleChange,
+                    achievementService: options.achievementService,
                     onTokensUpdated: tokens => guildOptions.twitchRole.onTokensUpdated?.({ ...tokens, guildId })
                 }), { targetGuildId: guildId }));
             }

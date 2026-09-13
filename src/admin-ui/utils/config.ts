@@ -1,7 +1,10 @@
 import type { AdminConfig, GuildConfig, RestartRelevantState } from "../types";
 
 export const guildConfigKeys: Array<keyof GuildConfig> = [
-    "systemEnabled", "musicEnabled", "welcomeEnabled", "twitchEnabled", "communityEnabled", "communityVotingEnabled",
+    "systemEnabled", "musicEnabled", "welcomeEnabled", "twitchEnabled", "communityEnabled", "communityVotingEnabled", "achievementsEnabled",
+    "achievementNotificationMode", "achievementChannelId",
+    "achievementPublicProfilesEnabled", "achievementHiddenEnabled", "achievementCategoryGeneralEnabled", "achievementCategoryMusicEnabled",
+    "achievementCategoryCommunityEnabled", "achievementCategoryVotingEnabled", "achievementCategoryWelcomeEnabled", "achievementCategoryTwitchEnabled",
     "communityCategoryName", "communityVotingChannelName", "communityVotingDurationHours", "communityEmptyTimeoutSeconds", "communityMaxChannels",
     "musicRoleName", "musicDefaultVolumePercent", "musicDebugSearch", "musicYoutubeSearchLimit", "audioDbApiKey", "audioDbApiVersion",
     "welcomeChannelId", "welcomeTitle", "welcomeReactionPrompt", "welcomeReactionInstructions", "welcomeRoles",
@@ -38,6 +41,19 @@ export function normalizeConfig(input: Partial<AdminConfig>): AdminConfig {
             twitchEnabled: input.twitchEnabled === true,
             communityEnabled: input.communityEnabled === true,
             communityVotingEnabled: input.communityVotingEnabled === true,
+            achievementsEnabled: input.achievementsEnabled === true,
+            achievementNotificationMode: ["dm", "channel", "both", "silent"].includes(String(input.achievementNotificationMode))
+                ? input.achievementNotificationMode
+                : "dm",
+            achievementChannelId: String(input.achievementChannelId ?? ""),
+            achievementPublicProfilesEnabled: input.achievementPublicProfilesEnabled !== false,
+            achievementHiddenEnabled: input.achievementHiddenEnabled !== false,
+            achievementCategoryGeneralEnabled: input.achievementCategoryGeneralEnabled !== false,
+            achievementCategoryMusicEnabled: input.achievementCategoryMusicEnabled !== false,
+            achievementCategoryCommunityEnabled: input.achievementCategoryCommunityEnabled !== false,
+            achievementCategoryVotingEnabled: input.achievementCategoryVotingEnabled !== false,
+            achievementCategoryWelcomeEnabled: input.achievementCategoryWelcomeEnabled !== false,
+            achievementCategoryTwitchEnabled: input.achievementCategoryTwitchEnabled !== false,
             communityMaxChannels: Number(input.communityMaxChannels ?? 50),
         communityCategoryName: String(input.communityCategoryName ?? "Community"),
         communityVotingChannelName: String(input.communityVotingChannelName ?? "kanalnamen-abstimmung"),

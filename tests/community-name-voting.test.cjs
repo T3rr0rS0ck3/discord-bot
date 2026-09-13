@@ -65,6 +65,7 @@ function fixture(overrides = {}) {
         endsAt: Date.now() + 5000,
         candidates: [{ id: 7, name: 'Lötstation 🎵', votes: 2 }, { id: 8, name: 'Grüße / Spaß', votes: 1 }]
     };
+    const votes = [], achievementFacts = [];
     const options = {
         guildId: 'guild-1', communityVotingChannelName: '  Grüße ÄÖÜß / Test  ', communityVotingDurationHours: 48,
         finishCommunityNameVotingRound: async (...args) => { finished.push(args); return overrides.winner; },
@@ -73,11 +74,13 @@ function fixture(overrides = {}) {
         getCommunityNameSuggestionCount: async () => 3,
         getCommunityNameVotingMessage: async () => overrides.savedMessage,
         saveCommunityNameVotingMessage: async (...args) => saved.push(args),
+        voteForCommunityName: async (...args) => votes.push(args),
+        achievementService: { recordFact: async event => achievementFacts.push(event), record: async () => {} },
         addCommunityNameSuggestion: async (...args) => { if (overrides.addError) throw overrides.addError; options.addArgs = args; }
     };
     const module = new CommunityNameVotingModule(options);
     const client = { guilds: { fetch: async () => guild } };
-    return { module, options, client, channel, timers, sent, edits, saved, pinned, deleted, finished, fetchedMessage };
+    return { module, options, client, channel, timers, sent, edits, saved, pinned, deleted, finished, fetchedMessage, votes, achievementFacts };
 }
 
 function interaction(extra = {}) {
@@ -96,9 +99,8 @@ test('voting startup normalizes Unicode channel names and refreshes an active ro
     await f.module.onReady(f.client);
     assert.equal(f.sent.length, 1);
     assert.match(f.sent[0].content, /Vier zufällig/);
-    assert.equal(f.sent[0].poll.question.text, 'Wie soll der nächste Community-Sprachkanal heißen?');
-    assert.deepEqual(Array.from(f.sent[0].poll.answers, answer => answer.text), ['Lötstation 🎵', 'Grüße / Spaß']);
-    assert.equal(f.sent[0].poll.allowMultiselect, false);
+    assert.equal(f.sent[0].poll, undefined);
+    assert.deepEqual(f.sent[0].components[0].components.map(button => button.data.label), ['Lötstation 🎵 (2)', 'Grüße / Spaß (1)']);
     assert.equal(f.pinned[0], 'sent-1');
     assert.equal(f.saved[0][0], 'guild-1');
     assert.ok(f.timers[0].delay >= 1000);
@@ -109,11 +111,15 @@ test('voting startup normalizes Unicode channel names and refreshes an active ro
     assert.equal(f.timers.at(-1).cleared, true);
 });
 
-test('suggestion modal remains available while legacy vote buttons are ignored', async () => {
+test('suggestion modal and identifiable vote buttons remain guild scoped', async () => {
     const f = fixture(); await f.module.onReady(f.client);
     const suggest = interaction(); assert.equal(await f.module.handleButtonInteraction('community-name-voting:suggest', suggest), true); assert.equal(suggest.calls[0][0], 'modal');
     assert.equal(await f.module.handleButtonInteraction('other', interaction()), false);
-    assert.equal(await f.module.handleButtonInteraction('community-name-voting:vote:7', interaction()), false);
+    const vote = interaction();
+    assert.equal(await f.module.handleButtonInteraction('community-name-voting:vote:7', vote), true);
+    assert.deepEqual(f.votes[0], ['guild-1', 7, 'user-äöü']);
+    assert.equal(f.achievementFacts[0].seriesId, 'active-voter');
+    assert.match(vote.calls[0][1].content, /Stimme wurde gespeichert/);
     assert.equal(await f.module.handleButtonInteraction('community-name-voting:suggest', interaction({ guildId: 'guild-2' })), false);
     const modal = interaction(); assert.equal(await f.module.handleModalSubmitInteraction('community-name-voting:suggest-modal', modal), true); assert.match(modal.calls[0][1].content, /Lötstation/);
     assert.deepEqual(Array.from(f.options.addArgs), ['guild-1', '  Lötstation 🎵 / Grüße  ', 'user-äöü']);
@@ -124,16 +130,16 @@ test('suggestion modal remains available while legacy vote buttons are ignored',
     const addError = interaction(); await failedAdd.module.handleModalSubmitInteraction('community-name-voting:suggest-modal', addError); assert.equal(addError.calls[0][1].content, 'kaputt / <script>');
 });
 
-test('voting reuses and pins an active poll and falls back to a new poll', async () => {
+test('voting edits an existing message and falls back to a new message', async () => {
     const activePoll = { answers: new Map([[1, { voteCount: 2 }], [2, { voteCount: 1 }]]), resultsFinalized: false };
     const existing = fixture({ savedMessage: { channelId: 'channel-1', messageId: 'old' }, poll: activePoll }); await existing.module.onReady(existing.client);
     assert.equal(existing.sent.length, 0);
-    assert.equal(existing.pinned[0], 'message-1');
+    assert.equal(existing.edits.length, 1);
     const fallback = fixture({ savedMessage: { channelId: 'channel-1', messageId: 'old' }, fetchFailure: true }); await fallback.module.onReady(fallback.client);
     assert.equal(fallback.sent.length, 1);
     const legacy = fixture({ savedMessage: { channelId: 'channel-1', messageId: 'old' } }); await legacy.module.onReady(legacy.client);
-    assert.deepEqual(legacy.deleted, ['message-1']);
-    assert.equal(legacy.sent.length, 1);
+    assert.equal(legacy.edits.length, 1);
+    assert.equal(legacy.sent.length, 0);
 });
 
 test('expired poll is deleted and winner is shown in the pinned replacement message', async () => {
@@ -146,12 +152,18 @@ test('expired poll is deleted and winner is shown in the pinned replacement mess
         endsAt: Date.now() + 86_400_000,
         candidates: [{ id: 9, name: 'Äpfel & Öl', votes: 0 }, { id: 10, name: 'Café / Talk', votes: 0 }]
     };
-    const completed = fixture({ round: expiredRound, savedMessage: { channelId: 'channel-1', messageId: 'old' }, poll, winner: 'Grüße / Spaß', startedRound: nextRound });
+    const completed = fixture({
+        round: expiredRound,
+        savedMessage: { channelId: 'channel-1', messageId: 'old' },
+        poll,
+        winner: { name: 'Grüße / Spaß', suggestionId: 8, suggestedBy: 'author' },
+        startedRound: nextRound
+    });
     await completed.module.onReady(completed.client);
-    assert.deepEqual(Array.from(completed.finished[0]), ['guild-1', 8]);
+    assert.deepEqual(Array.from(completed.finished[0]), ['guild-1']);
     assert.deepEqual(completed.deleted, ['message-1']);
     assert.match(completed.sent[0].content, /Gewinner der letzten Runde.*Grüße \/ Spaß/s);
-    assert.ok(completed.sent[0].poll);
+    assert.equal(completed.sent[0].poll, undefined);
     assert.equal(completed.pinned[0], 'sent-1');
 
     const pool = fixture({ round: null, startedRound: undefined }); await pool.module.onReady(pool.client);

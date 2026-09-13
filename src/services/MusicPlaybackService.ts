@@ -32,12 +32,14 @@ import type { ResolvedSource, QueueTrack, GuildPlayerState, MusicLoopMode } from
 import { RoleService } from "./RoleService";
 import { TheAudioDbService } from "./TheAudioDbService";
 import { YouTubeTrackSearchService } from "./YouTubeTrackSearchService";
+import type { AchievementService } from "./AchievementService";
 
 type MusicPlaybackServiceOptions = {
     defaultVolumePercent?: number;
     debugSearch?: boolean;
     youtubeSearchLimit?: number;
     allowedRoleNames?: string[];
+    achievementService?: AchievementService;
 };
 
 export class MusicPlaybackService {
@@ -48,6 +50,7 @@ export class MusicPlaybackService {
     private readonly youtubeSearchService: YouTubeTrackSearchService;
     private readonly guildStates = new Map<string, GuildPlayerState>();
     private allowedRoleNames: Set<string>;
+    private readonly achievementService?: AchievementService;
 
     public constructor(audioDbService: TheAudioDbService, options: MusicPlaybackServiceOptions) {
         this.audioDbService = audioDbService;
@@ -60,6 +63,7 @@ export class MusicPlaybackService {
             logger: (message) => this.logSearch(message)
         });
         this.allowedRoleNames = new Set((options.allowedRoleNames ?? []).map((value) => value.trim()).filter((value) => value.length > 0));
+        this.achievementService = options.achievementService;
     }
 
     public setAllowedRoleNames(roleNames: string[]): void {
@@ -130,6 +134,12 @@ export class MusicPlaybackService {
         }
 
         state.queue.push(track);
+        await this.achievementService?.recordMaximum({
+            guildId: interaction.guild.id,
+            userId: interaction.user.id,
+            seriesId: "queue-builder",
+            value: state.queue.length
+        });
         await this.ensureControllerMessage(interaction.guild.id);
         await this.refreshControllerMessage(interaction.guild.id);
         return `Added to queue (#${state.queue.length}): ${track.sourceLabel}`;
@@ -561,6 +571,7 @@ export class MusicPlaybackService {
         state.pausedDurationMs = 0;
         state.player.play(resource);
         await entersState(state.player, AudioPlayerStatus.Playing, 8_000);
+        await this.achievementService?.record({ guildId, userId: track.requestedBy, seriesId: "dj", amount: 1 });
 
         await this.refreshControllerMessage(guildId);
     }
@@ -573,6 +584,14 @@ export class MusicPlaybackService {
 
         const finished = state.current;
         if (finished) {
+            const elapsedSeconds = this.getElapsedSeconds(state);
+            if (elapsedSeconds >= 30) {
+                await this.achievementService?.record({ guildId, userId: finished.requestedBy, seriesId: "music-listener", amount: 1 });
+                const hour = new Date().getHours();
+                if (hour >= 0 && hour < 4) {
+                    await this.achievementService?.record({ guildId, userId: finished.requestedBy, seriesId: "night-owl", amount: 1 });
+                }
+            }
             state.history.push(finished);
             state.current = undefined;
             state.startedAt = undefined;

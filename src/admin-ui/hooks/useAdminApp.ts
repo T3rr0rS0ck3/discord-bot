@@ -9,11 +9,13 @@ import type {
     DiscordRuntimeStatus,
     EmojiOption,
     LogEntry,
+    MemberOption,
     RestartRelevantState,
     RoleConfig,
     StatusState,
     ToastState,
     TwitchRoleSyncStatus
+    , AchievementRecentUnlock, AchievementUserState
 } from "../types";
 import {
     normalizeConfig,
@@ -52,6 +54,7 @@ export function useAdminApp(initialAuth: AuthState) {
     });
 
     const [channels, setChannels] = useState<ChannelOption[]>([]);
+    const [members, setMembers] = useState<MemberOption[]>([]);
     const [emojis, setEmojis] = useState<EmojiOption[]>([]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [discordStatus, setDiscordStatus] = useState<DiscordRuntimeStatus>({
@@ -75,6 +78,8 @@ export function useAdminApp(initialAuth: AuthState) {
         subscriberChanges: 0,
         changes: []
     });
+    const [recentAchievements, setRecentAchievements] = useState<AchievementRecentUnlock[]>([]);
+    const [achievementUserState, setAchievementUserState] = useState<AchievementUserState | undefined>();
 
     const changedRestartLabels = useMemo(() => {
         if (!config || !restartBaseline) {
@@ -196,14 +201,19 @@ export function useAdminApp(initialAuth: AuthState) {
 
     useEffect(() => {
         if (!auth.authenticated || !selectedGuildId) return;
+        setAchievementUserState(undefined);
+        setMembers([]);
         let cancelled = false;
-        void Promise.all([adminApi.loadChannels(selectedGuildId), adminApi.loadEmojis(selectedGuildId)])
-            .then(([channelsResult, emojisResult]) => {
+        void Promise.all([adminApi.loadChannels(selectedGuildId), adminApi.loadMembers(selectedGuildId), adminApi.loadEmojis(selectedGuildId)])
+            .then(([channelsResult, membersResult, emojisResult]) => {
                 if (cancelled) return;
                 setChannels(Array.isArray(channelsResult.channels) ? channelsResult.channels : []);
+                setMembers(Array.isArray(membersResult.members) ? membersResult.members : []);
                 setEmojis(Array.isArray(emojisResult.emojis) ? emojisResult.emojis : []);
             })
-            .catch(() => undefined);
+            .catch(() => {
+                if (!cancelled) setMembers([]);
+            });
         return () => { cancelled = true; };
     }, [auth.authenticated, selectedGuildId]);
 
@@ -262,6 +272,15 @@ export function useAdminApp(initialAuth: AuthState) {
             }
         };
 
+        const loadRecentAchievements = async () => {
+            try {
+                const result = await adminApi.loadRecentAchievements(selectedGuildId);
+                if (!cancelled) setRecentAchievements(Array.isArray(result.unlocks) ? result.unlocks : []);
+            } catch {
+                if (!cancelled) setRecentAchievements([]);
+            }
+        };
+
         const poll = async () => {
             if (polling) return;
             polling = true;
@@ -271,7 +290,8 @@ export function useAdminApp(initialAuth: AuthState) {
                     loadStatus(),
                     loadDatabaseStatus(),
                     loadCommunityStatus(),
-                    loadTwitchSyncStatus()
+                    loadTwitchSyncStatus(),
+                    loadRecentAchievements()
                 ]);
             } finally {
                 polling = false;
@@ -331,6 +351,16 @@ export function useAdminApp(initialAuth: AuthState) {
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             setStatus({ text: message, color: "#fca5a5" });
+            showToast(message, "error");
+        }
+    }
+
+    async function loadAchievementUser(userId: string): Promise<void> {
+        if (!selectedGuildId) return;
+        try {
+            setAchievementUserState(await adminApi.loadAchievementUser(selectedGuildId, userId));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
             showToast(message, "error");
         }
     }
@@ -689,6 +719,7 @@ export function useAdminApp(initialAuth: AuthState) {
         busy,
         busyText,
         channels,
+        members,
         emojis,
         logs,
         discordStatus,
@@ -696,6 +727,8 @@ export function useAdminApp(initialAuth: AuthState) {
         communityStatus,
         communityChannelNames,
         twitchSyncStatus,
+        recentAchievements,
+        achievementUserState,
         saveDisabled,
         restartDisabled,
         saveAndRestartDisabled,
@@ -704,6 +737,7 @@ export function useAdminApp(initialAuth: AuthState) {
         login,
         logout,
         refreshChannelsAndEmojis,
+        loadAchievementUser,
         updateConfig,
         updateRole,
         addRole,

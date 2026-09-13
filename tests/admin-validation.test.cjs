@@ -37,6 +37,7 @@ function createServer(config = validConfig()) {
         restartBot: async () => {},
         getServerEmojis: async () => [],
         getWelcomeChannels: async () => [],
+        getGuildMembers: async () => [],
         getDiscordStatus: () => ({ state: 'offline', message: 'offline', updatedAt: new Date().toISOString() }),
         getDatabaseStatus: async () => ({ schemaVersion: 8, latestMigration: null, appliedMigrations: [] }),
         getCommunityStatus: async () => ({ configured: false, connected: false, voiceChannels: [] }),

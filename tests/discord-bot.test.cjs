@@ -15,7 +15,7 @@ class Client extends EventEmitter {
 }
 const discordStub = {
     Client,
-    GatewayIntentBits: { Guilds: 1, GuildVoiceStates: 2, GuildMessageReactions: 4 },
+    GatewayIntentBits: { Guilds: 1, GuildVoiceStates: 2, GuildMessageReactions: 4, GuildMembers: 8 },
     IntentsBitField: { Flags: { GuildVoiceStates: 2, Guilds: 1 } },
     Partials: { Message: 1, Channel: 2, Reaction: 3, User: 4, GuildMember: 5 }
 };
@@ -49,6 +49,7 @@ test('discord bot reports login states, readiness and stop lifecycle', async () 
     const statuses = [];
     const bot = new DiscordBot({ token: 'token-äöü', commands: [command()], onStatusChange: value => statuses.push(value) });
     const client = Client.instances.at(-1);
+    assert.equal(client.options.intents.includes(discordStub.GatewayIntentBits.GuildMembers), true);
     await bot.start();
     assert.equal(client.loginToken, 'token-äöü');
     assert.equal(bot.getStatus().state, 'starting');

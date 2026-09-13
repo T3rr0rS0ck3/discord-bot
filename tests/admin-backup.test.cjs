@@ -34,7 +34,7 @@ test('healthcheck is available without authentication and returns service status
         verifyAdminPassword: async () => false,
         getConfig: () => config,
         getLogs: () => [], saveConfig: async () => {}, restartBot: async () => {},
-        getServerEmojis: async () => [], getWelcomeChannels: async () => [],
+        getServerEmojis: async () => [], getWelcomeChannels: async () => [], getGuildMembers: async () => [],
         getDiscordStatus: () => ({ state: 'offline', message: 'offline', updatedAt: new Date().toISOString() }),
         getDatabaseStatus: async () => ({ schemaVersion: 4, latestMigration: null, appliedMigrations: [] })
     });
@@ -67,7 +67,7 @@ test('admin can download and restore a versioned configuration backup', async ()
         saveConfig: async next => { config = next; },
         restartBot: async () => {},
         getServerEmojis: async () => [],
-        getWelcomeChannels: async () => [],
+        getWelcomeChannels: async () => [], getGuildMembers: async () => [],
         getDiscordStatus: () => ({ state: 'offline', message: 'offline', updatedAt: new Date().toISOString() }),
         getDatabaseStatus: async () => ({ schemaVersion: 4, latestMigration: null, appliedMigrations: [] })
     });
@@ -123,7 +123,7 @@ test('login failure limit and block duration come from admin configuration', asy
         verifyAdminPassword: async password => password === 'admin-secret',
         getConfig: () => config,
         getLogs: () => [], saveConfig: async () => {}, restartBot: async () => {},
-        getServerEmojis: async () => [], getWelcomeChannels: async () => [],
+        getServerEmojis: async () => [], getWelcomeChannels: async () => [], getGuildMembers: async () => [],
         getDiscordStatus: () => ({ state: 'offline', message: 'offline', updatedAt: new Date().toISOString() }),
         getDatabaseStatus: async () => ({ schemaVersion: 4, latestMigration: null, appliedMigrations: [] })
     });
