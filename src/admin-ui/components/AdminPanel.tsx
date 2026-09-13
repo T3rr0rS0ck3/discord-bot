@@ -49,7 +49,6 @@ function enabledLabelText(label: string | undefined, enabled: boolean): string {
 }
 
 type AdminPanelProps = {
-    activePage: "dashboard" | "sqlite";
     username: string | null;
     config: AdminConfig | null;
     guildIds: string[];
@@ -89,7 +88,6 @@ type AdminPanelProps = {
     onDownloadBackup: () => void;
     onRestoreBackup: (file: File) => void;
     onLogout: () => void;
-    onPageChange: (page: "dashboard" | "sqlite") => void;
 };
 
 export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
@@ -131,20 +129,6 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                     </div>
                 </div>
                 <nav className="header-links" aria-label="External links">
-                    <button
-                        className={`header-tab${props.activePage === "dashboard" ? " active" : ""}`}
-                        type="button"
-                        onClick={() => props.onPageChange("dashboard")}
-                    >
-                        Dashboard
-                    </button>
-                    <button
-                        className={`header-tab${props.activePage === "sqlite" ? " active" : ""}`}
-                        type="button"
-                        onClick={() => props.onPageChange("sqlite")}
-                    >
-                        SQLite Browser
-                    </button>
                     <a href="https://appnaxx.de" target="_blank" rel="noreferrer">Website</a>
                     <a href="https://github.com/T3rr0rS0ck3/discord-bot" target="_blank" rel="noreferrer">GitHub</a>
                     <button
@@ -181,8 +165,7 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                         </div>
                     ) : null}
 
-                    {props.activePage === "dashboard" ? (
-                        <>
+                    <>
                             <h1>Manage <strong>Discord Bot</strong> Runtime</h1>
                             <p className="muted">Signed in as: {props.username ?? "admin"}</p>
                             <div className={`discord-status discord-status-${props.discordStatus.state}`} role="status">
@@ -370,21 +353,7 @@ export function AdminPanel(props: AdminPanelProps): React.JSX.Element {
                             ) : (
                                 <div className="status">Loading configuration...</div>
                             )}
-                        </>
-                    ) : (
-                        <>
-                            <h1>SQLite <strong>Browser</strong></h1>
-                            <p className="muted">Signed in as: {props.username ?? "admin"}</p>
-                            <p>
-                                This page is a separate view inside the admin UI and uses the same authentication
-                                session.
-                            </p>
-
-                            <div className="sqlite-browser-frame">
-                                <iframe title="SQLite Browser" src="admin/sqlite/" />
-                            </div>
-                        </>
-                    )}
+                    </>
                 </div>
             </div>
         </div>

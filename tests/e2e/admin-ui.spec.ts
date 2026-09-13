@@ -179,24 +179,13 @@ test("community channel names support Unicode CRUD, export and import", async ({
     await expect(page.getByText(renamedName, { exact: true })).toBeHidden();
 });
 
-test("module toggles, SQLite navigation and logout update the visible application", async ({ page }, testInfo) => {
-    await page.route("**/admin/sqlite/**", route => route.fulfill({
-        contentType: "text/html",
-        body: "<!doctype html><html><body><main>SQLite E2E Browser</main></body></html>"
-    }));
+test("module toggles and logout update the visible application", async ({ page }, testInfo) => {
     await login(page);
     const communityRegion = page.locator("details.region").filter({ hasText: "Community Sprachkanäle" });
     await communityRegion.getByRole("switch").click({ force: true });
     await expect(communityRegion).toContainText("Community: Aus");
     await communityRegion.getByRole("switch").click({ force: true });
     await expect(communityRegion).toContainText("Community: Ein");
-    if (testInfo.project.name === "mobile-chromium") {
-        await page.goto("./?page=sqlite");
-    } else {
-        await page.getByRole("button", { name: "SQLite Browser" }).click();
-    }
-    await expect(page.getByRole("heading", { name: "SQLite Browser" })).toBeVisible();
-    await expect(page).toHaveURL(/page=sqlite/);
     if (testInfo.project.name === "mobile-chromium") {
         await page.evaluate(async () => {
             await fetch(new URL("api/logout", document.baseURI), {
@@ -206,9 +195,8 @@ test("module toggles, SQLite navigation and logout update the visible applicatio
                 body: "{}"
             });
         });
-        await page.goto("./");
+        await page.reload();
     } else {
-        await page.getByRole("button", { name: "Dashboard" }).click();
         await page.getByRole("button", { name: "Log out" }).click();
     }
     await expect(page.getByRole("heading", { name: "Bot Control Center" })).toBeVisible();

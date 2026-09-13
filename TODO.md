@@ -52,7 +52,6 @@
 
 - [ ] Achivement system
 - [x] Admin UI pfade undco funktionieren im home assistant inkl. cloudflare proxy über das ha plugin
-- [ ] sql lite browser wieder funktions fähig im ha
 
 ## Tests und Qualitaet
 

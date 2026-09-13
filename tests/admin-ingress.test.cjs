@@ -10,7 +10,8 @@ test('admin browser resources preserve a Home Assistant ingress prefix', () => {
 
     assert.match(server, /<script src="admin\/app\.js" defer><\/script>/);
     assert.doesNotMatch(server, /<script src="\/admin\/app\.js"/);
+    assert.doesNotMatch(server, /\/admin\/sqlite|sqlite-web/);
     assert.match(api, /new URL\(path\.replace\(\/\^\\\/\+\//);
-    assert.match(panel, /src="admin\/sqlite\/"/);
+    assert.doesNotMatch(panel, /SQLite Browser|admin\/sqlite/);
     assert.doesNotMatch(twitch, /window\.open\("\/api\//);
 });

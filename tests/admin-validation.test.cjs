@@ -184,7 +184,7 @@ test('admin validation reports every global required field independently', () =>
     assert.ok(server.validateConfigInput({ ...base, guildIds: ['123456789012345678', 'invalid/ä'] }).some(error => error.includes('invalid/ä')));
 });
 
-test('admin HTML escaping and SQLite rewriting handle special characters safely', () => {
+test('admin HTML escaping handles special characters safely', () => {
     const server = createServer();
     assert.equal(server.escapeHtml(`<Grüße & "Jörg's">`), '&lt;Grüße &amp; &quot;Jörg&#39;s&quot;&gt;');
     const simple = server.renderSimpleHtml('Fehler <&>', `Ungültig: ${server.escapeHtml('äöü <script>')}`);
@@ -194,15 +194,6 @@ test('admin HTML escaping and SQLite rewriting handle special characters safely'
     assert.match(page, /admin\/app\.js/);
     assert.match(page, /Jörg <Admin>/);
 
-    assert.equal(server.rewriteSqliteWebLocation('/table/Grüße?q=ä#x'), '/admin/sqlite/table/Grüße?q=ä#x');
-    assert.equal(server.rewriteSqliteWebLocation('/admin/sqlite/table'), '/admin/sqlite/table');
-    assert.equal(server.rewriteSqliteWebLocation('http://sqlite-web:8080/a?x=1#b'), '/admin/sqlite/a?x=1#b');
-    assert.equal(server.rewriteSqliteWebLocation('https://example.com/a'), 'https://example.com/a');
-    assert.equal(server.rewriteSqliteWebLocation('relative/path'), '/admin/sqlite/relative/path');
-    const rewritten = server.rewriteSqliteWebHtml('<html><body><a href="/x">Grüße</a><form action="/save"></form><style>.x{background:url(/a.png)}</style></body></html>');
-    assert.match(rewritten, /href="\/admin\/sqlite\/x"/);
-    assert.match(rewritten, /action="\/admin\/sqlite\/save"/);
-    assert.match(rewritten, /url\(\/admin\/sqlite\/a\.png\)/);
 });
 
 test('restart detection reports only restart-relevant fields', () => {
