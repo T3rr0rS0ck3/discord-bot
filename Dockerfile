@@ -3,7 +3,8 @@
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 \
+    && apt-get install -y --no-install-recommends ca-certificates python3 \
+    && update-ca-certificates \
     && ln -sf /usr/bin/python3 /usr/local/bin/python \
     && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
@@ -20,9 +21,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV BOT_DATA_DIR=/data
 ENV ADMIN_UI_HOST=0.0.0.0
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 make g++ \
+    && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
+    && update-ca-certificates \
     && ln -sf /usr/bin/python3 /usr/local/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
