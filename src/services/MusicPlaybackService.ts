@@ -653,6 +653,8 @@ export class MusicPlaybackService {
 
         state.ffmpegProcess = ffmpeg;
 
+        await this.waitForFfmpegAudio(ffmpeg);
+
         const resource = createAudioResource(ffmpeg.stdout, {
             inputType: StreamType.Raw,
             inlineVolume: true
@@ -660,6 +662,40 @@ export class MusicPlaybackService {
 
         resource.volume?.setVolume(state.volume);
         return resource;
+    }
+
+    private async waitForFfmpegAudio(ffmpeg: ChildProcessByStdio<null, Readable, Readable>): Promise<void> {
+        await new Promise<void>((resolve, reject) => {
+            let stderr = "";
+            const timeout = setTimeout(() => finish(new Error("FFmpeg produced no audio within 15 seconds.")), 15_000);
+
+            const cleanup = (): void => {
+                clearTimeout(timeout);
+                ffmpeg.off("error", onError);
+                ffmpeg.off("exit", onExit);
+                ffmpeg.stdout.off("readable", onReadable);
+                ffmpeg.stderr.off("data", onStderr);
+            };
+            const finish = (error?: Error): void => {
+                cleanup();
+                if (error) reject(error);
+                else resolve();
+            };
+            const onError = (error: Error): void => finish(new Error(`Could not start FFmpeg: ${error.message}`));
+            const onExit = (code: number | null): void => {
+                const detail = stderr.trim().split("\n").at(-1)?.trim();
+                finish(new Error(`FFmpeg exited before producing audio (code ${code ?? "unknown"})${detail ? `: ${detail}` : "."}`));
+            };
+            const onReadable = (): void => finish();
+            const onStderr = (data: Buffer): void => {
+                stderr = `${stderr}${data.toString()}`.slice(-4_000);
+            };
+
+            ffmpeg.once("error", onError);
+            ffmpeg.once("exit", onExit);
+            ffmpeg.stdout.once("readable", onReadable);
+            ffmpeg.stderr.on("data", onStderr);
+        });
     }
 
     private killFfmpeg(state: GuildPlayerState): void {

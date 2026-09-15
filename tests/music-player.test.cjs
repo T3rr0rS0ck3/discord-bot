@@ -1,6 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const { EventEmitter } = require('node:events');
+const { PassThrough } = require('node:stream');
 const ts = require('typescript');
 
 require.extensions['.ts'] = (module, file) => {
@@ -238,4 +240,25 @@ test('controller message refresh recreates deleted messages and register ignores
     state.controllerChannel = { messages: { fetch: async () => ({ edit: async () => {} }) } };
     state.controllerMessageId = 'existing';
     await service.syncPlayerPanel('guild');
+});
+
+test('ffmpeg startup waits for audio and reports an early process failure', async () => {
+    const service = fixture();
+    const createProcess = () => {
+        const process = new EventEmitter();
+        process.stdout = new PassThrough();
+        process.stderr = new PassThrough();
+        return process;
+    };
+
+    const readyProcess = createProcess();
+    const ready = service.waitForFfmpegAudio(readyProcess);
+    readyProcess.stdout.write(Buffer.from([0, 0, 0, 0]));
+    await ready;
+
+    const failedProcess = createProcess();
+    const failed = service.waitForFfmpegAudio(failedProcess);
+    failedProcess.stderr.write('Invalid data found when processing input\n');
+    failedProcess.emit('exit', 1);
+    await assert.rejects(failed, /FFmpeg exited before producing audio.*Invalid data found/);
 });
