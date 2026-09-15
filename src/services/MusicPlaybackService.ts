@@ -213,25 +213,6 @@ export class MusicPlaybackService {
         if (resource?.volume) {
             resource.volume.setVolume(state.volume);
         }
-        else if (state.current) {
-            const elapsedSeconds = this.getElapsedSeconds(state);
-            const wasPaused = state.player.state.status === AudioPlayerStatus.Paused;
-            state.replacingResource = true;
-
-            try {
-                this.killFfmpeg(state);
-                const replacement = await this.createAudioResourceForTrack(state, state.current, elapsedSeconds);
-                state.startedAt = Date.now() - elapsedSeconds * 1_000;
-                state.pausedAt = undefined;
-                state.pausedDurationMs = 0;
-                state.player.play(replacement);
-                await entersState(state.player, AudioPlayerStatus.Playing, 8_000);
-                if (wasPaused) this.pause(guildId);
-            }
-            finally {
-                state.replacingResource = false;
-            }
-        }
 
         return clamped;
     }
@@ -404,6 +385,17 @@ export class MusicPlaybackService {
             return false;
         }
 
+        const supportedControls = new Set([
+            "music:skip", "music:back", "music:pause-toggle",
+            "music:vol-down-10", "music:vol-up-10", "music:vol-down-1", "music:vol-up-1", "music:vol-mute",
+            "music:loop", "music:shuffle", "music:clear"
+        ]);
+        if (!supportedControls.has(interaction.customId)) {
+            return false;
+        }
+
+        await interaction.deferUpdate();
+
         switch (interaction.customId) {
             case "music:skip": {
                 await this.skip(guildId);
@@ -479,12 +471,10 @@ export class MusicPlaybackService {
                 this.clearQueue(guildId);
                 break;
             }
-            default:
-                return false;
         }
 
         const ui = this.buildPlayerUI(guildId);
-        await interaction.update(ui);
+        await interaction.editReply(ui);
         return true;
     }
 
@@ -496,8 +486,9 @@ export class MusicPlaybackService {
         }
 
         if (interaction.customId === "music:volume") {
+            await interaction.deferUpdate();
             await this.setVolume(interaction.guildId, Number(interaction.values[0]));
-            await interaction.update(this.buildPlayerUI(interaction.guildId));
+            await interaction.editReply(this.buildPlayerUI(interaction.guildId));
             return true;
         }
 
@@ -597,7 +588,7 @@ export class MusicPlaybackService {
 
     private async handleIdle(guildId: string): Promise<void> {
         const state = this.guildStates.get(guildId);
-        if (!state || state.replacingResource) {
+        if (!state) {
             return;
         }
 
@@ -641,7 +632,7 @@ export class MusicPlaybackService {
         }
     }
 
-    private async createAudioResourceForTrack(state: GuildPlayerState, track: QueueTrack, seekSeconds = 0): Promise<ReturnType<typeof createAudioResource>> {
+    private async createAudioResourceForTrack(state: GuildPlayerState, track: QueueTrack): Promise<ReturnType<typeof createAudioResource>> {
         const inputUrl = track.streamKind === "youtube" ? await this.resolveYouTubeMediaUrl(track.sourceUrl) : track.sourceUrl;
 
         if (!ffmpegPath) {
@@ -654,15 +645,11 @@ export class MusicPlaybackService {
                 "-reconnect", "1",
                 "-reconnect_streamed", "1",
                 "-reconnect_delay_max", "5",
-                ...(seekSeconds > 0 ? ["-ss", String(seekSeconds)] : []),
                 "-i", inputUrl,
                 "-vn",
-                "-filter:a", `volume=${state.volume}`,
-                "-c:a", "libopus",
-                "-b:a", "128k",
                 "-ar", "48000",
                 "-ac", "2",
-                "-f", "opus",
+                "-f", "s16le",
                 "pipe:1"
             ],
             { stdio: ["ignore", "pipe", "pipe"] }
@@ -680,10 +667,11 @@ export class MusicPlaybackService {
         await this.waitForFfmpegAudio(ffmpeg);
 
         const resource = createAudioResource(ffmpeg.stdout, {
-            inputType: StreamType.OggOpus,
-            inlineVolume: false
+            inputType: StreamType.Raw,
+            inlineVolume: true
         });
 
+        resource.volume?.setVolume(state.volume);
         return resource;
     }
 

@@ -172,6 +172,8 @@ test('button and select interactions cover guards, controls and stale queue valu
     const interaction = customId => {
         const current = {
             customId, guildId: 'guild', member: {}, values: ['missing'],
+            deferUpdate: async () => { current.deferred = true; },
+            editReply: async value => { current.edited = value; },
             inCachedGuild: () => true,
             update: async value => { current.updated = value; },
             reply: async value => { current.replied = value; }
@@ -183,6 +185,8 @@ test('button and select interactions cover guards, controls and stale queue valu
         const current = interaction(id);
         Object.setPrototypeOf(current.member, require('discord.js').GuildMember.prototype);
         assert.equal(await service.handleButtonInteraction(current), true, id);
+        assert.equal(current.deferred, true, id);
+        assert.ok(current.edited, id);
     }
     const unknown = interaction('music:unknown'); Object.setPrototypeOf(unknown.member, require('discord.js').GuildMember.prototype);
     assert.equal(await service.handleButtonInteraction(unknown), false);
@@ -192,6 +196,8 @@ test('button and select interactions cover guards, controls and stale queue valu
     assert.match(stale.replied.content, /no longer/);
     const volume = interaction('music:volume'); volume.values = ['25']; Object.setPrototypeOf(volume.member, require('discord.js').GuildMember.prototype);
     assert.equal(await service.handleStringSelectInteraction(volume), true);
+    assert.equal(volume.deferred, true);
+    assert.ok(volume.edited);
     assert.equal(service.getQueueSnapshot('guild').volumePercent, 25);
 
     const outside = interaction('music:skip'); outside.inCachedGuild = () => false;
@@ -263,22 +269,17 @@ test('ffmpeg startup waits for audio and reports an early process failure', asyn
     await assert.rejects(failed, /FFmpeg exited before producing audio.*Invalid data found/);
 });
 
-test('volume changes rebuild direct Opus playback at the current position', async () => {
+test('volume changes update the active resource without restarting playback', async () => {
     const service = fixture();
     const state = service.guildStates.get('guild');
-    state.player.state = { status: 'playing', resource: {} };
-    state.player.play = resource => { state.player.state = { status: 'playing', resource }; };
-    state.ffmpegProcess = undefined;
-    let receivedSeek;
-    service.createAudioResourceForTrack = async (_state, current, seekSeconds) => {
-        assert.equal(current.id, 'current');
-        receivedSeek = seekSeconds;
-        return {};
-    };
+    let appliedVolume;
+    let played = 0;
+    state.player.state.resource.volume.setVolume = value => { appliedVolume = value; };
+    state.player.play = () => { played++; };
 
     assert.equal(await service.setVolume('guild', 25), 25);
     assert.equal(state.volume, 0.25);
-    assert.ok(receivedSeek >= 59 && receivedSeek <= 61);
+    assert.equal(appliedVolume, 0.25);
+    assert.equal(played, 0);
     assert.equal(state.current.id, 'current');
-    assert.equal(state.replacingResource, false);
 });
