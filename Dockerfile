@@ -23,9 +23,10 @@ ENV BOT_DATA_DIR=/data
 ENV ADMIN_UI_HOST=0.0.0.0
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV FFMPEG_BIN=/usr/bin/ffmpeg
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
+    && apt-get install -y --no-install-recommends ca-certificates ffmpeg python3 make g++ \
     && update-ca-certificates \
     && ln -sf /usr/bin/python3 /usr/local/bin/python \
     && rm -rf /var/lib/apt/lists/*
