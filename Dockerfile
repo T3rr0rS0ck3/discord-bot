@@ -3,7 +3,7 @@
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates python3 \
+    && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
     && update-ca-certificates \
     && ln -sf /usr/bin/python3 /usr/local/bin/python \
     && rm -rf /var/lib/apt/lists/*
