@@ -636,9 +636,13 @@ export class MusicPlaybackService {
                 "-reconnect_streamed", "1",
                 "-reconnect_delay_max", "5",
                 "-i", inputUrl,
-                "-f", "s16le",
+                "-vn",
+                "-filter:a", `volume=${state.volume}`,
+                "-c:a", "libopus",
+                "-b:a", "128k",
                 "-ar", "48000",
                 "-ac", "2",
+                "-f", "opus",
                 "pipe:1"
             ],
             { stdio: ["ignore", "pipe", "pipe"] }
@@ -656,11 +660,10 @@ export class MusicPlaybackService {
         await this.waitForFfmpegAudio(ffmpeg);
 
         const resource = createAudioResource(ffmpeg.stdout, {
-            inputType: StreamType.Raw,
-            inlineVolume: true
+            inputType: StreamType.OggOpus,
+            inlineVolume: false
         });
 
-        resource.volume?.setVolume(state.volume);
         return resource;
     }
 
