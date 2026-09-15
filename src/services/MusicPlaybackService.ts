@@ -200,7 +200,7 @@ export class MusicPlaybackService {
         return resumed;
     }
 
-    public setVolume(guildId: string, percent: number): number | null {
+    public async setVolume(guildId: string, percent: number): Promise<number | null> {
         const state = this.guildStates.get(guildId);
         if (!state) {
             return null;
@@ -212,6 +212,25 @@ export class MusicPlaybackService {
         const resource = state.player.state.status !== AudioPlayerStatus.Idle ? state.player.state.resource : null;
         if (resource?.volume) {
             resource.volume.setVolume(state.volume);
+        }
+        else if (state.current) {
+            const elapsedSeconds = this.getElapsedSeconds(state);
+            const wasPaused = state.player.state.status === AudioPlayerStatus.Paused;
+            state.replacingResource = true;
+
+            try {
+                this.killFfmpeg(state);
+                const replacement = await this.createAudioResourceForTrack(state, state.current, elapsedSeconds);
+                state.startedAt = Date.now() - elapsedSeconds * 1_000;
+                state.pausedAt = undefined;
+                state.pausedDurationMs = 0;
+                state.player.play(replacement);
+                await entersState(state.player, AudioPlayerStatus.Playing, 8_000);
+                if (wasPaused) this.pause(guildId);
+            }
+            finally {
+                state.replacingResource = false;
+            }
         }
 
         return clamped;
@@ -414,7 +433,7 @@ export class MusicPlaybackService {
                     break;
                 }
 
-                this.setVolume(guildId, Math.max(0, snapshot.volumePercent - 10));
+                await this.setVolume(guildId, Math.max(0, snapshot.volumePercent - 10));
                 break;
             }
             case "music:vol-up-10": {
@@ -423,7 +442,7 @@ export class MusicPlaybackService {
                     break;
                 }
 
-                this.setVolume(guildId, Math.min(100, snapshot.volumePercent + 10));
+                await this.setVolume(guildId, Math.min(100, snapshot.volumePercent + 10));
                 break;
             }
             case "music:vol-down-1": {
@@ -432,7 +451,7 @@ export class MusicPlaybackService {
                     break;
                 }
 
-                this.setVolume(guildId, Math.max(0, snapshot.volumePercent - 1));
+                await this.setVolume(guildId, Math.max(0, snapshot.volumePercent - 1));
                 break;
             }
             case "music:vol-up-1": {
@@ -441,11 +460,11 @@ export class MusicPlaybackService {
                     break;
                 }
 
-                this.setVolume(guildId, Math.min(100, snapshot.volumePercent + 1));
+                await this.setVolume(guildId, Math.min(100, snapshot.volumePercent + 1));
                 break;
             }
             case "music:vol-mute": {
-                this.setVolume(guildId, 0);
+                await this.setVolume(guildId, 0);
                 break;
             }
             case "music:loop": {
@@ -477,7 +496,7 @@ export class MusicPlaybackService {
         }
 
         if (interaction.customId === "music:volume") {
-            this.setVolume(interaction.guildId, Number(interaction.values[0]));
+            await this.setVolume(interaction.guildId, Number(interaction.values[0]));
             await interaction.update(this.buildPlayerUI(interaction.guildId));
             return true;
         }
@@ -578,7 +597,7 @@ export class MusicPlaybackService {
 
     private async handleIdle(guildId: string): Promise<void> {
         const state = this.guildStates.get(guildId);
-        if (!state) {
+        if (!state || state.replacingResource) {
             return;
         }
 
@@ -622,7 +641,7 @@ export class MusicPlaybackService {
         }
     }
 
-    private async createAudioResourceForTrack(state: GuildPlayerState, track: QueueTrack): Promise<ReturnType<typeof createAudioResource>> {
+    private async createAudioResourceForTrack(state: GuildPlayerState, track: QueueTrack, seekSeconds = 0): Promise<ReturnType<typeof createAudioResource>> {
         const inputUrl = track.streamKind === "youtube" ? await this.resolveYouTubeMediaUrl(track.sourceUrl) : track.sourceUrl;
 
         if (!ffmpegPath) {
@@ -635,6 +654,7 @@ export class MusicPlaybackService {
                 "-reconnect", "1",
                 "-reconnect_streamed", "1",
                 "-reconnect_delay_max", "5",
+                ...(seekSeconds > 0 ? ["-ss", String(seekSeconds)] : []),
                 "-i", inputUrl,
                 "-vn",
                 "-filter:a", `volume=${state.volume}`,

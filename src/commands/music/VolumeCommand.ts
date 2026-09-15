@@ -31,7 +31,7 @@ export class VolumeCommand implements ICommand {
         await interaction.deferReply({ ephemeral: true });
 
         const percent = interaction.options.getInteger("percent", true);
-        const applied = this.playbackService.setVolume(interaction.guildId, percent);
+        const applied = await this.playbackService.setVolume(interaction.guildId, percent);
 
         if (applied !== null) {
             await this.playbackService.syncPlayerPanel(interaction.guildId);

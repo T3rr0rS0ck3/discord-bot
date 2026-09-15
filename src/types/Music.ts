@@ -30,6 +30,7 @@ export type GuildPlayerState = {
     startedAt?: number;
     pausedAt?: number;
     pausedDurationMs: number;
+    replacingResource?: boolean;
     controllerChannelId?: string;
     controllerMessageId?: string;
     controllerChannel?: TextBasedChannel;

@@ -112,7 +112,7 @@ test('text searches fall back directly to YouTube when TheAudioDB has no match',
     assert.equal(result.sourceUrl, 'https://www.youtube.com/watch?v=test');
 });
 
-test('configuration parsing, access roles and missing guild states use safe boundaries', () => {
+test('configuration parsing, access roles and missing guild states use safe boundaries', async () => {
     const service = new MusicPlaybackService({}, { defaultVolumePercent: 'not-a-number', youtubeSearchLimit: 999, allowedRoleNames: ['  Musik ÄÖÜ  ', '', '   '] });
     assert.equal(service.defaultVolume, 1);
     assert.equal(service.youtubeSearchLimit, 100);
@@ -120,7 +120,7 @@ test('configuration parsing, access roles and missing guild states use safe boun
     assert.equal(service.back('missing') instanceof Promise, true);
     assert.equal(service.pause('missing'), false);
     assert.equal(service.resume('missing'), false);
-    assert.equal(service.setVolume('missing', 50), null);
+    assert.equal(await service.setVolume('missing', 50), null);
     assert.equal(service.clearQueue('missing'), 0);
     assert.equal(service.removeFromQueue('missing', 'x'), false);
     assert.equal(service.shuffleQueue('missing'), false);
@@ -148,7 +148,7 @@ test('pause, resume, volume, back and shutdown update active state', async () =>
     assert.ok(state.pausedAt);
     assert.equal(service.resume('guild'), true);
     assert.equal(state.pausedAt, undefined);
-    assert.equal(service.setVolume('guild', 200), 100);
+    assert.equal(await service.setVolume('guild', 200), 100);
     assert.equal(volume, 1);
     assert.equal(await service.back('guild'), true);
     assert.equal(state.queue[0].id, 'previous');
@@ -261,4 +261,24 @@ test('ffmpeg startup waits for audio and reports an early process failure', asyn
     failedProcess.stderr.write('Invalid data found when processing input\n');
     failedProcess.emit('exit', 1);
     await assert.rejects(failed, /FFmpeg exited before producing audio.*Invalid data found/);
+});
+
+test('volume changes rebuild direct Opus playback at the current position', async () => {
+    const service = fixture();
+    const state = service.guildStates.get('guild');
+    state.player.state = { status: 'playing', resource: {} };
+    state.player.play = resource => { state.player.state = { status: 'playing', resource }; };
+    state.ffmpegProcess = undefined;
+    let receivedSeek;
+    service.createAudioResourceForTrack = async (_state, current, seekSeconds) => {
+        assert.equal(current.id, 'current');
+        receivedSeek = seekSeconds;
+        return {};
+    };
+
+    assert.equal(await service.setVolume('guild', 25), 25);
+    assert.equal(state.volume, 0.25);
+    assert.ok(receivedSeek >= 59 && receivedSeek <= 61);
+    assert.equal(state.current.id, 'current');
+    assert.equal(state.replacingResource, false);
 });

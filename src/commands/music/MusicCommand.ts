@@ -195,7 +195,7 @@ export class MusicCommand implements ICommand {
         await interaction.deferReply({ ephemeral: true });
         const guildId = this.requireGuildId(interaction);
         const percent = interaction.options.getInteger("percent", true);
-        const applied = this.playbackService.setVolume(guildId, percent);
+        const applied = await this.playbackService.setVolume(guildId, percent);
 
         if (applied !== null) {
             await this.playbackService.syncPlayerPanel(guildId);
