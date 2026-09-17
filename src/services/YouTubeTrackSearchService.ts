@@ -295,6 +295,10 @@ export class YouTubeTrackSearchService {
     private scoreYouTubeCandidate(candidate: YouTubeCandidate, expected?: AudioDbTrackMetadata, queryHint?: string): number {
         const title = candidate.title.toLowerCase();
         const channel = candidate.channelName;
+        const isTopicChannel = channel.includes(" - topic") || channel.endsWith("topic");
+        const isVevoChannel = channel.includes("vevo");
+        const isOfficialUpload = title.includes("official audio") || title.includes("official video");
+        const isTrustedSource = isTopicChannel || isVevoChannel || candidate.channelVerified;
         let score = 0;
 
         if (expected) {
@@ -350,20 +354,20 @@ export class YouTubeTrackSearchService {
             }
         }
 
-        if (title.includes("official audio")) {
-            score += 14;
+        if (isOfficialUpload) {
+            score += 24;
         }
 
-        if (channel.includes(" - topic") || channel.includes("topic")) {
-            score += 10;
+        if (isTopicChannel) {
+            score += 24;
         }
 
-        if (channel.includes("vevo")) {
-            score += 6;
+        if (isVevoChannel) {
+            score += 18;
         }
 
         if (candidate.channelVerified) {
-            score += 6;
+            score += 14;
         }
 
         const positiveHints = ["audio", "provided to youtube", "album version"];
@@ -373,11 +377,15 @@ export class YouTubeTrackSearchService {
             }
         }
 
-        const negativeHints = ["official video", "music video", "video", "mv", "live", "lyric", "lyrics", "reaction", "cover", "remix", "nightcore", "slowed", "reverb"];
+        const negativeHints = ["live", "lyric", "lyrics", "reaction", "cover", "remix", "nightcore", "slowed", "reverb"];
         for (const hint of negativeHints) {
             if (title.includes(hint)) {
                 score -= 12;
             }
+        }
+
+        if (!isTrustedSource && (title.includes("official video") || title.includes("music video") || title.includes(" video") || title.includes(" mv"))) {
+            score -= 12;
         }
 
         return score;

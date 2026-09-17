@@ -26,6 +26,7 @@ export type GuildPlayerState = {
     current?: QueueTrack;
     ffmpegProcess?: ChildProcessByStdio<null, Readable, Readable>;
     volume: number;
+    volumeBeforeMute?: number;
     loopMode: MusicLoopMode;
     startedAt?: number;
     pausedAt?: number;

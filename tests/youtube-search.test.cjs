@@ -83,6 +83,24 @@ test('candidate scoring rewards exact official music and duration boundaries', (
     assert.ok(service.scoreYouTubeCandidate(candidate({ title: 'Song provided to youtube album version', channelName: 'vevo', durationInSec: undefined }), undefined, 'Song') > 0);
 });
 
+test('official sources outrank earlier unofficial uploads', () => {
+    const expected = { title: 'Schrei nach Liebe', artists: ['Die Ärzte'], durationSec: 240 };
+    const unofficial = candidate({
+        title: 'Die Ärzte - Schrei nach Liebe',
+        channelName: 'random uploads',
+        channelVerified: false
+    });
+    const official = candidate({
+        title: 'Die Ärzte - Schrei nach Liebe (Official Video)',
+        channelName: 'die ärzte',
+        channelVerified: true
+    });
+
+    const unofficialWithFirstResultBonus = service.scoreYouTubeCandidate(unofficial, expected, 'Die Ärzte - Schrei nach Liebe') + 20;
+    const officialWithoutOrderBonus = service.scoreYouTubeCandidate(official, expected, 'Die Ärzte - Schrei nach Liebe');
+    assert.ok(officialWithoutOrderBonus > unofficialWithFirstResultBonus);
+});
+
 test('debug logging uses custom logger and can be disabled', () => {
     const messages = [];
     const debug = new YouTubeTrackSearchService({ searchLimit: 5, debugEnabled: true, logger: message => messages.push(message) });

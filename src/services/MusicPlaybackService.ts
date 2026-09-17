@@ -301,23 +301,23 @@ export class MusicPlaybackService {
         }
 
         const controls = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder().setCustomId("music:back").setLabel("Back").setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId("music:pause-toggle").setLabel(snapshot?.paused ? "Play" : "Pause").setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId("music:skip").setLabel("Skip").setStyle(ButtonStyle.Secondary)
+            new ButtonBuilder().setCustomId("music:back").setLabel("Back").setEmoji("⏮️").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music:pause-toggle").setLabel(snapshot?.paused ? "Play" : "Pause").setEmoji(snapshot?.paused ? "▶️" : "⏸️").setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId("music:skip").setLabel("Skip").setEmoji("⏭️").setStyle(ButtonStyle.Secondary)
         );
 
         const volumeControls = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder().setCustomId("music:vol-down-10").setLabel("-10").setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId("music:vol-down-1").setLabel("-1").setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId("music:vol-mute").setLabel("Mute").setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId("music:vol-up-1").setLabel("+1").setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId("music:vol-up-10").setLabel("+10").setStyle(ButtonStyle.Secondary)
+            new ButtonBuilder().setCustomId("music:vol-down-10").setLabel("-10").setEmoji("🔉").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music:vol-down-1").setLabel("-1").setEmoji("🔉").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music:vol-mute").setLabel(snapshot?.volumePercent === 0 ? "Unmute" : "Mute").setEmoji(snapshot?.volumePercent === 0 ? "🔊" : "🔇").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music:vol-up-1").setLabel("+1").setEmoji("🔊").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music:vol-up-10").setLabel("+10").setEmoji("🔊").setStyle(ButtonStyle.Secondary)
         );
 
         const queueControls = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder().setCustomId("music:loop").setLabel(`Loop: ${snapshot?.loopMode ?? "off"}`).setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId("music:shuffle").setLabel("Shuffle").setStyle(ButtonStyle.Secondary).setDisabled((snapshot?.queue.length ?? 0) < 2),
-            new ButtonBuilder().setCustomId("music:clear").setLabel("Clear queue").setStyle(ButtonStyle.Danger).setDisabled((snapshot?.queue.length ?? 0) === 0)
+            new ButtonBuilder().setCustomId("music:loop").setLabel(`Loop: ${snapshot?.loopMode ?? "off"}`).setEmoji("🔁").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music:shuffle").setLabel("Shuffle").setEmoji("🔀").setStyle(ButtonStyle.Secondary).setDisabled((snapshot?.queue.length ?? 0) < 2),
+            new ButtonBuilder().setCustomId("music:clear").setLabel("Clear queue").setEmoji("🗑️").setStyle(ButtonStyle.Danger).setDisabled((snapshot?.queue.length ?? 0) === 0)
         );
 
         const components: Array<ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>> = [controls, volumeControls, queueControls];
@@ -456,7 +456,18 @@ export class MusicPlaybackService {
                 break;
             }
             case "music:vol-mute": {
-                await this.setVolume(guildId, 0);
+                const state = this.guildStates.get(guildId);
+                if (!state) {
+                    break;
+                }
+
+                if (state.volume > 0) {
+                    state.volumeBeforeMute = state.volume;
+                    await this.setVolume(guildId, 0);
+                }
+                else {
+                    await this.setVolume(guildId, Math.round((state.volumeBeforeMute ?? this.defaultVolume) * 100));
+                }
                 break;
             }
             case "music:loop": {

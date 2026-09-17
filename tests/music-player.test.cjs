@@ -64,7 +64,31 @@ test('player UI exposes loop, shuffle, clear, volume and queue removal controls'
     assert.ok(customIds.includes('music:clear'));
     assert.ok(customIds.includes('music:remove'));
     assert.ok(customIds.includes('music:vol-up-10'));
+    assert.ok(json.flatMap(row => row.components).every(component => component.emoji || component.type === 3));
     assert.match(service.buildPlayerUI('guild').embeds[0].data.fields.find(field => field.name === 'Progress').value, /1:00 \/ 3:00/);
+});
+
+test('mute button toggles mute and restores the previous volume', async () => {
+    const service = fixture();
+    service.hasAccess = () => true;
+    const interaction = () => {
+        const current = {
+            customId: 'music:vol-mute', guildId: 'guild', member: {},
+            deferUpdate: async () => {},
+            editReply: async value => { current.edited = value; },
+            inCachedGuild: () => true
+        };
+        Object.setPrototypeOf(current.member, require('discord.js').GuildMember.prototype);
+        return current;
+    };
+
+    await service.handleButtonInteraction(interaction());
+    assert.equal(service.getQueueSnapshot('guild').volumePercent, 0);
+    assert.equal(service.buildPlayerUI('guild').components[1].toJSON().components[2].label, 'Unmute');
+
+    await service.handleButtonInteraction(interaction());
+    assert.equal(service.getQueueSnapshot('guild').volumePercent, 50);
+    assert.equal(service.buildPlayerUI('guild').components[1].toJSON().components[2].label, 'Mute');
 });
 
 test('player offers direct volume selection when no queue removal menu is needed', () => {
